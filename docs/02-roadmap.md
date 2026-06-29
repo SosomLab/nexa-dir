@@ -113,10 +113,14 @@
 
 ---
 
-## M6+ · 확장 & 트렌드
+## M6 · 플러그인 / 확장 (스크립트) — 상세 [09](09-plugin-architecture.md)
 
-- 플러그인/확장 API, 명령 팔레트 고도화, 테마/꾸미기
-- 최신 트렌드 백로그에서 우선순위화 → [04-trends-todo.md](04-trends-todo.md)
+- [ ] **M6-α (MVP)**: 매니페스트 + 명령/컨텍스트 메뉴/커스텀 컬럼, WASM(T1) + Python(T2), 로컬 설치, capability 3종
+- [ ] **M6-β**: 미리보기·VFS 공급자·자동화 규칙 확장 포인트, Node/Lua SDK, 핫리로드·스캐폴딩 CLI
+- [ ] **M6-γ**: Git 레지스트리 → 마켓플레이스, 서명/신뢰, 업데이트 채널, 샌드박스 강화
+- [ ] 명령 팔레트 고도화, 테마/꾸미기, 트렌드 백로그 승격 → [04-trends-todo.md](04-trends-todo.md)
+
+> 호스트는 Rust 코어 `nexa-plugin`(wasmtime/mlua + 아웃오브프로세스 RPC). 격리로 상주 안정성 보장.
 
 ---
 

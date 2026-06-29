@@ -106,6 +106,15 @@
   단축키 바인딩, 컨텍스트 메뉴(FR-J)·명령 팔레트와 동일 액션 공유.
 - FR-K6 (P2) 작업 프로파일/그룹(개발·미디어 등 용도별 런처 세트 전환).
 
+### FR-L 플러그인 / 확장 (스크립트) `[M6] P2`
+> Python/Node/Lua/WASM 스크립트로 기능 확장. 상세: [09-plugin-architecture.md](09-plugin-architecture.md).
+- FR-L1 **확장 포인트**: 명령·컨텍스트 메뉴·커스텀 컬럼·미리보기·VFS 공급자·검색·자동화 규칙·AI 액션 등.
+- FR-L2 **실행 모델 2-tier**: 인프로세스 샌드박스(WASM/Lua) + 아웃오브프로세스 RPC(Python/Node).
+- FR-L3 **선언적 매니페스트 + contribution points**(코드 최소), activation events(지연 로드).
+- FR-L4 **언어별 SDK**(pip/npm/lua/WIT)로 개발 친화, 스캐폴딩 CLI·핫리로드.
+- FR-L5 **Capability 권한 + 리소스 한도 + 서명** — 격리로 상주 안정성(R3/N1/M2) 보장.
+- FR-L6 **배포**: 서명 번들 + Git 기반 레지스트리 → 마켓플레이스, 자동 업데이트.
+
 ### FR-I 횡단 `[전 단계]`
 - FR-I1 테마(Fluent/Mica, 다크/라이트, 밀도), 국제화(KO/EN).
 - FR-I2 단축키 재정의, 명령 팔레트(P1).
