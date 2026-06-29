@@ -41,6 +41,9 @@
 
 ## 6. 작업 규약 (이 저장소에서)
 
+- **개발 방식**: **작은 기능 단위(수직 슬라이스)로 순차**, **단위=커밋 1개**(분리 분석),
+  **초안→확장 프로토타이핑(incremental)**, main 항상 green. → [docs/15](docs/15-dev-methodology.md).
+- **커밋 규약**: Conventional Commits `type(scope): 요약`, 초안/확장 분리 커밋. 단위 백로그는 docs/15 §7.
 - **문서 우선**: 결정·설계는 `docs/`에, 의사결정은 `docs/10` + `docs/06`(ADR)에 기록.
 - **작업 기록(journal)**: 진행마다 `docs/journal/YYYYMMDD_HHMMSS_<slug>.md` 누적(질문·결정·진행).
 - **의존성 정책**: **퍼미시브(MIT/Apache/BSD/ISC/MPL-2.0) 온리**, GPL/AGPL 금지, LGPL 격리.

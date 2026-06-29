@@ -34,20 +34,24 @@
 - 코어(Rust): **맥에서 개발/테스트 가능** · 앱(WinUI): **Windows 필수**(PC/VM/CI)
 - 다른 Windows PC: clone → `bootstrap.ps1` → 빌드 · CI(windows-latest)가 신뢰 원천
 
-## 5. 남은 Open / 다음 단계
+## 5. 개발 방식 ([15](15-dev-methodology.md))
+
+- **작은 기능 단위(수직 슬라이스) 순차** · **단위=커밋 1개** · **초안→확장 프로토타이핑** · main 항상 green.
+- 단위 백로그(M0→M1)는 docs/15 §7. 커밋은 Conventional Commits.
+
+## 6. 남은 Open / 다음 단계
 
 - OD2 AI(보류), OD3 라이선스 LICENSE 파일은 스캐폴딩 시 추가, 상표 출원 검토
-- **다음**: 리포 스캐폴딩(`core/` Rust + `app/` WinUI + CI + bootstrap + LICENSE) → **M0 스파이크 3종**
-  (① 인터롭+10만 노드 트리 60fps ② 교차선택→혼합작업 ③ 유휴 RSS/트림/soak)
+- **다음**: 단위 #1 리포 스캐폴딩(`core/` + `app/` + CI + bootstrap + LICENSE) → 단위 순차 진행(docs/15 §7)
 
-## 6. 다른 PC에서 시작 / 컨텍스트 공유
+## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
 - clone 후 **`CLAUDE.md`(자동 로드) + 이 STATUS** 로 즉시 인계 → [14](14-context-sharing.md).
 - 비밀(서명 인증서·자격증명·라이선스 키·사업/법무)은 **저장소 밖**(GitHub Secrets·비밀번호 관리자·
   private repo·암호화 커밋). `.gitignore`로 사고 예방.
 
-## 7. 문서 인덱스
+## 8. 문서 인덱스
 
 CLAUDE.md(이식 메모리) · 00 비전 · 01 아키텍처 · 02 로드맵 · 03 기능 · 04 트렌드백로그 ·
 05 요구사항 · 06 ADR-0001(스택) · 07 플래그십 · 08 경쟁조사 · 09 플러그인 · 10 결정기록 ·
-11 개발환경 · 12 포터블 · 13 라이선스 · 14 컨텍스트공유 · journal/ (타임스탬프 작업기록)
+11 개발환경 · 12 포터블 · 13 라이선스 · 14 컨텍스트공유 · 15 개발방법론 · journal/ (작업기록)
