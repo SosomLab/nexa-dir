@@ -1,0 +1,11 @@
+{
+  "rust-analyzer.linkedProjects": ["core/Cargo.toml"],
+  "rust-analyzer.check.command": "clippy",
+  "[rust]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+  "files.exclude": {
+    "**/target": true
+  }
+}
