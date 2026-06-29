@@ -30,17 +30,16 @@
                   [Windows PC/VM] clone ─▶ bootstrap.ps1 ─▶ 앱 빌드·실행·테스트
 ```
 
-## 3. macOS 환경 (코어 개발)
+## 3. macOS 환경 (코어 개발) — Homebrew
 
 ```bash
-# Rust 툴체인
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-# 저장소
-git clone git@github.com:SosomLab/nexa-dir.git && cd nexa-dir
-# 코어 빌드·테스트 (Windows 전용부는 cfg로 제외되어 컴파일됨)
-cargo test --workspace          # (core/ 스캐폴딩 후)
+git clone https://github.com/SosomLab/nexa-dir.git && cd nexa-dir
+bash scripts/bootstrap.sh        # brew로 git/rustup/dotnet-sdk/vscode 설치 + Rust 초기화
+cargo test --manifest-path core/Cargo.toml   # 코어 빌드·테스트(맥 가능)
 ```
-- VSCode 확장: **rust-analyzer**, CodeLLDB(디버그). 앱(WinUI)은 맥에서 실행 불가 — CI/Windows에서 확인.
+- **brew 미설치 시**: 스크립트가 Homebrew 설치 명령(<https://brew.sh>)을 안내한다.
+- **brew에 패키지가 없거나 실패 시**: 스크립트가 수동 다운로드 URL을 안내(§4-5 표).
+- VSCode 확장: **rust-analyzer**, CodeLLDB. 앱(WinUI)은 맥 빌드 불가(§6-1) — CI/Windows에서 확인.
 
 ## 4. Windows 환경 (전체 앱) — 저장소 기반 재현
 
@@ -56,22 +55,16 @@ cargo test --workspace          # (core/ 스캐폴딩 후)
 | Windows Terminal / winget | 설치·실행 |
 
 ### 4-2. 부트스트랩 스크립트 (다른 Windows PC도 동일 환경)
-> 저장소에 `scripts/bootstrap.ps1`로 포함 예정. 관리자 PowerShell에서 1회 실행.
+> 관리자 PowerShell에서 `scripts/bootstrap.ps1` 1회 실행.
+> **우선순위: Chocolatey(choco) → winget → (둘 다 실패 시) 수동 다운로드 안내.**
 
 ```powershell
-# scripts/bootstrap.ps1 (초안)
-winget install -e --id Git.Git
-winget install -e --id Rustlang.Rustup
-winget install -e --id Microsoft.DotNet.SDK.8
-winget install -e --id Microsoft.VisualStudio.2022.BuildTools `
-  --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools `
-              --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools `
-              --add Microsoft.VisualStudio.Component.Windows11SDK.22621"
-winget install -e --id Microsoft.VisualStudioCode
-winget install -e --id Microsoft.WindowsTerminal
-rustup default stable
-rustup target add x86_64-pc-windows-msvc
+git clone https://github.com/SosomLab/nexa-dir.git ; cd nexa-dir
+# 관리자 PowerShell:
+powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 ```
+- choco/winget가 모두 없으면 스크립트가 **Chocolatey 설치 명령**(또는 winget 안내)을 먼저 출력한다.
+- 각 도구는 choco로 먼저 시도, 실패 시 winget, 그래도 안 되면 **수동 다운로드 URL**(§4-5 표)을 안내한다.
 
 ### 4-3. 빌드·실행
 ```powershell
@@ -85,6 +78,24 @@ dotnet run  --project app/Nexa.App         # 실행
 ### 4-4. VM 옵션
 - 보유 중인 **Windows 11 VM**(예: 경량 Win11 이미지) 사용 가능 — 동일 부트스트랩 적용.
 - WinUI 3는 GPU 가속 사용 → VM은 가능하나 성능 측정은 물리 PC 권장.
+
+### 4-5. 도구별 패키지 ID & 수동 설치 (폴백)
+
+> 부트스트랩 스크립트가 자동 처리하지만, **패키지 관리자로 설치되지 않으면 아래 URL에서 직접 설치**하세요.
+> macOS=brew, Windows=choco→winget 순. (스크립트가 실패 시 동일 URL을 출력)
+
+| 도구 | macOS (brew) | Windows (choco) | Windows (winget) | 수동 다운로드 |
+| --- | --- | --- | --- | --- |
+| Git | `git` | `git` | `Git.Git` | <https://git-scm.com/downloads> |
+| Rust (rustup) | `rustup` | `rustup.install` | `Rustlang.Rustup` | <https://rustup.rs> (rustup-init) |
+| .NET 8 SDK | `--cask dotnet-sdk` | `dotnet-8.0-sdk` | `Microsoft.DotNet.SDK.8` | <https://dotnet.microsoft.com/download/dotnet/8.0> |
+| VS Build Tools 2022 | — (불필요) | `visualstudio2022buildtools` + 워크로드 | `Microsoft.VisualStudio.2022.BuildTools` (override) | <https://visualstudio.microsoft.com/downloads/> ("Build Tools") |
+| VSCode | `--cask visual-studio-code` | `vscode` | `Microsoft.VisualStudioCode` | <https://code.visualstudio.com/download> |
+| Windows Terminal | — | `microsoft-windows-terminal` | `Microsoft.WindowsTerminal` | <https://aka.ms/terminal> |
+| (앱 실행용) Windows App SDK 런타임 | — | — | `Microsoft.WindowsAppRuntime.1.6` | <https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe> |
+
+- **VS Build Tools 워크로드(수동 설치 시)**: "Desktop development with C++", ".NET desktop build tools", "Windows 11 SDK" 선택.
+- **패키지 관리자 자체가 없을 때**: Homebrew <https://brew.sh> · Chocolatey <https://chocolatey.org/install> · winget(App Installer) <https://aka.ms/getwinget>.
 
 ## 5. 저장소에 포함할 재현성 파일 (스캐폴딩 시)
 - `rust-toolchain.toml` — Rust 버전 고정
