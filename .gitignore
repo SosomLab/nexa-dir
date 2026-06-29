@@ -1,0 +1,41 @@
+# === 비밀/자격증명 (커밋 금지) — docs/14 참조 ===
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+secrets/
+**/appsettings.*.local.json
+*.local.json
+
+# === Rust (core/) ===
+/target/
+**/target/
+Cargo.lock      # 라이브러리/워크스페이스 정책에 따라 후속 조정 가능
+
+# === .NET / WinUI (app/) ===
+bin/
+obj/
+*.user
+.vs/
+/app/**/AppPackages/
+/app/**/BundleArtifacts/
+*.appx
+*.msix
+*.msixbundle
+
+# === 빌드/배포 산출물 ===
+/dist/
+/out/
+/publish/
+
+# === 에디터/OS ===
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# (참고) .vscode/ 는 권장 설정 공유를 위해 후속에 일부 파일만 화이트리스트 예정
