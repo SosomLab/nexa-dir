@@ -48,6 +48,8 @@
 - **작업 기록(journal)**: 진행마다 `docs/journal/YYYYMMDD_HHMMSS_<slug>.md` 누적(질문·결정·진행).
 - **의존성 정책**: **퍼미시브(MIT/Apache/BSD/ISC/MPL-2.0) 온리**, GPL/AGPL 금지, LGPL 격리.
   CI 라이선스 게이트(`cargo-deny`) 예정. (유료 판매 보호)
+- **자동화/권한**: `.claude/settings.json`(커밋)에 dev 명령 자동 허용 → 다른 PC도 불필요한 확인 없이 진행.
+  파괴적 명령은 `ask` 유지. **사용자 요청 범위 내에서는 확인 없이 자동 진행**이 기본.
 - **보안/비공개**: 저장소는 **public** → 비밀(서명 인증서·자격증명·라이선스 키·사업/법무)은 **커밋 금지**.
   공유 방법 → [docs/14-context-sharing.md](docs/14-context-sharing.md).
 

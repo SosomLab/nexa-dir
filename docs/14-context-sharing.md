@@ -23,6 +23,13 @@
 > ※ Claude의 **로컬 메모리**(`~/.claude/.../memory/`)는 clone으로 전달되지 않는다 →
 > 그 내용은 이미 `CLAUDE.md`/`docs`에 **반영**되어 공개 공유됨. (로컬 메모리 자체는 동기화 대상 아님)
 
+### 1-1. 자동화/권한 설정도 저장소로 (다른 PC에서 동일 적용)
+
+- **`.claude/settings.json`(커밋됨)** — 개발 작업에 필요한 명령(`git` 일반·`cargo`·`dotnet`·읽기전용)을
+  **자동 허용**으로 등록 → 다른 PC에서 clone 해도 **동일하게 불필요한 확인 없이** 진행.
+- 파괴적 명령(`rm`·`git reset --hard`·`git clean`·force push·`sudo`)은 `ask`로 **확인 유지**.
+- 비밀은 절대 여기에 넣지 않음(아래 §2). 개인 전용 예외는 `.claude/settings.local.json`(gitignore).
+
 ## 2. 저장소에 두면 안 되는 것 (비공개) — 커밋 금지 목록
 
 public 저장소이므로 아래는 **절대 커밋 금지**:
