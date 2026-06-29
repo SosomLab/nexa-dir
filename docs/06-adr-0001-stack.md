@@ -1,8 +1,9 @@
 # 06 · ADR-0001 — 네이티브 언어 / 스택 결정
 
-- **상태:** Proposed (개발 착수 전 사용자 확정 대기)
+- **상태:** **Accepted** (2026-06-30 확정) — **안 A: Rust 코어 + WinUI 3**.
 - **맥락:** "성능 최우선 네이티브" 요구 + 모던 Fluent UI + AI/클라우드 + macOS 개발/Windows 타깃.
-- **관련:** [05-requirements.md](05-requirements.md) OD1, [01-architecture.md](01-architecture.md).
+- **관련:** [05-requirements.md](05-requirements.md) OD1, [01-architecture.md](01-architecture.md),
+  통합 결정 [10-decision-record.md](10-decision-record.md), 개발환경 [11-dev-environment.md](11-dev-environment.md).
 
 > 본 문서는 **개발 전 언어/스택 확정**을 위한 상세 분석이다. 결정 후 상태를 `Accepted`로 바꾸고
 > journal에 확정 시각을 남긴다.
