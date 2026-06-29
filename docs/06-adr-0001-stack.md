@@ -24,6 +24,8 @@
 | 셸 통합(썸네일/컨텍스트메뉴/IFileOperation) | Windows 네이티브 상호운용 1급 |
 | AI/임베딩·압축·암호화 라이브러리 | 풍부한 시스템/네이티브 생태계 |
 | macOS 개발 | 코어는 OS 비의존 빌드·테스트 가능해야 유리 |
+| **VSCode만으로 개발(풀 Visual Studio 불필요)** | CLI 빌드(`cargo`/`dotnet`·MSBuild) 가능성, IDE 종속 최소화 |
+| **GitHub Actions로 패키징·배포** | `windows-latest` 러너에서 빌드+MSIX+서명+릴리스 자동화 가능성 |
 
 ## 3. UI 프레임워크 후보
 
@@ -66,16 +68,19 @@
 
 ## 6. 평가 매트릭스 (가중치)
 
-가중치: 성능 30 · 플래그십 트리/선택 적합성 25 · 셸·네이티브 통합 15 · 개발 생산성/일정 15 · 안전성/유지보수 10 · 이식성 5 (합 100)
+가중치(합 100): 성능 25 · 플래그십 트리/선택 20 · 셸·네이티브 통합 12 · 개발 생산성/일정 10 ·
+안전성/유지보수 8 · 이식성 5 · **VSCode/CLI 툴체인(풀 IDE 불필요) 10** · **GitHub Actions 패키징/배포 10**
 
-| 안 | 성능30 | 트리25 | 통합15 | 생산성15 | 안전10 | 이식5 | **합** |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **A 하이브리드(Rust+WinUI)** | 27 | 20 | 14 | 11 | 10 | 5 | **87** |
-| B 순수 C#/WinUI | 22 | 18 | 14 | 15 | 8 | 3 | **80** |
-| C 순수 C++/WinRT | 30 | 23 | 15 | 7 | 5 | 3 | **83** |
-| D Qt/C++ | 28 | 24 | 9 | 10 | 6 | 5 | **82** |
+| 안 | 성능25 | 트리20 | 통합12 | 생산성10 | 안전8 | 이식5 | VSCode10 | CI10 | **합** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **A 하이브리드(Rust+WinUI)** | 23 | 16 | 11 | 8 | 8 | 5 | 6 | 9 | **86** |
+| B 순수 C#/WinUI | 18 | 14 | 11 | 10 | 6 | 3 | 6 | 9 | **77** |
+| C 순수 C++/WinRT | 25 | 18 | 12 | 5 | 4 | 3 | 3 | 8 | **78** |
+| D Qt/C++ | 23 | 19 | 7 | 7 | 5 | 5 | 6 | 7 | **79** |
+| (참고) Rust+Tauri(웹뷰) | 17 | 14 | 7 | 9 | 7 | 5 | 10 | 10 | **79** |
 
-> 점수는 의사결정 보조용 상대값(절대 기준 아님). 플래그십·일정·안전을 함께 보면 **A**가 균형 최상.
+> 점수는 의사결정 보조용 상대값. 두 신규 기준은 주로 **C(순수 C++)의 VSCode 점수를 낮춤**.
+> 툴체인·CI를 최우선으로 보면 **Rust+Tauri**가 최상이나 "네이티브 최대 성능" 요구에서 감점 → 균형상 **A** 유지.
 
 ## 7. 권장 (Recommendation)
 
@@ -105,6 +110,49 @@
   → 역할 분담으로 "C++의 COM 편의" 이점을 상당 부분 무력화.
 - **결론:** 커버리지·성능은 부족하지 않음. 차이는 **COM/셸 확장 작성의 편의성**이며, 이를 C# 계층에 배치해 해소.
   만약 코어에서 **무거운 COM/인프로세스 셸 확장**을 직접 많이 짤 계획이면 C++(안 C)가 더 편함 → OD1 판단 요소.
+
+## 7-2. VSCode 단독 개발 & GitHub Actions 패키징/배포 (판단 기준)
+
+> "별도 개발 툴(풀 Visual Studio) 설치 없이 VSCode로 개발 가능한가?" +
+> "GitHub Actions로 패키징·배포 가능한가?"
+
+### (a) VSCode만으로 개발
+- **공통 사실:** Windows 앱은 macOS에서 **빌드/실행 불가** → 어느 안이든 **Windows 빌드 머신(VM/물리/CI)**
+  이 필요. 단, *편집*은 VSCode로, *빌드*는 Windows에서 CLI로 하는 워크플로우는 모든 안에서 가능.
+  "별도 툴 없이"는 보통 **"풀 Visual Studio IDE 없이"**를 의미 — SDK(.NET/Windows/Windows App SDK)나
+  **VS Build Tools**(IDE 아님, CLI 전용)는 winget으로 설치 가능.
+
+| 안 | VSCode 단독 개발 | 비고 |
+| --- | --- | --- |
+| Rust 코어 | ★★★★★ | rust-analyzer + `cargo`, **macOS에서도 그대로** 편집·테스트 |
+| A/B WinUI 3(C#) | ★★★ | `dotnet`/MSBuild CLI 빌드 가능(+C# Dev Kit). 단 **XAML 디자이너·핫리로드는 VS 강점**, 일부 템플릿이 VS 가정 |
+| C C++/WinRT | ★★ | MSVC 빌드툴 필요, C++/WinRT+XAML 컴파일러가 **VS 종속 강함** → VSCode 단독은 거침 |
+| D Qt/C++ | ★★★ | CMake + CMake Tools로 VSCode 가능, 단 Qt SDK·컴파일러 설치 필요 |
+| (참고)Tauri | ★★★★★ | 순수 CLI(`cargo`/npm), VSCode 친화 최상, macOS에서 크로스 개발 용이 |
+
+- **권장안 A 결론:** **가능**. Rust 코어는 VSCode(맥 포함) 완전 지원. WinUI UI는 VSCode에서 편집 +
+  Windows에서 `dotnet build`/MSBuild로 빌드(풀 VS 불필요, VS **Build Tools**로 충분). XAML 비주얼
+  디자이너가 필요하면 그때만 VS 사용. → "풀 VS 강제"는 아니다.
+
+### (b) GitHub Actions 패키징·배포
+- **공통 사실:** `windows-latest` 러너에 VS Build Tools·Windows SDK·.NET이 사전 설치 → 모든 네이티브 안 빌드 가능.
+
+| 단계 | 방법 |
+| --- | --- |
+| 빌드 | Rust: `cargo build --release`; WinUI: `dotnet publish`/`msbuild` (windows-latest) |
+| 패키징 | **MSIX**(`makeappx`/Windows App SDK) 또는 비패키지 EXE, 자기완결(self-contained) 배포 |
+| 서명 | `signtool` + 인증서(Actions **Secrets**), (옵션) 신뢰 서명/Azure Trusted Signing |
+| 배포 | **GitHub Releases** 자동 업로드, (옵션) **winget** 매니페스트, MS Store 제출 |
+| 업데이트 | MSIX App Installer 또는 자체 업데이터 채널 |
+
+- **결론:** **가능**. 빌드→MSIX→서명→Releases 전 과정을 Actions로 자동화. 단 **Windows 러너 필수**
+  (WinUI/C++는 크로스빌드 불가), 코어(Rust)만이라면 어디서나 빌드 가능.
+
+### 종합
+- 두 기준 모두 **권장안 A에서 충족 가능**. 가장 큰 마찰은 **C++(안 C)의 VSCode 단독 개발**이며,
+  이는 매트릭스에서 C의 약점으로 반영됨.
+- 만약 **"VSCode 단독 + 최소 툴 + CI 단순함"을 P0 제약**으로 둔다면 Rust+Tauri가 최적이나
+  네이티브 성능에서 감점 → 사용자 우선순위(성능 vs 툴체인 단순성) 확인이 OD1의 핵심 트레이드오프.
 
 ## 8. 결정 절차
 

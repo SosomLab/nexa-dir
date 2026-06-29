@@ -136,9 +136,13 @@
 
 ## 5. 제약 (Constraints)
 
-- C1 개발 머신은 macOS — WinUI 빌드/실행은 Windows(VS2022/CI) 필요.
+- C1 개발 머신은 macOS — WinUI 빌드/실행은 Windows(빌드 머신/CI) 필요.
 - C2 네이티브 + 최대 성능 요구(사용자 명시).
 - C3 Windows Shell 통합(아이콘/컨텍스트 메뉴/썸네일/IFileOperation) 활용.
+- C4 **VSCode로 개발 가능**(풀 Visual Studio IDE 강제 없이) — CLI 빌드(`cargo`/`dotnet`/MSBuild) 우선,
+  필요한 SDK·VS Build Tools는 winget 설치 허용. → 판단: [06 §7-2(a)](06-adr-0001-stack.md).
+- C5 **GitHub Actions로 패키징·배포 가능**(`windows-latest`에서 빌드+MSIX+서명+Releases 자동화).
+  → 판단: [06 §7-2(b)](06-adr-0001-stack.md).
 
 ## 6. 가정 (Assumptions)
 
