@@ -117,6 +117,31 @@ jobs:
       - run: cargo test -p nexa-core   # OS 비의존 부분
 ```
 
+## 6-1. 맥에서 .NET/WinUI 빌드 가능한가? (검증 결과)
+
+> 질문: "dotnet은 맥에서도 빌드 가능한 것 아닌가?" → **부분적으로 가능, 단 WinUI 3는 불가.** (2026-06-30 실측)
+
+- **.NET 자체는 맥에서 동작**(설치됨: .NET 10 SDK). 크로스플랫폼 라이브러리/콘솔/ASP.NET은 맥에서 빌드·실행 OK.
+- **Windows 타깃(net8.0-windows)** 도 `EnableWindowsTargeting=true` 옵션이면 맥에서 **복원/컴파일 시도**는 가능
+  (참조 어셈블리 사용). WPF/WinForms 라이브러리류는 이렇게 맥/리눅스 CI 빌드가 됨.
+- **그러나 WinUI 3(Windows App SDK)는 맥 빌드 불가** — 실측 에러:
+  ```
+  XamlCompiler.exe: cannot execute binary file (exit 126)
+  error MSB3073 ... Microsoft.UI.Xaml.Markup.Compiler
+  ```
+  WinUI의 **XAML 컴파일러가 Windows 전용 네이티브 실행파일**이라 macOS에서 실행 불가. (Wine 등 우회는 비권장)
+
+### 그래서 맥 개발을 최대화하는 방법 (권장)
+1. **로직을 크로스플랫폼 .NET 라이브러리로 분리** — `Nexa.ViewModels`/`Nexa.AppCore`를 **`net8.0`(비 windows TFM)**
+   클래스 라이브러리로 만들어 **맥에서 빌드·단위테스트**. XAML/WinUI 의존 코드만 Windows 전용 `Nexa.App`에 둔다.
+   → MVVM 권장 구조와 일치, "얇은 UI" 원칙(맥 개발 surface 최대화)에 부합.
+2. **Rust 코어**(`core/`)는 이미 맥 빌드·테스트 가능 — 비즈니스 로직 다수를 여기에 둔다.
+3. **WinUI 셸 빌드/실행은 Windows**(PC/VM/CI). 맥 단독 시 CI 산출물로 확인.
+4. (대안) Uno Platform/Avalonia는 맥 빌드 가능하나 **DR-1/DR-2(WinUI 확정)** 와 어긋나 채택 안 함.
+
+> 정리: **"dotnet=맥 가능"은 맞지만 "WinUI 3=맥 불가"**. 맥에서는 Rust 코어 + 크로스플랫폼 C# 로직까지,
+> WinUI XAML 셸만 Windows에서.
+
 ## 7. 요약
 - **맥 우선 가능**: 코어는 맥에서 충분히 개발/테스트. UI/패키징만 Windows.
 - **다른 Windows PC**: clone → `bootstrap.ps1` → 빌드/테스트(저장소만으로 재현).
