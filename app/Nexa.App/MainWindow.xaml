@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Nexa.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Nexa Dir">
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+            <TextBlock Text="Nexa Dir" FontSize="28" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" />
+            <TextBlock x:Name="StatusText" Text="스캐폴딩 — UI 셸 준비됨"
+                       Opacity="0.7" HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Window>
