@@ -22,17 +22,20 @@
 - **상주 규율**: 저메모리·주기 정리·무간섭·오류 격리 (전 단계 NFR)
 - **클라우드/네트워크**(SMB→SFTP→S3→SaaS, M4, 단계적)
 - **플러그인**(WASM+Python/Node RPC, M6) · **내장 zip**(향후 지원)
+- **라이선스 정품 인증**(오프라인 1차/온라인 2차, Ed25519, M7) → [17](17-licensing-activation.md)
 
 ## 3. 마일스톤
 
 - **M0** 기반: 인터롭 PoC, 스트리밍 열거, 가상화 렌더, CI/부트스트랩
 - **M1** ★ 1순위 묶음: 계층 경로 바 · 탭/듀얼 · **플래그십(인라인 트리+교차선택)** · 컨텍스트 메뉴 · 퀵 런처
-- **M2** 미리보기 · **M3** 검색 · **M4** 클라우드/원격 · **M5** AI · **M6** 플러그인
+- **M2** 미리보기 · **M3** 검색 · **M4** 클라우드/원격 · **M5** AI · **M6** 플러그인 · **M7** 라이선스 인증
 
 ## 4. 개발 모델 ([11](11-dev-environment.md))
 
-- 코어(Rust): **맥에서 개발/테스트 가능** · 앱(WinUI): **Windows 필수**(PC/VM/CI)
-- 다른 Windows PC: clone → `bootstrap.ps1` → 빌드 · CI(windows-latest)가 신뢰 원천
+- 코어(Rust): **맥에서 개발/테스트 가능** · 앱(WinUI): **Windows 필수**(PC/VM/CI).
+  실측: **dotnet은 맥 가능, WinUI 3는 맥 불가**(XAML 컴파일러 Windows 전용) → docs/11 §6-1.
+- 환경 설치: **macOS=`bootstrap.sh`(brew)** · **Windows=`bootstrap.ps1`(choco→winget→수동)**, 도구 표 docs/11 §4-5.
+- 다른 PC: clone → bootstrap → 빌드 · CI(windows-latest)가 신뢰 원천.
 
 ## 5. 개발 방식 ([15](15-dev-methodology.md))
 
@@ -41,11 +44,14 @@
 
 ## 6. 남은 Open / 다음 단계
 
-- OD2 AI(보류), 상표 출원 검토. LICENSE/THIRD-PARTY-NOTICES ✅ 추가됨.
-- **스캐폴딩 완료** ✅: `core/`(Rust 워크스페이스, cargo test green) · `app/`(WinUI 스켈레톤, Windows 빌드) ·
-  CI(.github/workflows) · LICENSE · `.gitignore`/`.claude/settings.json` · bootstrap.ps1/global.json/.vscode
+- OD2 AI(보류), 상표 출원 검토. LICENSE(영문/한글)·THIRD-PARTY-NOTICES ✅ 추가됨.
+- **스캐폴딩 완료** ✅:
+  - `core/`(Rust 워크스페이스 nexa-core/vfs/interop, **cargo test green**) · `app/Nexa.App`(WinUI 스켈레톤, Windows 빌드)
+  - CI(.github/workflows) · LICENSE.md/LICENSE.ko.md/THIRD-PARTY-NOTICES · `.gitignore`/`.claude/settings.json`
+  - 환경: `scripts/bootstrap.sh`(brew)·`scripts/bootstrap.ps1`(choco→winget→수동)·global.json·.vscode
+  - 메타: 조직/연락처(SosomLab) 반영(README/LICENSE/Cargo.toml/csproj)
 - **다음 단위(M0)**: 인터롭 PoC(Rust↔C# 왕복) → 로컬 디렉터리 스트리밍 열거(nexa-vfs) →
-  WinUI 가상화 리스트 렌더 → 네비게이션 (docs/15 §7 순서)
+  WinUI 가상화 리스트 렌더 → 네비게이션. (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — docs/11 §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
@@ -57,4 +63,5 @@
 
 CLAUDE.md(이식 메모리) · 00 비전 · 01 아키텍처 · 02 로드맵 · 03 기능 · 04 트렌드백로그 ·
 05 요구사항 · 06 ADR-0001(스택) · 07 플래그십 · 08 경쟁조사 · 09 플러그인 · 10 결정기록 ·
-11 개발환경 · 12 포터블 · 13 라이선스 · 14 컨텍스트공유 · 15 개발방법론 · journal/ (작업기록)
+11 개발환경 · 12 포터블 · 13 라이선스 · 14 컨텍스트공유 · 15 개발방법론 · 16 프로젝트구조 ·
+17 라이선스인증 · journal/ (작업기록)

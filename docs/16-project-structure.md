@@ -23,7 +23,8 @@ nexa-dir/
 │  ├─ extensions.json      # 권장 확장(rust-analyzer, C# Dev Kit 등)
 │  └─ settings.json        # rust-analyzer linkedProjects=core 등
 ├─ scripts/
-│  └─ bootstrap.ps1        # Windows 개발환경 설치(winget) — 재현성
+│  ├─ bootstrap.sh         # macOS 개발환경 설치(brew) + 수동 폴백
+│  └─ bootstrap.ps1        # Windows 설치(choco→winget→수동 폴백)
 ├─ core/                   # ── Rust 코어 워크스페이스(핫패스) ──
 │  ├─ Cargo.toml           # 워크스페이스 정의(resolver 2, release LTO)
 │  ├─ Cargo.lock           # 의존성 잠금(재현 빌드 — 커밋)
@@ -40,8 +41,11 @@ nexa-dir/
 │     ├─ App.xaml(.cs)     # 앱 진입점·리소스
 │     ├─ MainWindow.xaml(.cs) # 메인 윈도우(현재 빈 셸)
 │     └─ app.manifest      # 고DPI(PerMonitorV2)·지원 OS
-└─ docs/                   # 설계·결정·작업기록 (00~16 + journal)
+├─ tools/                  # (예정) nexa-license-gen — 라이선스 키 생성 CLI(비밀키는 외부)
+└─ docs/                   # 설계·결정·작업기록 (00~17 + STATUS + journal)
 ```
+
+> `tools/`는 M7(라이선스 인증) 착수 시 추가. 생성기 코드는 public 가능, **비밀키 파일만 외부 격리**([17](17-licensing-activation.md) §5-1).
 
 ## 2. 디렉터리/파일별 목적
 
@@ -84,8 +88,8 @@ nexa-dir/
 
 ### 2-5. `docs/` — 설계/결정/기록
 - `00~09` 설계(비전·아키텍처·로드맵·기능·트렌드·요구·ADR·플래그십·경쟁조사·플러그인)
-- `10~16` 결정·운영(결정기록·개발환경·포터블·라이선스·컨텍스트공유·방법론·**구조(본 문서)**)
-- `journal/` 타임스탬프 작업 기록(질문·결정·진행)
+- `10~17` 결정·운영(결정기록·개발환경·포터블·라이선스·컨텍스트공유·방법론·**구조(본 문서)**·라이선스인증)
+- `STATUS.md` 현황 요약 · `journal/` 타임스탬프 작업 기록(질문·결정·진행)
 
 ## 3. 현재 상태 요약
 - 코어: `cargo test` green(4 crates / 4 tests), fmt·clippy clean.

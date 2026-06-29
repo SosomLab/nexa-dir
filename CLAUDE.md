@@ -29,18 +29,21 @@
 - **퀵 런처 바**(M1) + **하단 임베디드 터미널**(ConPTY, 설계동결/구현후속)
 - **상주 규율 NFR**: 저메모리·주기정리·무간섭·오류격리
 - 후속: 미리보기(M2)·검색(M3)·클라우드/네트워크(M4)·AI(M5)·플러그인(M6, WASM+Python/Node)·내장 zip(향후)
+- **라이선스 정품 인증(M7)**: 오프라인 1차+온라인 2차, Ed25519 서명 토큰, 앱엔 공개키만 → [docs/17](docs/17-licensing-activation.md)
 
 ## 4. 아키텍처 요약 ([docs/01](docs/01-architecture.md))
 
 - **핫패스는 Rust 코어**(VFS·인덱스 tantivy·프리뷰·ops·pty·plugin 호스트 wasmtime/mlua),
   **UI는 WinUI 3(C#)**. **셸 COM/컨텍스트메뉴는 C# 계층**, 플래그십 트리는 **가시 노드 평면 스트림 + 가상화**.
-- 리포 구조(예정): `core/`(Rust 워크스페이스) · `app/`(WinUI 솔루션) · `docs/` · `scripts/` · `.github/`.
+- 리포 구조(현재): `core/`(Rust 워크스페이스 ✅) · `app/Nexa.App`(WinUI ✅) · `docs/`(00~17) · `scripts/`(bootstrap.sh/ps1) · `.github/`. (예정: `tools/nexa-license-gen`)
+- 상세 구조·파일별 목적 → [docs/16](docs/16-project-structure.md). 현황 → [docs/STATUS.md](docs/STATUS.md).
 
 ## 5. 개발 환경 ([docs/11](docs/11-dev-environment.md))
 
 - **코어(Rust)**: macOS/Windows/Linux 빌드·테스트 → **맥에서 일상 개발 가능**. Windows 전용부는 `#[cfg(windows)]` 격리.
 - **앱(WinUI 3)**: **Windows 전용** 빌드·실행(PC/VM/CI). 풀 VS 불요(VS Build Tools+CLI 가능).
-- **다른 PC**: clone → `scripts/bootstrap.ps1`(winget) → 빌드. **CI(windows-latest)** 가 신뢰 원천.
+- **앱(WinUI 3)은 맥 빌드 불가**(XAML 컴파일러 Windows 전용) — 맥은 Rust 코어 + 크로스플랫폼 C# 로직만(docs/11 §6-1).
+- **다른 PC**: clone → bootstrap(**맥 `bootstrap.sh`/brew**, **Win `bootstrap.ps1`/choco→winget**) → 빌드. **CI(windows-latest)** 가 신뢰 원천.
 
 ## 6. 작업 규약 (이 저장소에서)
 
