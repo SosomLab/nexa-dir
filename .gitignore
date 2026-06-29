@@ -8,6 +8,11 @@
 *.key
 *.cer
 secrets/
+keys/
+# 라이선스 서명 비밀키(절대 커밋 금지). 공개키(*.pub.*)는 커밋 OK. — docs/17 §5-1
+*.ed25519
+*ed25519*.key
+*private*.key
 **/appsettings.*.local.json
 *.local.json
 
