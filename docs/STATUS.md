@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-06-30 01:01 (KST) · 단계: **설계/계획 완료, 개발 착수 직전** · 코드: 미구현
+> 갱신: 2026-06-30 (KST) · 단계: **스캐폴딩 완료, M0 진행 중** · 코어 cargo test green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 
@@ -41,8 +41,11 @@
 
 ## 6. 남은 Open / 다음 단계
 
-- OD2 AI(보류), OD3 라이선스 LICENSE 파일은 스캐폴딩 시 추가, 상표 출원 검토
-- **다음**: 단위 #1 리포 스캐폴딩(`core/` + `app/` + CI + bootstrap + LICENSE) → 단위 순차 진행(docs/15 §7)
+- OD2 AI(보류), 상표 출원 검토. LICENSE/THIRD-PARTY-NOTICES ✅ 추가됨.
+- **스캐폴딩 완료** ✅: `core/`(Rust 워크스페이스, cargo test green) · `app/`(WinUI 스켈레톤, Windows 빌드) ·
+  CI(.github/workflows) · LICENSE · `.gitignore`/`.claude/settings.json` · bootstrap.ps1/global.json/.vscode
+- **다음 단위(M0)**: 인터롭 PoC(Rust↔C# 왕복) → 로컬 디렉터리 스트리밍 열거(nexa-vfs) →
+  WinUI 가상화 리스트 렌더 → 네비게이션 (docs/15 §7 순서)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
