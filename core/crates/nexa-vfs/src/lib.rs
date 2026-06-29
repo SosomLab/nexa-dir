@@ -25,7 +25,10 @@ mod tests {
 
     #[test]
     fn entry_holds_kind() {
-        let e = Entry { name: "a.txt".into(), kind: FileKind::File };
+        let e = Entry {
+            name: "a.txt".into(),
+            kind: FileKind::File,
+        };
         assert_eq!(e.kind, FileKind::File);
         assert_eq!(e.name, "a.txt");
     }
