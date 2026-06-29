@@ -3,7 +3,9 @@ name = "nexa-interop"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "Nexa Dir C ABI 인터롭 표면 (WinUI/C# 호스트가 로드하는 cdylib)"
 
 [lib]

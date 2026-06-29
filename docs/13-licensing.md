@@ -80,3 +80,5 @@
 - 스캐폴딩 시 추가: `LICENSE`(PolyForm Noncommercial), `THIRD-PARTY-NOTICES`, `cargo-deny.toml`,
   CI 라이선스 게이트, 기여 시 `CLA/DCO`.
 - 후속: 상업 라이선스(가격/키 발급) 절차는 배포 전 별도 정리. 상표(제품명) 출원 검토.
+- **연락처**: 조직 SosomLab(<https://sosomlab.com>), 상업 라이선스 문의 **kiros33@sosomlab.com**,
+  개발자(maintainer) Sangyong Bae **kiros33@gmail.com**. (LICENSE.md/LICENSE.ko.md·README에도 반영)

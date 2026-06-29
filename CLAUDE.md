@@ -7,7 +7,10 @@
 ## 1. 이 프로젝트는
 
 **Nexa Dir** = 차세대 **Windows 파일 탐색기**(Windows 기본 탐색기 대체). 네이티브 고성능 + 프로툴 UX.
-원격: `SosomLab/nexa-dir`. 현 단계: **설계/계획 완료, 개발 착수 직전(코드 미구현)**.
+원격: `SosomLab/nexa-dir`. 현 단계: **스캐폴딩 완료, M0 진행 중**.
+
+- 조직: **SosomLab** (<https://sosomlab.com>) · 상업 라이선스 문의: **kiros33@sosomlab.com**
+- 개발자(maintainer): Sangyong Bae · **kiros33@gmail.com**
 
 ## 2. 확정 결정 (변경 시 새 ADR/journal)
 

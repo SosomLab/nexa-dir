@@ -15,6 +15,13 @@
     <WindowsPackageType>None</WindowsPackageType>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- 조직/연락처 (SosomLab) -->
+    <Authors>Sangyong Bae</Authors>
+    <Company>SosomLab</Company>
+    <Product>Nexa Dir</Product>
+    <Copyright>Copyright (c) 2026 SosomLab</Copyright>
+    <PackageProjectUrl>https://sosomlab.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SosomLab/nexa-dir</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
