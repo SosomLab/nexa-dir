@@ -1,0 +1,14 @@
+[package]
+name = "nexa-interop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Nexa Dir C ABI 인터롭 표면 (WinUI/C# 호스트가 로드하는 cdylib)"
+
+[lib]
+# cdylib: C# P/Invoke 로드용 / rlib: Rust 테스트·다른 크레이트 링크용
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nexa-core = { workspace = true }

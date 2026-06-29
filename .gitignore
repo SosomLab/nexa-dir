@@ -14,7 +14,7 @@ secrets/
 # === Rust (core/) ===
 /target/
 **/target/
-Cargo.lock      # 라이브러리/워크스페이스 정책에 따라 후속 조정 가능
+# Cargo.lock 은 커밋(최종 산출물=앱 → 재현 빌드). 라이브러리만이면 무시 고려.
 
 # === .NET / WinUI (app/) ===
 bin/

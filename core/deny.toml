@@ -1,0 +1,38 @@
+# cargo-deny — 라이선스 게이트 (docs/13: 퍼미시브 온리, 유료 판매 보호)
+# 실행: cargo deny check
+[graph]
+all-features = true
+
+[licenses]
+version = 2
+# 허용: 퍼미시브 라이선스만. GPL/AGPL/LGPL 등은 미허용(기본 거부) → 발견 시 CI 실패.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "CC0-1.0",
+]
+confidence-threshold = 0.9
+# 1st-party 크레이트(LicenseRef-PolyForm-Noncommercial)는 우리 소유 → 예외 처리.
+[[licenses.exceptions]]
+name = "nexa-core"
+allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
+[[licenses.exceptions]]
+name = "nexa-vfs"
+allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
+[[licenses.exceptions]]
+name = "nexa-interop"
+allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
+
+[advisories]
+version = 2
+# RUSTSEC 보안 권고 점검 (CI에서 cargo deny check advisories)
+
+[bans]
+multiple-versions = "warn"

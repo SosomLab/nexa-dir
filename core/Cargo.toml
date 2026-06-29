@@ -1,0 +1,25 @@
+# Nexa Dir — Rust 코어 워크스페이스
+# 핫패스(VFS·인덱스·프리뷰·ops·pty·plugin 호스트). 맥/Windows/Linux 빌드·테스트.
+[workspace]
+resolver = "2"
+members = [
+  "crates/nexa-core",
+  "crates/nexa-vfs",
+  "crates/nexa-interop",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/SosomLab/nexa-dir"
+
+[workspace.dependencies]
+nexa-core = { path = "crates/nexa-core" }
+nexa-vfs = { path = "crates/nexa-vfs" }
+
+# 릴리스 최적화 (성능 최우선)
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
