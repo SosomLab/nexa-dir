@@ -74,6 +74,9 @@
 - **저장소 운영**: A는 private 권장; B/C/D는 public + 라이선스 파일(LICENSE) + CLA.
 - **배포/가격**: 모두 MSIX 유료 판매 가능(Store 유료/사이트 직판/라이선스 키).
 
+> **집행(정품 인증)**: 상업 라이선스를 키/인증값으로 강제하는 설계는 [17-licensing-activation.md](17-licensing-activation.md)
+> (오프라인 1차 + 온라인 2차, Ed25519 서명 토큰). 로드맵 M7.
+
 ## 6. 결정 (확정)
 - 선택 모델: **소스공개 제한형 — PolyForm Noncommercial 1.0.0**(대안 BSL 1.1). 저장소 **public**.
 - 즉시 시행: §4의 1~5(소유권·상표·퍼미시브 정책·CI 게이트·NOTICE) 채택.
