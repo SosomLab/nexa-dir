@@ -20,8 +20,9 @@ nexa-dir/
 ├─ .github/workflows/
 │  └─ ci.yml               # CI: 코어(mac/win) test·라이선스 게이트·WinUI 빌드
 ├─ .vscode/
-│  ├─ extensions.json      # 권장 확장(rust-analyzer, C# Dev Kit 등)
-│  └─ settings.json        # rust-analyzer linkedProjects=core 등
+│  ├─ extensions.json      # 권장 확장(rust-analyzer, CodeLLDB/cpptools 등)
+│  ├─ settings.json        # rust-analyzer linkedProjects=core 등
+│  └─ launch.json          # Rust 디버그(F5) — macOS/Linux CodeLLDB cargo 통합
 ├─ scripts/
 │  ├─ bootstrap.sh         # macOS 개발환경 설치(brew) + 수동 폴백
 │  └─ bootstrap.ps1        # Windows 설치(choco→winget→수동 폴백)

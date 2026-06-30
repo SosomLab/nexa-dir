@@ -1,0 +1,29 @@
+{
+  // Rust 디버그 설정. 디버거 엔진은 OS별로 다르다(docs/18 §5-1).
+  // - macOS/Linux: CodeLLDB(vadimcn.vscode-lldb) — DWARF. 아래 "cargo" 통합이 테스트 바이너리를 자동 빌드/탐색.
+  // - Windows(MSVC): 아래 lldb 설정 대신 rust-analyzer의 ▶ Debug CodeLens(cppvsdbg/PDB) 사용 권장.
+  //   (CodeLLDB는 PDB를 못 읽어 Windows MSVC에서 브레이크가 안 잡힘)
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Rust: 코어 테스트 디버그 (macOS/Linux · CodeLLDB)",
+      "cargo": {
+        "args": ["test", "--no-run", "--manifest-path", "${workspaceFolder}/core/Cargo.toml"]
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}/core"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Rust: 특정 패키지 테스트 디버그 (nexa-interop)",
+      "cargo": {
+        "args": ["test", "--no-run", "-p", "nexa-interop", "--manifest-path", "${workspaceFolder}/core/Cargo.toml"]
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}/core"
+    }
+  ]
+}

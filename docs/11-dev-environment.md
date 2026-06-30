@@ -78,9 +78,39 @@ dotnet run  --project app/Nexa.App         # 실행
 # 패키징은 §06/§12 참조 (MSIX / 포터블)
 ```
 
-### 4-4. VM 옵션
-- 보유 중인 **Windows 11 VM**(예: 경량 Win11 이미지) 사용 가능 — 동일 부트스트랩 적용.
-- WinUI 3는 GPU 가속 사용 → VM은 가능하나 성능 측정은 물리 PC 권장.
+### 4-4. macOS에서 Windows 앱 실행/테스트 — Windows VM (또는 PC/CI)
+
+> 질문: "macOS에서 dotnet 앱 **실행 테스트**도 되나?" → **아니오.** WinUI 3는 맥에서 **빌드도 실행도 불가**(§6-1).
+> 맥에서 앱 동작을 보려면 **Windows 환경(VM/물리 PC/CI)** 이 필요하다. 아래는 **맥 호스트에 Windows VM**으로 실행하는 방법.
+
+**실행 환경 선택지**
+
+| 방법 | 비고 |
+| --- | --- |
+| **Windows VM (맥 로컬, 권장)** | 맥 위 Windows 11 → `bootstrap.ps1` → `dotnet run`. 가장 접근성 좋음 |
+| 물리 Windows PC | 가장 정확 — **성능(NFR-P1/P2) 측정은 물리 PC 권장** |
+| CI 아티팩트(windows-latest) | 빌드 산출물 확보. 단 **실행은 Windows에서** |
+| 클라우드 Windows | Windows 365 Cloud PC / Azure VM / AWS EC2 |
+
+**VM 소프트웨어 (macOS 호스트)**
+
+| 맥 종류 | Windows | VM 앱 |
+| --- | --- | --- |
+| **Apple Silicon(M1~)** | Windows 11 **ARM64** | **Parallels Desktop**(가장 매끄러움·유료) · **UTM**(무료, QEMU) · **VMware Fusion**(개인 무료) |
+| Intel Mac | Windows 11 **x64** | VMware Fusion(개인 무료) · Parallels · UTM |
+
+- **WinUI 3는 ARM64 네이티브 빌드 가능**(csproj `RuntimeIdentifiers`에 `win-arm64` 포함) → Apple Silicon VM에서 **ARM64로 빌드·실행**이 빠르다. x64만 필요하면 Win11 ARM의 x64 에뮬레이션으로도 실행(느릴 수 있음).
+
+**VM 절차**
+1. VM 앱 설치 → Windows 11(ARM64/x64) 설치(MS 평가판 또는 정품).
+2. 저장소 접근: VM 안에서 `git clone`, 또는 공유 폴더로 맥 작업트리 마운트.
+3. 관리자 PowerShell에서 `scripts/bootstrap.ps1` 실행(choco→winget→수동 폴백).
+4. `dotnet run --project app/Nexa.App` — **최초 1회 Windows App Runtime 1.6** 필요(bootstrap이 처리, [18 §6-2](18-build-and-test.md)).
+
+**주의**
+- VM은 **GPU 가속이 제한**될 수 있어 동작 확인엔 충분하나 **성능 측정은 물리 PC** 권장.
+- ARM64 VM에서 **x64 빌드를 에뮬**로 돌리면 느림 → 가능하면 **ARM64 빌드**(`-r win-arm64`) 사용.
+- 맥은 그대로 **코어(Rust) 개발·디버그**(§3, [18 §5-1](18-build-and-test.md))에 쓰고, **앱 실행 확인만 VM**에서 하는 분업이 효율적.
 
 ### 4-5. 도구별 패키지 ID & 수동 설치 (폴백)
 
@@ -153,7 +183,7 @@ jobs:
    클래스 라이브러리로 만들어 **맥에서 빌드·단위테스트**. XAML/WinUI 의존 코드만 Windows 전용 `Nexa.App`에 둔다.
    → MVVM 권장 구조와 일치, "얇은 UI" 원칙(맥 개발 surface 최대화)에 부합.
 2. **Rust 코어**(`core/`)는 이미 맥 빌드·테스트 가능 — 비즈니스 로직 다수를 여기에 둔다.
-3. **WinUI 셸 빌드/실행은 Windows**(PC/VM/CI). 맥 단독 시 CI 산출물로 확인.
+3. **WinUI 셸 빌드/실행은 Windows**(PC/VM/CI). 맥에서 **앱 실행 테스트는 Windows VM** — 방법 [§4-4](#4-4-macos에서-windows-앱-실행테스트--windows-vm-또는-pcci).
 4. (대안) Uno Platform/Avalonia는 맥 빌드 가능하나 **DR-1/DR-2(WinUI 확정)** 와 어긋나 채택 안 함.
 
 > 정리: **"dotnet=맥 가능"은 맞지만 "WinUI 3=맥 불가"**. 맥에서는 Rust 코어 + 크로스플랫폼 C# 로직까지,

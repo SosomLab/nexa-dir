@@ -103,8 +103,13 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 
 ## 5-1. 디버깅 (브레이크포인트 / step / watch)
 
-> rust-analyzer의 **"▶ Debug" CodeLens**(테스트/`fn main` 위)로 디버그. **디버그 빌드에서만** 라인이 정확히 바인딩됨(release는 인라인 최적화로 어긋남).
+> rust-analyzer의 **"▶ Debug" CodeLens**(테스트/`fn main` 위) 또는 **F5([.vscode/launch.json](../.vscode/launch.json))** 로 디버그.
+> **디버그 빌드에서만** 라인이 정확히 바인딩됨(release는 인라인 최적화로 어긋남).
 > ⚠️ **디버거 엔진은 OS의 디버그 정보 형식에 맞춰야 한다 — 공유 설정에 고정 금지.**
+>
+> ✅ **macOS 검증(2026-06-30)**: `lldb`로 브레이크포인트 바인딩·적중 확인
+> (`Breakpoint 1: where = nexa_poc_add …`, `stop reason = breakpoint`). `lldb`+`rust-lldb` 설치됨, cdylib(`libnexa_interop.dylib`) 빌드 OK.
+> → 맥에서 **F5 "Rust: 코어 테스트 디버그 (macOS/Linux · CodeLLDB)"** 로 원클릭 디버그. (CodeLLDB의 `cargo` 통합이 테스트 바이너리 자동 빌드/탐색)
 
 | OS | 디버그 정보 | 디버거(확장) | `rust-analyzer.debug.engine` |
 | --- | --- | --- | --- |
@@ -129,7 +134,10 @@ cargo test -p nexa-interop      # 특정 크레이트만
 
 ### 6-2. WinUI 앱 — 실행(수동 스모크) · Windows
 
-> **전제(최초 1회)**: **Windows App Runtime 1.6** 설치 — unpackaged 앱은 실행 시 시스템 런타임을 요구한다.
+> **macOS 호스트**: 앱은 맥에서 **빌드도 실행도 불가**(§5-1 주의/[11 §6-1](11-dev-environment.md)). 맥에서 실행 테스트는
+> **Windows VM**(Parallels/UTM/VMware) 또는 물리 PC/CI — 방법 [11 §4-4](11-dev-environment.md).
+>
+> **전제(최초 1회, Windows)**: **Windows App Runtime 1.6** 설치 — unpackaged 앱은 실행 시 시스템 런타임을 요구한다.
 > winget `Microsoft.WindowsAppRuntime.1.6`은 **framework만** 깔아 Main/DDLM/Singleton이 빠지므로 부족 →
 > **공식 인스톨러** `windowsappruntimeinstall-x64.exe`(<https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe>)로
 > 전체 세트 설치(bootstrap.ps1이 처리). 미설치 시 "requires Windows App Runtime 1.6 (>= 6000.519.329.0)" 대화상자.
