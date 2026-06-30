@@ -21,6 +21,8 @@ mod tests {
     #[test]
     fn version_is_set() {
         assert!(!CORE_VERSION.is_empty());
+        let v: &str = CORE_VERSION;
+        assert!(!v.is_empty());
     }
 
     #[test]
