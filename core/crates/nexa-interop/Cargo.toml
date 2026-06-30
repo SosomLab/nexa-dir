@@ -14,3 +14,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 nexa-core = { workspace = true }
+nexa-vfs = { workspace = true }
