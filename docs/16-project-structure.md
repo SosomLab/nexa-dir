@@ -43,7 +43,7 @@ nexa-dir/
 │     ├─ NativeInterop.cs  # 코어 cdylib P/Invoke 바인딩(nexa_abi_version/nexa_poc_add)
 │     └─ app.manifest      # 고DPI(PerMonitorV2)·지원 OS
 ├─ tools/                  # (예정) nexa-license-gen — 라이선스 키 생성 CLI(비밀키는 외부)
-└─ docs/                   # 설계·결정·작업기록 (00~19 + STATUS + journal)
+└─ docs/                   # 설계·결정·작업기록 (00~20 + STATUS + journal)
 ```
 
 > `tools/`는 M7(라이선스 인증) 착수 시 추가. 생성기 코드는 public 가능, **비밀키 파일만 외부 격리**([17](17-licensing-activation.md) §5-1).
@@ -90,7 +90,7 @@ nexa-dir/
 
 ### 2-5. `docs/` — 설계/결정/기록
 - `00~09` 설계(비전·아키텍처·로드맵·기능·트렌드·요구·ADR·플래그십·경쟁조사·플러그인)
-- `10~19` 결정·운영(결정기록·개발환경·포터블·라이선스·컨텍스트공유·방법론·**구조(본 문서)**·라이선스인증·빌드&테스트·구현기능현황)
+- `10~20` 결정·운영(결정기록·개발환경·포터블·라이선스·컨텍스트공유·방법론·**구조(본 문서)**·라이선스인증·빌드&테스트·구현기능현황·UI레이아웃)
 - `STATUS.md` 현황 요약 · `journal/` 타임스탬프 작업 기록(질문·결정·진행)
 
 ## 3. 현재 상태 요약
