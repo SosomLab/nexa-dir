@@ -37,12 +37,13 @@ nexa-dir/
 ├─ app/                    # ── WinUI 3 UI 셸(Windows 전용) ──
 │  ├─ README.md            # 앱 빌드 안내(Windows)
 │  └─ Nexa.App/
-│     ├─ Nexa.App.csproj   # WinUI3, net8.0-windows, 비패키지(포터블 친화)
+│     ├─ Nexa.App.csproj   # WinUI3, net8.0-windows, 비패키지 + cargo(nexa-interop)→dll 복사 타겟
 │     ├─ App.xaml(.cs)     # 앱 진입점·리소스
-│     ├─ MainWindow.xaml(.cs) # 메인 윈도우(현재 빈 셸)
+│     ├─ MainWindow.xaml(.cs) # 메인 윈도우(인터롭 왕복 PoC 표시; 후속 경로바·트리)
+│     ├─ NativeInterop.cs  # 코어 cdylib P/Invoke 바인딩(nexa_abi_version/nexa_poc_add)
 │     └─ app.manifest      # 고DPI(PerMonitorV2)·지원 OS
 ├─ tools/                  # (예정) nexa-license-gen — 라이선스 키 생성 CLI(비밀키는 외부)
-└─ docs/                   # 설계·결정·작업기록 (00~17 + STATUS + journal)
+└─ docs/                   # 설계·결정·작업기록 (00~18 + STATUS + journal)
 ```
 
 > `tools/`는 M7(라이선스 인증) 착수 시 추가. 생성기 코드는 public 가능, **비밀키 파일만 외부 격리**([17](17-licensing-activation.md) §5-1).
@@ -72,16 +73,17 @@ nexa-dir/
 | --- | --- |
 | `nexa-core` | 코어 공용 타입. `FileKind`(File/Dir/Symlink), `CORE_VERSION`. 단위 테스트 2 |
 | `nexa-vfs` | 저장소 추상화. `Provider` trait, `Entry` 구조체(스텁). 후속: 로컬 스트리밍 열거 |
-| `nexa-interop` | **cdylib** — C# 호스트가 P/Invoke로 로드. `nexa_abi_version()` C ABI. 후속: 핸들 API |
+| `nexa-interop` | **cdylib** — C# 호스트가 P/Invoke로 로드. C ABI `nexa_abi_version()` + 왕복 PoC `nexa_poc_add(a,b)`. 후속: 핸들 API·이벤트 스트림 |
 | `deny.toml` | 허용 라이선스 화이트리스트(MIT/Apache/BSD…), 1st-party 예외(PolyForm) |
 | `Cargo.toml` | 워크스페이스 멤버·공통 메타(version/edition/license/authors), release 프로파일(LTO) |
 
 ### 2-4. `app/` — WinUI 3 셸(Windows 전용)
 | 파일 | 목적 / 현재 내용 |
 | --- | --- |
-| `Nexa.App.csproj` | WinUI3 앱. `net8.0-windows10.0.19041.0`, `WindowsPackageType=None`(포터블 친화), x64/arm64 |
+| `Nexa.App.csproj` | WinUI3 앱. `net8.0-windows10.0.19041.0`, `WindowsPackageType=None`(포터블 친화), x64/arm64. **인터롭 타겟**: `BuildNexaInterop`(cargo build) → `CopyNexaInterop`(nexa_interop.dll→출력) |
 | `App.xaml(.cs)` | 애플리케이션 객체·Fluent 리소스, 메인 윈도우 생성 |
-| `MainWindow.xaml(.cs)` | 메인 윈도우(현재 "Nexa Dir" 라벨만). 후속: 경로바·듀얼패널·트리 |
+| `MainWindow.xaml(.cs)` | 메인 윈도우. `ShowInteropRoundTrip()`으로 코어 왕복 결과 표시(오류 격리). 후속: 경로바·듀얼패널·트리 |
+| `NativeInterop.cs` | 코어 cdylib P/Invoke 바인딩(`nexa_abi_version`/`nexa_poc_add`, Cdecl). 런타임에 `nexa_interop.dll` 로드 |
 | `app.manifest` | PerMonitorV2 고DPI, 지원 OS(Win10/11) |
 
 > 맥에서는 **빌드 불가**(WinUI XAML 컴파일러가 Windows 전용) — 상세 [11 §개발OS](11-dev-environment.md).
@@ -92,6 +94,6 @@ nexa-dir/
 - `STATUS.md` 현황 요약 · `journal/` 타임스탬프 작업 기록(질문·결정·진행)
 
 ## 3. 현재 상태 요약
-- 코어: `cargo test` green(4 crates / 4 tests), fmt·clippy clean.
-- 앱: 스켈레톤(빈 윈도우) — Windows/CI에서 빌드 검증.
-- 다음 단위: 인터롭 PoC → 로컬 스트리밍 열거 → 가상화 렌더 → 네비게이션 (docs/15 §7).
+- 코어: `cargo test` green(3 crates / 5 tests), fmt·clippy clean.
+- 앱: 인터롭 왕복 PoC 동작(C# P/Invoke ↔ Rust cdylib) — Windows/CI 빌드 검증, **CI success**.
+- 다음 단위: 로컬 스트리밍 열거(nexa-vfs) → 가상화 렌더 → 네비게이션 (docs/15 §7).
