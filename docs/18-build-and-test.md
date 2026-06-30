@@ -47,10 +47,18 @@ cargo clippy --workspace --all-targets -- -D warnings   # 린트(경고=실패)
 
 **Windows 전용**(XAML 컴파일러가 Windows 네이티브). TFM `net8.0-windows10.0.19041.0`, 비패키지(unpackaged) 구성.
 
+> ⚠️ **macOS/Linux에서 `dotnet build/run app/Nexa.App` 실행 금지** — 즉시 다음 오류:
+> ```
+> error NETSDK1100: 이 운영 체제에서 Windows를 대상으로 하는 프로젝트를 빌드하려면
+>                   EnableWindowsTargeting 속성을 true로 설정합니다.
+> ```
+> **`EnableWindowsTargeting=true`로 우회하지 말 것** — 그 다음 단계에서 `XamlCompiler.exe`(Windows 전용)로 실패한다([11 §6-1](11-dev-environment.md)).
+> 앱 빌드·실행은 **Windows / Windows VM / CI**에서만 — 맥 호스트는 VM([11 §4-4](11-dev-environment.md)). 맥에서는 **코어(Rust)만**(§1) 빌드.
+
 ```powershell
-# 전제: VS Build Tools 2022 + .NET SDK(8 또는 rollForward로 9+) + Windows App SDK 런타임 + cargo(PATH; 인터롭 빌드용)
+# Windows 전제: VS Build Tools 2022 + .NET SDK(8 또는 rollForward로 9+) + Windows App SDK 런타임 + cargo(PATH; 인터롭 빌드용)
 dotnet restore app/Nexa.App
-dotnet build   app/Nexa.App -c Debug           # 개발 빌드
+dotnet build   app/Nexa.App -c Debug           # 개발 빌드 (Windows 전용)
 dotnet build   app/Nexa.App -c Release --no-restore   # CI와 동일(릴리스)
 dotnet run     --project app/Nexa.App          # 실행(수동 확인)
 ```

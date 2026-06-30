@@ -2,7 +2,11 @@
 
 WinUI 3 (Windows App SDK) 기반 UI. **Windows 전용 빌드** (macOS/Linux 불가).
 
-## 빌드/실행 (Windows)
+> ⚠️ **맥에서 빌드 금지**: `dotnet build app/Nexa.App` 실행 시 `NETSDK1100`(EnableWindowsTargeting) →
+> 우회해도 `XamlCompiler.exe`(Windows 전용)로 실패. 맥에서는 **Windows VM**으로 실행 — 방법
+> [docs/11 §4-4](../docs/11-dev-environment.md), 원인 [docs/11 §6-1](../docs/11-dev-environment.md).
+
+## 빌드/실행 (Windows · 또는 Windows VM)
 
 ```powershell
 # 사전: scripts/bootstrap.ps1 (또는 VS Build Tools + .NET 8 SDK + Windows App SDK)

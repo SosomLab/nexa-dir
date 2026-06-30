@@ -70,11 +70,12 @@ powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 - 각 도구는 choco로 먼저 시도, 실패 시 winget, 그래도 안 되면 **수동 다운로드 URL**(§4-5 표)을 안내한다.
 
 ### 4-3. 빌드·실행
+> ⚠️ 아래는 **Windows 전용**. 맥에서 `dotnet build/run app/Nexa.App` 실행 시 **`NETSDK1100` 오류**(이어 XamlCompiler 실패) — §6-1.
 ```powershell
 git clone https://github.com/SosomLab/nexa-dir.git ; cd nexa-dir
-cargo build --release                      # 코어 cdylib
-dotnet build app/Nexa.App -c Debug         # WinUI 앱 (스캐폴딩 후)
-dotnet run  --project app/Nexa.App         # 실행
+cargo build --release                      # 코어 cdylib (맥/Windows 공통)
+dotnet build app/Nexa.App -c Debug         # WinUI 앱 — Windows 전용
+dotnet run  --project app/Nexa.App         # 실행 — Windows 전용
 # 패키징은 §06/§12 참조 (MSIX / 포터블)
 ```
 
@@ -169,14 +170,22 @@ jobs:
 > 질문: "dotnet은 맥에서도 빌드 가능한 것 아닌가?" → **부분적으로 가능, 단 WinUI 3는 불가.** (2026-06-30 실측)
 
 - **.NET 자체는 맥에서 동작**(설치됨: .NET 10 SDK). 크로스플랫폼 라이브러리/콘솔/ASP.NET은 맥에서 빌드·실행 OK.
-- **Windows 타깃(net8.0-windows)** 도 `EnableWindowsTargeting=true` 옵션이면 맥에서 **복원/컴파일 시도**는 가능
-  (참조 어셈블리 사용). WPF/WinForms 라이브러리류는 이렇게 맥/리눅스 CI 빌드가 됨.
-- **그러나 WinUI 3(Windows App SDK)는 맥 빌드 불가** — 실측 에러:
-  ```
-  XamlCompiler.exe: cannot execute binary file (exit 126)
-  error MSB3073 ... Microsoft.UI.Xaml.Markup.Compiler
-  ```
-  WinUI의 **XAML 컴파일러가 Windows 전용 네이티브 실행파일**이라 macOS에서 실행 불가. (Wine 등 우회는 비권장)
+- **맥에서 `dotnet build app/Nexa.App` 은 2단계로 실패한다** — **앱 빌드를 맥에서 시도하지 말 것**:
+  - **1단계** (옵션 없이): 즉시 `NETSDK1100`
+    ```
+    error NETSDK1100: 이 운영 체제에서 Windows를 대상으로 하는 프로젝트를 빌드하려면
+    EnableWindowsTargeting 속성을 true로 설정합니다.
+    ```
+    → Windows 타깃(`net8.0-windows`)이라 맥에선 기본 차단. **`-p:EnableWindowsTargeting=true` 로 우회하지 말 것**(아래 2단계로 갈 뿐).
+  - **2단계** (`EnableWindowsTargeting=true` 우회 시): `XamlCompiler.exe` 실패
+    ```
+    XamlCompiler.exe: cannot execute binary file (exit 126)
+    error MSB3073 ... Microsoft.UI.Xaml.Markup.Compiler
+    ```
+    WinUI의 **XAML 컴파일러가 Windows 전용 네이티브 실행파일**이라 macOS에서 실행 불가. (Wine 등 우회 비권장)
+- **결론**: **WinUI 앱(`app/Nexa.App`)은 맥에서 빌드·실행 불가** → **Windows/VM/CI에서만**([§4-4](#4-4-macos에서-windows-앱-실행테스트--windows-vm-또는-pcci)).
+  맥에서는 **코어(Rust)** 와 (후속) **크로스플랫폼 C# 라이브러리**만 빌드/테스트한다. (참고: 순수 `net8.0` Windows 라이브러리류는
+  `EnableWindowsTargeting=true`로 맥 컴파일 가능하나, WinUI 앱은 위 2단계로 불가)
 
 ### 그래서 맥 개발을 최대화하는 방법 (권장)
 1. **로직을 크로스플랫폼 .NET 라이브러리로 분리** — `Nexa.ViewModels`/`Nexa.AppCore`를 **`net8.0`(비 windows TFM)**
