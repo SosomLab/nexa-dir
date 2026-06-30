@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 
 namespace Nexa.App;
 
-/// <summary>메인 윈도우. 후속 단위에서 경로 바·듀얼 패널·트리를 채운다.</summary>
+/// <summary>메인 윈도우 — 레이아웃 골격(docs/20) + 디렉터리 목록(F4/F5).</summary>
 public sealed partial class MainWindow : Window
 {
     public MainWindow()
@@ -41,6 +41,7 @@ public sealed partial class MainWindow : Window
         {
             var items = NativeInterop.ReadDir(path);
             DirRepeater.ItemsSource = items;
+            PathText.Text = path;
             DirHeader.Text = $"{path} — {items.Count}개 항목 (코어 스트리밍 열거, ItemsRepeater 가상화)";
         }
         catch (Exception ex)
@@ -48,4 +49,31 @@ public sealed partial class MainWindow : Window
             DirHeader.Text = $"디렉터리 열거 실패: {ex.Message}";
         }
     }
+
+    // ── 레이아웃 토글 (영역 숨김/표시) ──────────────────────────────
+    // 숨길 때 해당 splitter와 행/열 크기를 함께 0으로 만들어 빈 공간을 남기지 않는다(docs/20 §2).
+
+    private void OnToggleLauncher(object sender, RoutedEventArgs e)
+        => LauncherBar.Visibility = Visible(ToggleLauncherBtn.IsChecked);
+
+    private void OnToggleRightPanel(object sender, RoutedEventArgs e)
+    {
+        bool show = ToggleRightBtn.IsChecked == true;
+        RightPanel.Visibility = Visible(show);
+        PanelSplitter.Visibility = Visible(show);
+        SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
+        RightCol.Width = show ? new GridLength(360) : new GridLength(0);
+    }
+
+    private void OnToggleTerminal(object sender, RoutedEventArgs e)
+    {
+        bool show = ToggleTerminalBtn.IsChecked == true;
+        TerminalPanel.Visibility = Visible(show);
+        TermSplitter.Visibility = Visible(show);
+        TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
+        TermRow.Height = show ? new GridLength(160) : new GridLength(0);
+    }
+
+    private static Visibility Visible(bool? on)
+        => on == true ? Visibility.Visible : Visibility.Collapsed;
 }

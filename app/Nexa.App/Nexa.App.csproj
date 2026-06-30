@@ -29,6 +29,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+    <!-- GridSplitter(영역 크기 조절) — CommunityToolkit Sizers (MIT) -->
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.*" />
   </ItemGroup>
 
   <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────

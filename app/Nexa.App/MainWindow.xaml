@@ -4,40 +4,164 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Nexa.App"
+    xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
     Title="Nexa Dir">
-    <Grid Padding="12" RowSpacing="6">
+
+    <!--
+      레이아웃 골격(docs/20). 각 영역을 placeholder 라벨/틴트로 식별.
+      좌↔우 패널, 메인↔터미널 GridSplitter 크기 조절. 상태바 토글로 런처/우패널/터미널 숨김.
+      좌 패널 콘텐츠에 실제 디렉터리 목록(F4/F5) 보존.
+    -->
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />  <!-- 0 메뉴 바 -->
+            <RowDefinition Height="Auto" />  <!-- 1 도구 모음 -->
+            <RowDefinition Height="Auto" />  <!-- 2 퀵 런처 바 -->
+            <RowDefinition Height="*" MinHeight="120" /> <!-- 3 메인 영역 -->
+            <RowDefinition x:Name="TermSplitterRow" Height="Auto" /> <!-- 4 상하 splitter -->
+            <RowDefinition x:Name="TermRow" Height="160" />          <!-- 5 터미널 패널 -->
+            <RowDefinition Height="Auto" />  <!-- 6 상태바 -->
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Nexa Dir" FontSize="24" FontWeight="SemiBold" />
-        <TextBlock Grid.Row="1" x:Name="StatusText" Text="스캐폴딩 — UI 셸 준비됨" Opacity="0.7" />
-        <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" />
+        <!-- 0 · 메뉴 바 -->
+        <MenuBar Grid.Row="0" Background="#11808080">
+            <MenuBarItem Title="파일(F)" />
+            <MenuBarItem Title="선택(M)" />
+            <MenuBarItem Title="명령(C)" />
+            <MenuBarItem Title="보기(V)" />
+            <MenuBarItem Title="도구(T)" />
+            <MenuBarItem Title="도움말(H)" />
+        </MenuBar>
 
-        <!-- 가상화 렌더: ItemsRepeater(저수준) + ScrollViewer. 인라인 트리 확장의 토대(docs/07 §7). -->
-        <ScrollViewer Grid.Row="3" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
-            <ItemsRepeater x:Name="DirRepeater">
-                <ItemsRepeater.Layout>
-                    <StackLayout Orientation="Vertical" Spacing="2" />
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <DataTemplate x:DataType="local:DirItem">
-                        <Grid ColumnSpacing="12" Padding="0,2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="64" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                            <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
-                            <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
-                        </Grid>
-                    </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
-        </ScrollViewer>
+        <!-- 1 · 도구 모음 (아이콘 단축) -->
+        <Border Grid.Row="1" Background="#0A808080" Padding="6,4">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="뒤로" />
+                <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="앞으로" />
+                <Button Content="&#xE74A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="위로" />
+                <Button Content="&#xE72C;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="새로고침" />
+                <AppBarSeparator />
+                <Button Content="아이콘" /><Button Content="목록" /><Button Content="컬럼" /><Button Content="갤러리" />
+                <TextBlock Text="도구 모음 (placeholder · 16×16 기본)" Opacity="0.5" VerticalAlignment="Center" Margin="8,0,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- 2 · 퀵 런처 바 -->
+        <Border x:Name="LauncherBar" Grid.Row="2" Background="#0A4080C0" Padding="6,4">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="cmd" /><Button Content="pwsh" /><Button Content="WT" />
+                <AppBarSeparator />
+                <Button Content="VSCode" /><Button Content="＋" />
+                <TextBlock Text="퀵 런처 바 (placeholder)" Opacity="0.5" VerticalAlignment="Center" Margin="8,0,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- 3 · 메인 영역 (좌/우 듀얼 패널 + splitter) -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="LeftCol" Width="*" MinWidth="200" />
+                <ColumnDefinition x:Name="SplitterCol" Width="Auto" />
+                <ColumnDefinition x:Name="RightCol" Width="360" MinWidth="160" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 좌 패널 (주) -->
+            <Border Grid.Column="0" BorderBrush="#22808080" BorderThickness="0,0,0,0" Background="#06808080">
+                <Grid RowSpacing="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /> <!-- 탭 바 -->
+                        <RowDefinition Height="Auto" /> <!-- 네비 바 -->
+                        <RowDefinition Height="Auto" /> <!-- 헤더 -->
+                        <RowDefinition Height="*" />    <!-- 목록 -->
+                    </Grid.RowDefinitions>
+
+                    <!-- 탭 바 (placeholder) -->
+                    <Border Grid.Row="0" Background="#0A808080" Padding="6,3">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Border Background="#1A4080C0" CornerRadius="4" Padding="8,2"><TextBlock Text="홈" /></Border>
+                            <Border Background="#10808080" CornerRadius="4" Padding="8,2"><TextBlock Text="탭 2" Opacity="0.7" /></Border>
+                            <Button Content="＋" Padding="6,0" />
+                            <TextBlock Text="탭 바(패널별)" Opacity="0.4" VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 네비게이션 바 (placeholder: ←/→/↑ + 경로) -->
+                    <Border Grid.Row="1" Padding="6,3">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="뒤로(미구현)" />
+                            <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="앞으로(미구현)" />
+                            <Button Content="&#xE74A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="위로" />
+                            <Border Background="#10808080" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                <TextBlock x:Name="PathText" Text="경로 바 (placeholder)" Opacity="0.7" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 헤더(디렉터리 정보) -->
+                    <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
+
+                    <!-- 파일 목록 (F4/F5: 코어 스트리밍 열거 + ItemsRepeater 가상화) -->
+                    <ScrollViewer Grid.Row="3" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto" Padding="8,0">
+                        <ItemsRepeater x:Name="DirRepeater">
+                            <ItemsRepeater.Layout>
+                                <StackLayout Orientation="Vertical" Spacing="2" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="local:DirItem">
+                                    <Grid ColumnSpacing="12" Padding="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- 좌↔우 splitter -->
+            <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="8"
+                              ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
+
+            <!-- 우 패널 (듀얼) placeholder -->
+            <Border x:Name="RightPanel" Grid.Column="2" Background="#06408040" BorderBrush="#22808080" BorderThickness="1,0,0,0">
+                <StackPanel Padding="8" Spacing="6">
+                    <Border Background="#0A808080" CornerRadius="4" Padding="8,3">
+                        <TextBlock Text="우 패널 탭 바 (placeholder)" Opacity="0.6" />
+                    </Border>
+                    <TextBlock Text="우 패널 (듀얼) — placeholder" Opacity="0.6" />
+                    <TextBlock Text="단일↔듀얼 토글 / 패널별 탭·네비·목록" Opacity="0.4" FontSize="12" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 4 · 메인↔터미널 상하 splitter -->
+        <ctk:GridSplitter x:Name="TermSplitter" Grid.Row="4" Height="8"
+                          ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" />
+
+        <!-- 5 · 하단 도킹 패널 (터미널 등) placeholder -->
+        <Border x:Name="TerminalPanel" Grid.Row="5" Background="#08000000" BorderBrush="#22808080" BorderThickness="0,1,0,0">
+            <StackPanel Padding="8" Spacing="4">
+                <TextBlock Text="하단 도킹 패널 — 상세/미리보기/Hex/터미널(ConPTY, 후속)" Opacity="0.6" />
+                <TextBlock Text="macbook@host ~/Documents %" FontFamily="Consolas" Opacity="0.5" />
+            </StackPanel>
+        </Border>
+
+        <!-- 6 · 상태바 (+ 숨김 토글) -->
+        <Border Grid.Row="6" Background="#11808080" Padding="8,4">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.8" VerticalAlignment="Center" />
+                <AppBarSeparator />
+                <TextBlock Text="숨김:" Opacity="0.5" VerticalAlignment="Center" />
+                <ToggleButton x:Name="ToggleLauncherBtn" Content="런처" IsChecked="True" Click="OnToggleLauncher" />
+                <ToggleButton x:Name="ToggleRightBtn" Content="우 패널" IsChecked="True" Click="OnToggleRightPanel" />
+                <ToggleButton x:Name="ToggleTerminalBtn" Content="터미널" IsChecked="True" Click="OnToggleTerminal" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

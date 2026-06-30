@@ -85,6 +85,24 @@
 
 ---
 
+### F6. 레이아웃 골격 (영역 표시·크기 조절·숨김 토글)
+- **무엇**: 화면 영역(메뉴 바·도구 모음·퀵 런처·좌/우 듀얼 패널·하단 도킹·상태바)을 **placeholder로 가시화**하고,
+  **GridSplitter로 좌↔우·메인↔터미널 크기 조절**, **상태바 토글로 런처/우패널/터미널 숨김**. 개발 방향을 눈으로 점검(docs/20).
+- **구현 위치**:
+  - [app/Nexa.App/MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 7행 그리드, `MenuBar`·도구모음·런처·듀얼 패널(`ctk:GridSplitter`)·터미널·상태바. 좌 패널 콘텐츠에 F4/F5 목록 보존
+  - [app/Nexa.App/MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `OnToggleLauncher/RightPanel/Terminal`(splitter·행/열 0 동반)
+  - [app/Nexa.App/Nexa.App.csproj](../app/Nexa.App/Nexa.App.csproj) — `CommunityToolkit.WinUI.Controls.Sizers`(GridSplitter, MIT)
+- **커밋**: `(이 단위)`
+- **테스트(Windows/VM)**:
+  | 방법 | 명령 | 기대 |
+  | --- | --- | --- |
+  | 앱 실행 | `dotnet run --project app/Nexa.App` | 영역들이 라벨/틴트로 보이고, 좌↔우·상↔하 경계 **드래그로 크기 조절**, 상태바 토글로 **런처/우패널/터미널 숨김·표시** |
+  | 빌드 | `dotnet build app/Nexa.App` | 0/0(첫 빌드 시 CommunityToolkit 패키지 복원) |
+- **비고**: macOS 빌드 불가 → **Windows/VM에서 빌드·실행**([11 §4-4](11-dev-environment.md)). 각 영역은 **placeholder**(기능 미구현) — 방향 점검용.
+- **후속**: 영역별 채움 — 네비게이션(폴더 진입·↑) → 경로 바 → 탭 모델 → 우 패널 듀얼 → 인라인 트리.
+
+---
+
 ## 게이트 (모든 기능 공통, 머지 전)
 ```bash
 cd core
