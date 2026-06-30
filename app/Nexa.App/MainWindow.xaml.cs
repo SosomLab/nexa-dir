@@ -72,7 +72,17 @@ public sealed partial class MainWindow : Window
         TerminalPanel.Visibility = Visible(show);
         TermSplitter.Visibility = Visible(show);
         TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
-        TermRow.Height = show ? new GridLength(160) : new GridLength(0);
+        TermRow.Height = show ? new GridLength(180) : new GridLength(0);
+    }
+
+    /// <summary>하단 도킹을 좌/우 분리(기본)↔통합 전환. 분리 시 좌·우 각 패널용 정보·터미널 2개.</summary>
+    private void OnToggleBottomSplit(object sender, RoutedEventArgs e)
+    {
+        bool split = ToggleBottomSplitBtn.IsChecked == true;
+        BottomRightDock.Visibility = Visible(split);
+        BottomSplitter.Visibility = Visible(split);
+        BottomSplitterCol.Width = split ? GridLength.Auto : new GridLength(0);
+        BottomRightCol.Width = split ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
     private static Visibility Visible(bool? on)
