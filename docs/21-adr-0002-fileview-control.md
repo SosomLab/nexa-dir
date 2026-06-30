@@ -46,7 +46,7 @@ WinUI 기성 단일 컴포넌트(ListView/TreeView/DataGrid)를 **쓰지 않고*
 
 ## 7. 구현 단계 (점진)
 1. ✅ ItemsRepeater 평면 목록(현재, [19](19-implemented-features.md) F5)
-2. 컬럼 헤더 + 공유 컬럼(이름/상태/크기/수정일)
+2. 컬럼 헤더 + **컬럼 시스템**(기본/사용자정의 수식/플러그인열, 듀얼 동기화 → [23](23-column-system.md))
 3. 트리 행(depth 들여쓰기 + ▶/▼, 코어 `expand` 연동)
 4. 선택 모델(교차폴더 `OrderedSet`, Ctrl/Shift/Ctrl+A)
 5. 가상화·성능 튜닝(10만, NFR-P1/P2 벤치)
