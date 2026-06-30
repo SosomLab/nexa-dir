@@ -157,6 +157,32 @@ public static class T { [DllImport("nexa_interop", CallingConvention=CallingConv
 [T]::nexa_poc_add(2,3)    # → 5
 ```
 > 주의: .NET native 로드는 PWD가 아니라 `Environment.CurrentDirectory`/PATH 기준 → 위처럼 절대경로 지정.
+> ⚠️ **dll 잠금**: 이 검증은 `nexa_interop.dll`을 **LoadLibrary로 잠근다**(프로세스 종료 전까지 언로드 안 됨).
+> 검증에 쓴 PowerShell 세션을 **닫지 않으면** 다음 `dotnet build/run`의 dll 복사가 실패한다
+> (`MSB3026: ... being used by another process`). → 검증 후 그 세션을 종료하거나 **일회용 세션**(`pwsh -Command ...`)에서 실행.
+
+#### dll 잠금 해제 (MSB3026 "다른 프로세스가 사용 중" 발생 시)
+
+오류 예: `warning MSB3026: ... nexa_interop.dll ... 파일이 "PowerShell 7 (12820)"에 의해 잠겨 있습니다.`
+
+```powershell
+# 1) 오류 메시지에 잠근 PID가 보이면 그 PID를 바로 종료 (위 예 = 12820)
+Stop-Process -Id 12820 -Force
+
+# 2) PID를 모를 때 — nexa_interop.dll을 모듈로 잡은 프로세스를 검색해 종료
+$abs = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0\nexa_interop.dll").Path
+$locking = Get-Process pwsh, powershell, dotnet, Nexa.App -ErrorAction SilentlyContinue |
+  Where-Object { try { ($_.Modules | Where-Object FileName -eq $abs).Count -gt 0 } catch { $false } }
+$locking | Select-Object Id, ProcessName, StartTime   # 무엇이 잡았는지 확인
+$locking | Stop-Process -Force                        # 종료
+
+# 3) 해제 확인 — 코어 산출 dll을 출력에 덮어써서 복사가 되면 OK
+Copy-Item (Resolve-Path "core\target\debug\nexa_interop.dll") $abs -Force
+```
+
+- 보통 헤드리스 검증(§6-3 1·2번)에 쓴 PowerShell이 범인이다 — 종료하면 즉시 해제된다.
+- VSCode 통합 터미널에서 검증했다면 **그 터미널 탭**이 dll을 잡고 있을 수 있으니 탭을 닫거나 위 절차로 종료.
+- 재발 방지: 검증은 `pwsh -Command "..."`(일회용)로 돌려 명령 종료와 함께 dll이 풀리게 한다.
 
 ### 6-4. 라이선스 게이트 — 실행
 ```bash
