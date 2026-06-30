@@ -49,6 +49,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable   # csproj가 cargo로 nexa-interop(cdylib) 빌드
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'

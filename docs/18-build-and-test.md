@@ -13,7 +13,7 @@
 | 부문 | 빌드 | 테스트/검사 | OS |
 | --- | --- | --- | --- |
 | 코어(Rust) | `cargo build` | `cargo test --workspace` · `fmt` · `clippy` | mac/Win/Linux |
-| WinUI 앱(C#) | `dotnet build app/Nexa.App` | (현재 단위 없음) · `dotnet run` 수동 | **Windows 전용** |
+| WinUI 앱(C#) | `dotnet build app/Nexa.App` (cargo로 nexa-interop 자동 빌드 포함) | (현재 단위 없음) · `dotnet run` 수동 | **Windows 전용** |
 | 라이선스 게이트 | — | `cargo deny check ...` | any |
 | 패키징(MSIX/포터블) | (후속, [12](12-packaging-portable.md)) | — | Windows |
 
@@ -48,7 +48,7 @@ cargo clippy --workspace --all-targets -- -D warnings   # 린트(경고=실패)
 **Windows 전용**(XAML 컴파일러가 Windows 네이티브). TFM `net8.0-windows10.0.19041.0`, 비패키지(unpackaged) 구성.
 
 ```powershell
-# 전제: VS Build Tools 2022 + .NET SDK(8 또는 rollForward로 9+) + Windows App SDK 런타임
+# 전제: VS Build Tools 2022 + .NET SDK(8 또는 rollForward로 9+) + Windows App SDK 런타임 + cargo(PATH; 인터롭 빌드용)
 dotnet restore app/Nexa.App
 dotnet build   app/Nexa.App -c Debug           # 개발 빌드
 dotnet build   app/Nexa.App -c Release --no-restore   # CI와 동일(릴리스)
@@ -58,6 +58,24 @@ dotnet run     --project app/Nexa.App          # 실행(수동 확인)
 - `.NET SDK`는 `global.json`(8.0.0 + `rollForward: latestMajor`)을 따름 → **9.x SDK로도 빌드 가능**.
 - 현재는 스켈레톤(빈 윈도우) — 단위 테스트 프로젝트는 아직 없음. 기능 단위 추가 시 `Nexa.*.Tests` 프로젝트와 `dotnet test` 절차를 본 문서에 추가.
 - (권장 후속) 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 시: `dotnet test app/Nexa.ViewModels.Tests` 절차 추가([11](11-dev-environment.md) §6-1).
+
+### 2-1. Rust 코어 인터롭 통합 (cdylib 자동 빌드·복사)
+
+`dotnet build app/Nexa.App`는 **cargo로 `nexa-interop`(cdylib)를 먼저 빌드**하고 산출 `nexa_interop.dll`을 앱 출력 디렉토리로 복사한다(csproj 타겟 `BuildNexaInterop` → `CopyNexaInterop`). C# **P/Invoke**([app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs))가 런타임에 이 dll을 로드해 코어 함수를 호출한다(왕복 PoC).
+
+- **전제**: `cargo`가 PATH에 있어야 한다(bootstrap.ps1이 처리). 없으면 빌드 중 cargo 실행 단계에서 실패.
+- **프로필 매핑**: dotnet `Debug` → `cargo build`(`core/target/debug`), `Release` → `cargo build --release`(`core/target/release`).
+- **산출물**: `app/Nexa.App/bin/<plat>/<cfg>/.../nexa_interop.dll`.
+- **의존성**: 따라서 **앱 빌드는 코어(Rust) 빌드에 의존** → CI app job에도 Rust 툴체인이 필요(§4).
+- **검증(dll 단독 P/Invoke)**: 빌드 후 PowerShell에서 왕복을 직접 확인 가능 —
+  ```powershell
+  Add-Type @"
+  using System.Runtime.InteropServices;
+  public static class T { [DllImport("nexa_interop", CallingConvention=CallingConvention.Cdecl)]
+    public static extern int nexa_poc_add(int a, int b); }
+  "@
+  Push-Location core\target\debug; [T]::nexa_poc_add(2,3); Pop-Location   # → 5
+  ```
 
 ## 3. 라이선스 게이트 — cargo-deny
 
@@ -74,7 +92,7 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 | --- | --- | --- |
 | `core` | macos-latest, windows-latest | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` |
 | `license-gate` | ubuntu-latest | `cargo deny check licenses bans advisories` |
-| `app` | windows-latest | `dotnet restore` → `dotnet build app/Nexa.App -c Release --no-restore` |
+| `app` | windows-latest | Rust 툴체인 설치(인터롭 빌드용) → `dotnet restore` → `dotnet build app/Nexa.App -c Release --no-restore`(cargo로 nexa-interop 자동 빌드 포함) |
 
 - 트리거: `main` push · 모든 PR. main은 항상 green 유지.
 - 후속: MSIX 패키징 + 서명(secrets) + 포터블 산출 → Releases 업로드([12](12-packaging-portable.md)).

@@ -29,4 +29,28 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
   </ItemGroup>
 
+  <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────
+       dotnet build 시 cargo로 nexa-interop(cdylib)를 빌드하고, 산출 nexa_interop.dll을
+       앱 출력 디렉토리로 복사한다. P/Invoke(NativeInterop.cs)가 런타임에 이 dll을 로드.
+       전제: cargo가 PATH에 있어야 함(scripts/bootstrap.ps1). 상세: docs/18 §빌드 통합. -->
+  <PropertyGroup>
+    <NexaCoreDir>$(MSBuildProjectDirectory)\..\..\core</NexaCoreDir>
+    <CargoProfileDir>debug</CargoProfileDir>
+    <CargoReleaseFlag></CargoReleaseFlag>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <CargoProfileDir>release</CargoProfileDir>
+    <CargoReleaseFlag>--release</CargoReleaseFlag>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NexaInteropDll>$(NexaCoreDir)\target\$(CargoProfileDir)\nexa_interop.dll</NexaInteropDll>
+  </PropertyGroup>
+
+  <Target Name="BuildNexaInterop" BeforeTargets="Build">
+    <Exec Command="cargo build -p nexa-interop $(CargoReleaseFlag)" WorkingDirectory="$(NexaCoreDir)" />
+  </Target>
+  <Target Name="CopyNexaInterop" AfterTargets="Build" DependsOnTargets="BuildNexaInterop">
+    <Copy SourceFiles="$(NexaInteropDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
