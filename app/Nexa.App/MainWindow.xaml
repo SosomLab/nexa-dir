@@ -3,13 +3,35 @@
     x:Class="Nexa.App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Nexa.App"
     Title="Nexa Dir">
-    <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-            <TextBlock Text="Nexa Dir" FontSize="28" FontWeight="SemiBold"
-                       HorizontalAlignment="Center" />
-            <TextBlock x:Name="StatusText" Text="스캐폴딩 — UI 셸 준비됨"
-                       Opacity="0.7" HorizontalAlignment="Center" />
-        </StackPanel>
+    <Grid Padding="12" RowSpacing="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Nexa Dir" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="1" x:Name="StatusText" Text="스캐폴딩 — UI 셸 준비됨" Opacity="0.7" />
+        <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" />
+
+        <ListView Grid.Row="3" x:Name="DirList" SelectionMode="Extended">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:DirItem">
+                    <Grid ColumnSpacing="12" Padding="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
     </Grid>
 </Window>

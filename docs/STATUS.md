@@ -59,7 +59,9 @@
   `Entry`에 size/modified 추가. 맥/Win 빌드·테스트(7 tests green). 플래그십 인라인 트리의 기반(FR-A1).
 - **M0 인터롭 디렉터리 열거 API 완료** ✅ (2026-06-30): `nexa_dir_open`/`nexa_dir_next`/`nexa_dir_close` + `NexaEntry`(name/kind/size/modified_unix_ms).
   핸들 기반 스트리밍, 엔트리 오류 격리, name 수명은 핸들 보관. 9 tests green.
-- **다음 단위(M0)**: C# P/Invoke로 디렉터리 열거 호출 → WinUI 가상화 리스트 렌더 → 네비게이션.
+- **M0 디렉터리 열거 C# 바인딩+UI 완료** ✅ (2026-06-30): `NativeInterop.ReadDir`(open/next/close 래핑) → MainWindow ListView에
+  홈 폴더 목록 표시(종류/이름/크기). 코어 스트리밍 열거가 화면까지 도달. 빌드 0/0, 앱 기동 검증.
+- **다음 단위(M0)**: WinUI **ItemsRepeater 가상화 렌더**(대량 항목) → 경로 입력/네비게이션.
   (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — docs/11 §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유

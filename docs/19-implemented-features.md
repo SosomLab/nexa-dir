@@ -52,7 +52,21 @@
   | 코어 단위 | `cargo test -p nexa-interop` | `dir_handle_enumerates`·`dir_open_null_and_missing` 통과 |
   | — 열거 | (임시폴더 open→next 루프→close) | 파일명/kind=0/size 일치 |
   | — 방어 | (널 경로·없는 경로) | 핸들 널 |
-- **후속(미구현)**: C# `NativeInterop`에 `nexa_dir_open/next/close` + `NexaEntry` 마샬링 → WinUI 가상화 렌더.
+- **C# 바인딩·UI**: → F4에서 완료.
+
+### F4. 디렉터리 열거 C# 바인딩 & UI 목록 표시
+- **무엇**: F3 핸들 API를 C#에서 호출해 폴더 내용을 WinUI 목록에 표시 — **코어 스트리밍 열거가 화면까지 도달**.
+- **구현 위치**:
+  - C# 바인딩: [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) — `NexaEntry`(StructLayout), `nexa_dir_open/next/close`, `ReadDir(path)` 래퍼(`name` 즉시 `PtrToStringUTF8` 복사), `DirItem` DTO
+  - UI: [app/Nexa.App/MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) ListView(x:Bind) + [.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `LoadDirectory()`(시작 시 사용자 홈 열거)
+  - csproj: `AllowUnsafeBlocks`(WinUI WinRT 제네릭 컬렉션 ABI)
+- **커밋**: `(이 단위)`
+- **테스트**:
+  | 방법 | 명령 | 기대 |
+  | --- | --- | --- |
+  | 앱 실행 | `dotnet run --project app/Nexa.App` | 창에 홈 폴더 항목 목록(종류/이름/크기) + 헤더 "N개 항목 (코어 스트리밍 열거)" |
+  | 빌드+기동 | `dotnet build app/Nexa.App` 후 Nexa.App.exe 기동 | 예외 없이 실행 유지 |
+- **후속**: ItemsRepeater 가상화 렌더(대량 항목) · 경로 입력/네비게이션 · 인라인 트리 펼침([07](07-flagship-tree-multiselect.md)).
 
 ---
 

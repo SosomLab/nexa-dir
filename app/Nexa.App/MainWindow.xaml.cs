@@ -1,3 +1,4 @@
+using System;
 using Microsoft.UI.Xaml;
 
 namespace Nexa.App;
@@ -9,6 +10,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         ShowInteropRoundTrip();
+        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
     }
 
     /// <summary>
@@ -23,9 +25,27 @@ public sealed partial class MainWindow : Window
             int sum = NativeInterop.nexa_poc_add(2, 3);
             StatusText.Text = $"인터롭 OK — abi={abi}, nexa_poc_add(2, 3)={sum}";
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             StatusText.Text = $"인터롭 실패: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 목록에 표시한다.
+    /// 실패는 헤더 메시지로 격리(앱은 계속 동작).
+    /// </summary>
+    private void LoadDirectory(string path)
+    {
+        try
+        {
+            var items = NativeInterop.ReadDir(path);
+            DirList.ItemsSource = items;
+            DirHeader.Text = $"{path} — {items.Count}개 항목 (코어 스트리밍 열거)";
+        }
+        catch (Exception ex)
+        {
+            DirHeader.Text = $"디렉터리 열거 실패: {ex.Message}";
         }
     }
 }
