@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-06-30 (KST) · 단계: **스캐폴딩 완료, M0 진행 중** · 코어 cargo test green
+> 갱신: 2026-06-30 (KST) · 단계: **M0 진행 중** — 데이터 흐름 수직 슬라이스(코어→인터롭→C#→UI) 완성, 가상화 렌더가 다음 · 코어 9 tests green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 
@@ -42,27 +42,25 @@
 - **작은 기능 단위(수직 슬라이스) 순차** · **단위=커밋 1개** · **초안→확장 프로토타이핑** · main 항상 green.
 - 단위 백로그(M0→M1)는 docs/15 §7. 커밋은 Conventional Commits.
 
-## 6. 남은 Open / 다음 단계
+## 6. 진행 현황 / 다음 단계
 
-- OD2 AI(보류), 상표 출원 검토. LICENSE(영문/한글)·THIRD-PARTY-NOTICES ✅ 추가됨.
-- **스캐폴딩 완료** ✅:
-  - `core/`(Rust 워크스페이스 nexa-core/vfs/interop, **cargo test green**) · `app/Nexa.App`(WinUI 스켈레톤, Windows 빌드)
-  - CI(.github/workflows) · LICENSE.md/LICENSE.ko.md/THIRD-PARTY-NOTICES · `.gitignore`/`.claude/settings.json`
-  - 환경: `scripts/bootstrap.sh`(brew)·`scripts/bootstrap.ps1`(choco→winget→수동)·global.json·.vscode
-- **Windows 풀빌드 실측 검증** ✅ (2026-06-30): bootstrap.ps1로 Rust 1.96 + VS Build Tools 2022 + .NET SDK 9 설치 →
-  `cargo test`(코어 green) + `dotnet build app/Nexa.App`(경고0/오류0). bootstrap의 .NET SDK 감지는 `dotnet --list-sdks` 기준으로 개선.
-  - 메타: 조직/연락처(SosomLab) 반영(README/LICENSE/Cargo.toml/csproj)
-- **M0 인터롭 왕복 PoC 완료** ✅ (2026-06-30): Rust `nexa-interop`의 C ABI `nexa_poc_add` ↔ C# P/Invoke(`NativeInterop.cs`).
-  csproj가 cargo로 cdylib 빌드 → `nexa_interop.dll`을 앱 출력에 복사, CI app job에 Rust 툴체인 추가. **CI success**.
-  검증: dll 왕복 `abi=1 / poc_add(2,3)=5 / (40,2)=42`. (커밋 `c41dc41` 초안 + `af07fee` 확장) · 절차 [18](18-build-and-test.md) §2-1.
-- **M0 로컬 스트리밍 열거 완료** ✅ (2026-06-30): `nexa-vfs::read_dir_entries` — 점진 산출 Iterator(엔트리별 Result, 메타 실패 격리).
-  `Entry`에 size/modified 추가. 맥/Win 빌드·테스트(7 tests green). 플래그십 인라인 트리의 기반(FR-A1).
-- **M0 인터롭 디렉터리 열거 API 완료** ✅ (2026-06-30): `nexa_dir_open`/`nexa_dir_next`/`nexa_dir_close` + `NexaEntry`(name/kind/size/modified_unix_ms).
-  핸들 기반 스트리밍, 엔트리 오류 격리, name 수명은 핸들 보관. 9 tests green.
-- **M0 디렉터리 열거 C# 바인딩+UI 완료** ✅ (2026-06-30): `NativeInterop.ReadDir`(open/next/close 래핑) → MainWindow ListView에
-  홈 폴더 목록 표시(종류/이름/크기). 코어 스트리밍 열거가 화면까지 도달. 빌드 0/0, 앱 기동 검증.
-- **다음 단위(M0)**: WinUI **ItemsRepeater 가상화 렌더**(대량 항목) → 경로 입력/네비게이션.
-  (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — docs/11 §6-1)
+- OD2 AI(보류), 상표 출원 검토. LICENSE(영문/한글)·THIRD-PARTY-NOTICES ✅.
+- **스캐폴딩 + 환경 검증 완료** ✅: `core/`(nexa-core/vfs/interop) · `app/Nexa.App`(WinUI) · CI(mac/win) · LICENSE · bootstrap(sh/ps1) · global.json/.vscode.
+  - Windows 풀빌드 실측(2026-06-30): Rust 1.96 + VS Build Tools 2022 + .NET SDK 9 + Windows App Runtime 1.6. `cargo test` + `dotnet build` green. 도구 상세 [11](11-dev-environment.md).
+
+- **M0 진행 — 데이터 흐름 수직 슬라이스 완성** ✅ (코어 → 인터롭 → C# → UI):
+
+  | # | 단위 | 산출 | 검증 | 커밋 |
+  | --- | --- | --- | --- | --- |
+  | 1 | 인터롭 왕복 PoC | `nexa_poc_add` ↔ C# P/Invoke + csproj cargo 통합 | dll 왕복(5/42) · CI success | `c41dc41`·`af07fee` |
+  | 2 | 로컬 스트리밍 열거 | `nexa-vfs::read_dir_entries`(점진 Iterator, 오류 격리) | 7 tests green | `623da9d` |
+  | 3 | 인터롭 디렉터리 열거 API | `nexa_dir_open/next/close`+`NexaEntry`(핸들 스트리밍) | 9 tests green | `541e887` |
+  | 4 | 디렉터리 열거 C# 바인딩+UI | `ReadDir` → MainWindow ListView 목록 표시 | 빌드 0/0 · 앱 기동 | `7e12c1f` |
+
+  기능별 구현·테스트 방법 → [19](19-implemented-features.md) · 빌드/실행 → [18](18-build-and-test.md).
+
+- **다음 단위(M0)**: WinUI **ItemsRepeater 가상화 렌더**(대량 항목 일정 메모리) → 경로 입력/네비게이션.
+  (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — [11](11-dev-environment.md) §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
