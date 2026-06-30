@@ -11,6 +11,7 @@ name = "nexa-interop"
 version = "0.0.0"
 dependencies = [
  "nexa-core",
+ "nexa-vfs",
 ]
 
 [[package]]
