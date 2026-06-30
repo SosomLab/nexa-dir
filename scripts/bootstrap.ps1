@@ -114,6 +114,26 @@ if (Test-Path $rustup) {
   Write-Warn "rustup 미발견 — 설치 후 'rustup default stable; rustup target add x86_64-pc-windows-msvc' 실행"
 }
 
+# --- Windows App Runtime 1.6 (unpackaged WinUI 앱 실행용) ---
+# winget의 framework 패키지만으론 Main/DDLM/Singleton이 빠져 unpackaged 앱이 실행 시 런타임을 요구한다.
+# 공식 인스톨러(aka.ms)가 전체 세트를 설치하므로 그걸 사용.
+$wasdkMain = Get-AppxPackage -Name 'MicrosoftCorporationII.WinAppRuntime.Main.1.6' -ErrorAction SilentlyContinue
+if ($wasdkMain) {
+  Write-OK 'Windows App Runtime 1.6 (이미 설치됨)'
+} else {
+  Write-Info 'Windows App Runtime 1.6 설치 (공식 인스톨러)'
+  $wasdkUrl = 'https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe'
+  $wasdkExe = Join-Path $env:TEMP 'windowsappruntimeinstall-1.6-x64.exe'
+  try {
+    Invoke-WebRequest $wasdkUrl -OutFile $wasdkExe
+    & $wasdkExe --quiet
+    if ($LASTEXITCODE -eq 0) { Write-OK 'Windows App Runtime 1.6' }
+    else { Write-Warn "Windows App Runtime 설치 실패 — 수동: $wasdkUrl" }
+  } catch {
+    Write-Warn "Windows App Runtime 다운로드 실패 — 수동 설치: $wasdkUrl"
+  }
+}
+
 Write-Host "`n✅ Windows 부트스트랩 완료. 새 터미널에서:" -ForegroundColor Green
 Write-Host "   cargo test --manifest-path core/Cargo.toml"
 Write-Host "   dotnet build app/Nexa.App -c Debug"

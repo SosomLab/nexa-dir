@@ -128,6 +128,13 @@ cargo test -p nexa-interop      # 특정 크레이트만
 ```
 
 ### 6-2. WinUI 앱 — 실행(수동 스모크) · Windows
+
+> **전제(최초 1회)**: **Windows App Runtime 1.6** 설치 — unpackaged 앱은 실행 시 시스템 런타임을 요구한다.
+> winget `Microsoft.WindowsAppRuntime.1.6`은 **framework만** 깔아 Main/DDLM/Singleton이 빠지므로 부족 →
+> **공식 인스톨러** `windowsappruntimeinstall-x64.exe`(<https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe>)로
+> 전체 세트 설치(bootstrap.ps1이 처리). 미설치 시 "requires Windows App Runtime 1.6 (>= 6000.519.329.0)" 대화상자.
+> (배포 시엔 self-contained 번들로 런타임 의존 제거 가능 — [12](12-packaging-portable.md))
+
 ```powershell
 dotnet run --project app/Nexa.App
 ```
