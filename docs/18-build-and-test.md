@@ -83,6 +83,21 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 
 `tools/nexa-license-gen`(라이선스 키 생성 CLI) 추가 시: `cargo build -p nexa-license-gen` / `cargo test` 절차를 본 문서에 추가. 비밀키는 저장소 밖([17](17-licensing-activation.md) §5-1).
 
+## 5-1. 디버깅 (브레이크포인트 / step / watch)
+
+> rust-analyzer의 **"▶ Debug" CodeLens**(테스트/`fn main` 위)로 디버그. **디버그 빌드에서만** 라인이 정확히 바인딩됨(release는 인라인 최적화로 어긋남).
+> ⚠️ **디버거 엔진은 OS의 디버그 정보 형식에 맞춰야 한다 — 공유 설정에 고정 금지.**
+
+| OS | 디버그 정보 | 디버거(확장) | `rust-analyzer.debug.engine` |
+| --- | --- | --- | --- |
+| **Windows (MSVC)** | **PDB** | C/C++ — **cppvsdbg** (`ms-vscode.cpptools`) | `ms-vscode.cpptools` |
+| **macOS / Linux** | **DWARF** | **CodeLLDB** (`vadimcn.vscode-lldb`) | `vadimcn.vscode-lldb` (또는 auto) |
+
+- **왜 OS별인가**: `cppvsdbg`는 **Windows 전용**(PDB). `CodeLLDB`(LLDB)는 **DWARF**용(mac/Linux). Windows MSVC를 LLDB로 디버그하면 **브레이크/watch가 안 잡히고**, 반대로 cppvsdbg는 mac/Linux에 없다.
+- **설정 위치**: `.vscode/settings.json`(저장소 공유)에는 엔진을 **고정하지 않는다**(기본 auto). 각자 **VSCode User Settings**에 위 값을 지정. (auto는 CodeLLDB를 우선 선택하므로, CodeLLDB도 설치된 Windows에선 `ms-vscode.cpptools`를 **명시**해야 함)
+- **확장 설치**: Windows=cpptools, macOS/Linux=CodeLLDB. [.vscode/extensions.json](../.vscode/extensions.json)이 둘 다 추천 — **자기 OS 것만** 설치하면 auto가 알맞게 고름.
+- **`const` watch 한계**: Rust `const`(예 `CORE_VERSION = env!("CARGO_PKG_VERSION")`)는 컴파일타임에 인라인되어 **런타임 심볼이 없다** → watch에서 `identifier undefined`. 값 관찰이 필요하면 `let v = CORE_VERSION;`처럼 **지역 변수로 바인딩**해서 본다. 또 cppvsdbg는 C++ 식 평가기라 `.is_empty()` 같은 **Rust 메서드 호출은 watch 평가 불가**(변수만 넣을 것).
+
 ## 6. 빠른 전체 점검 (로컬 머지 전)
 
 ```bash

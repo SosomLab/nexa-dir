@@ -1,6 +1,10 @@
 {
   "rust-analyzer.linkedProjects": ["core/Cargo.toml"],
   "rust-analyzer.check.command": "clippy",
+  // 디버그 엔진은 OS 종속이라 공유 설정에 고정하지 않음(기본 auto). 각자 VSCode User Settings에서 지정:
+  //   Windows(MSVC/PDB)  = "ms-vscode.cpptools"  (cppvsdbg)
+  //   macOS/Linux(DWARF) = "vadimcn.vscode-lldb" (CodeLLDB)
+  // 상세: docs/18-build-and-test.md §디버깅
   "[rust]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "rust-lang.rust-analyzer"

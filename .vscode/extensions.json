@@ -4,6 +4,9 @@
     "ms-dotnettools.csharp",
     "ms-dotnettools.csdevkit",
     "tamasfe.even-better-toml",
+    "ms-vscode.cpptools",
     "vadimcn.vscode-lldb"
   ]
+  // 디버거: Windows(MSVC)=ms-vscode.cpptools(cppvsdbg) · macOS/Linux=vadimcn.vscode-lldb(CodeLLDB).
+  // 둘 다 추천하되 자기 OS 것만 설치하면 rust-analyzer auto가 알맞게 선택됨 (docs/18 §디버깅).
 }
