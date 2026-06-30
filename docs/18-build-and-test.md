@@ -116,7 +116,50 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 - **확장 설치**: Windows=cpptools, macOS/Linux=CodeLLDB. [.vscode/extensions.json](../.vscode/extensions.json)이 둘 다 추천 — **자기 OS 것만** 설치하면 auto가 알맞게 고름.
 - **`const` watch 한계**: Rust `const`(예 `CORE_VERSION = env!("CARGO_PKG_VERSION")`)는 컴파일타임에 인라인되어 **런타임 심볼이 없다** → watch에서 `identifier undefined`. 값 관찰이 필요하면 `let v = CORE_VERSION;`처럼 **지역 변수로 바인딩**해서 본다. 또 cppvsdbg는 C++ 식 평가기라 `.is_empty()` 같은 **Rust 메서드 호출은 watch 평가 불가**(변수만 넣을 것).
 
-## 6. 빠른 전체 점검 (로컬 머지 전)
+## 6. 실행 & 동작 확인 (Run / smoke test)
+
+빌드가 끝나면 실제로 실행해 동작을 확인한다.
+
+### 6-1. 코어 — 자동 테스트
+```bash
+cd core
+cargo test --workspace          # 단위 테스트(현재 5개: nexa-core 2 · nexa-interop 2 · nexa-vfs 1)
+cargo test -p nexa-interop      # 특정 크레이트만
+```
+
+### 6-2. WinUI 앱 — 실행(수동 스모크) · Windows
+```powershell
+dotnet run --project app/Nexa.App
+```
+- 창 가운데 상태줄에 **인터롭 왕복 결과**가 표시되면 성공:
+  `인터롭 OK — abi=1, nexa_poc_add(2, 3)=5`
+- `인터롭 실패: ...` 가 보이면 dll 미복사/미로드 → §2-1(빌드 통합)·`cargo`가 PATH인지 확인.
+- 종료: 창 닫기. (현재는 빈 셸 + PoC 표시 단계 — 후속 단위에서 경로바·트리 추가)
+
+### 6-3. 인터롭 dll 단독 왕복 — 헤드리스(GUI 없이)
+GUI를 띄우지 않고 `nexa_interop.dll`만으로 P/Invoke 왕복을 검증(§2-1 스니펫):
+```powershell
+# 앱을 한 번 빌드해 dll이 출력에 있는 상태에서
+$out = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0").Path
+$env:Path = "$out;$env:Path"; [Environment]::CurrentDirectory = $out
+Add-Type @"
+using System.Runtime.InteropServices;
+public static class T { [DllImport("nexa_interop", CallingConvention=CallingConvention.Cdecl)]
+  public static extern int nexa_poc_add(int a, int b); }
+"@
+[T]::nexa_poc_add(2,3)    # → 5
+```
+> 주의: .NET native 로드는 PWD가 아니라 `Environment.CurrentDirectory`/PATH 기준 → 위처럼 절대경로 지정.
+
+### 6-4. 라이선스 게이트 — 실행
+```bash
+cargo install cargo-deny     # 최초 1회(미설치 시 'no such command: deny')
+cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
+```
+- `advisories ok, bans ok, licenses ok` 면 통과(exit 0).
+- `license-not-encountered` **경고**는 허용 목록 라이선스가 아직 의존성에 안 쓰인 것 → **정상**(의존성 추가 시 사라짐).
+
+## 7. 빠른 전체 점검 (로컬 머지 전)
 
 ```bash
 # 코어 (mac/Win/Linux)
