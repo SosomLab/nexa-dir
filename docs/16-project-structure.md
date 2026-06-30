@@ -82,7 +82,7 @@ nexa-dir/
 | --- | --- |
 | `Nexa.App.csproj` | WinUI3 앱. `net8.0-windows10.0.19041.0`, `WindowsPackageType=None`(포터블 친화), x64/arm64. **인터롭 타겟**: `BuildNexaInterop`(cargo build) → `CopyNexaInterop`(nexa_interop.dll→출력) |
 | `App.xaml(.cs)` | 애플리케이션 객체·Fluent 리소스, 메인 윈도우 생성 |
-| `MainWindow.xaml(.cs)` | 메인 윈도우. `ShowInteropRoundTrip()`(왕복) + `LoadDirectory()`(코어 열거 → ListView 표시). 후속: 경로바·듀얼패널·트리 |
+| `MainWindow.xaml(.cs)` | 메인 윈도우. `ShowInteropRoundTrip()`(왕복) + `LoadDirectory()`(코어 열거 → **ItemsRepeater 가상화** 목록). 후속: 인라인 트리·경로바·듀얼패널 |
 | `NativeInterop.cs` | 코어 cdylib P/Invoke 바인딩(`nexa_abi_version`/`nexa_poc_add` + 디렉터리 열거 `nexa_dir_*`, `ReadDir`/`DirItem`). 런타임에 `nexa_interop.dll` 로드 |
 | `app.manifest` | PerMonitorV2 고DPI, 지원 OS(Win10/11) |
 

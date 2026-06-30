@@ -55,11 +55,12 @@
   | 1 | 인터롭 왕복 PoC | `nexa_poc_add` ↔ C# P/Invoke + csproj cargo 통합 | dll 왕복(5/42) · CI success | `c41dc41`·`af07fee` |
   | 2 | 로컬 스트리밍 열거 | `nexa-vfs::read_dir_entries`(점진 Iterator, 오류 격리) | 7 tests green | `623da9d` |
   | 3 | 인터롭 디렉터리 열거 API | `nexa_dir_open/next/close`+`NexaEntry`(핸들 스트리밍) | 9 tests green | `541e887` |
-  | 4 | 디렉터리 열거 C# 바인딩+UI | `ReadDir` → MainWindow ListView 목록 표시 | 빌드 0/0 · 앱 기동 | `7e12c1f` |
+  | 4 | 디렉터리 열거 C# 바인딩+UI | `ReadDir` → MainWindow 목록 표시 | 빌드 0/0 · 앱 기동 | `7e12c1f` |
+  | 5 | ItemsRepeater 가상화 렌더 | `ListView`→`ScrollViewer`+`ItemsRepeater`(트리 토대) | 빌드 0/0 · 앱 기동 | `(이번)` |
 
   기능별 구현·테스트 방법 → [19](19-implemented-features.md) · 빌드/실행 → [18](18-build-and-test.md).
 
-- **다음 단위(M0)**: WinUI **ItemsRepeater 가상화 렌더**(대량 항목 일정 메모리) → 경로 입력/네비게이션.
+- **다음 단위(M0)**: 경로 입력/**네비게이션**(폴더 진입·뒤로/앞으로/위로) → 인라인 트리 펼침([07](07-flagship-tree-multiselect.md)).
   (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — [11](11-dev-environment.md) §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유

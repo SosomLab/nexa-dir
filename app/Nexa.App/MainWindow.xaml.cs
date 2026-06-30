@@ -40,8 +40,8 @@ public sealed partial class MainWindow : Window
         try
         {
             var items = NativeInterop.ReadDir(path);
-            DirList.ItemsSource = items;
-            DirHeader.Text = $"{path} — {items.Count}개 항목 (코어 스트리밍 열거)";
+            DirRepeater.ItemsSource = items;
+            DirHeader.Text = $"{path} — {items.Count}개 항목 (코어 스트리밍 열거, ItemsRepeater 가상화)";
         }
         catch (Exception ex)
         {
