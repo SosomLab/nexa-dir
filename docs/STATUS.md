@@ -55,7 +55,9 @@
 - **M0 인터롭 왕복 PoC 완료** ✅ (2026-06-30): Rust `nexa-interop`의 C ABI `nexa_poc_add` ↔ C# P/Invoke(`NativeInterop.cs`).
   csproj가 cargo로 cdylib 빌드 → `nexa_interop.dll`을 앱 출력에 복사, CI app job에 Rust 툴체인 추가. **CI success**.
   검증: dll 왕복 `abi=1 / poc_add(2,3)=5 / (40,2)=42`. (커밋 `c41dc41` 초안 + `af07fee` 확장) · 절차 [18](18-build-and-test.md) §2-1.
-- **다음 단위(M0)**: 로컬 디렉터리 **스트리밍 열거**(nexa-vfs, 맥 가능) → WinUI 가상화 리스트 렌더 → 네비게이션.
+- **M0 로컬 스트리밍 열거 완료** ✅ (2026-06-30): `nexa-vfs::read_dir_entries` — 점진 산출 Iterator(엔트리별 Result, 메타 실패 격리).
+  `Entry`에 size/modified 추가. 맥/Win 빌드·테스트(7 tests green). 플래그십 인라인 트리의 기반(FR-A1).
+- **다음 단위(M0)**: 인터롭으로 엔트리 스트림을 C#에 전달 → WinUI 가상화 리스트 렌더 → 네비게이션.
   (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — docs/11 §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유

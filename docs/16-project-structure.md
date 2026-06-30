@@ -72,7 +72,7 @@ nexa-dir/
 | 크레이트 | 목적 / 현재 내용 |
 | --- | --- |
 | `nexa-core` | 코어 공용 타입. `FileKind`(File/Dir/Symlink), `CORE_VERSION`. 단위 테스트 2 |
-| `nexa-vfs` | 저장소 추상화. `Provider` trait, `Entry` 구조체(스텁). 후속: 로컬 스트리밍 열거 |
+| `nexa-vfs` | 저장소 추상화. `Provider` trait, `Entry`(name/kind/size/modified), **로컬 스트리밍 열거 `read_dir_entries`**(점진 산출 Iterator, 엔트리별 Result). 후속: list/stat/watch |
 | `nexa-interop` | **cdylib** — C# 호스트가 P/Invoke로 로드. C ABI `nexa_abi_version()` + 왕복 PoC `nexa_poc_add(a,b)`. 후속: 핸들 API·이벤트 스트림 |
 | `deny.toml` | 허용 라이선스 화이트리스트(MIT/Apache/BSD…), 1st-party 예외(PolyForm) |
 | `Cargo.toml` | 워크스페이스 멤버·공통 메타(version/edition/license/authors), release 프로파일(LTO) |
@@ -94,6 +94,6 @@ nexa-dir/
 - `STATUS.md` 현황 요약 · `journal/` 타임스탬프 작업 기록(질문·결정·진행)
 
 ## 3. 현재 상태 요약
-- 코어: `cargo test` green(3 crates / 5 tests), fmt·clippy clean.
+- 코어: `cargo test` green(3 crates / 7 tests), fmt·clippy clean. nexa-vfs 로컬 스트리밍 열거 동작.
 - 앱: 인터롭 왕복 PoC 동작(C# P/Invoke ↔ Rust cdylib) — Windows/CI 빌드 검증, **CI success**.
-- 다음 단위: 로컬 스트리밍 열거(nexa-vfs) → 가상화 렌더 → 네비게이션 (docs/15 §7).
+- 다음 단위: 인터롭으로 엔트리 스트림 전달 → WinUI 가상화 렌더 → 네비게이션 (docs/15 §7).
