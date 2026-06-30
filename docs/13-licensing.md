@@ -78,7 +78,7 @@
 > (오프라인 1차 + 온라인 2차, Ed25519 서명 토큰). 로드맵 M7.
 
 ## 6. 결정 (확정)
-- 선택 모델: **소스공개 제한형 — PolyForm Noncommercial 1.0.0**(대안 BSL 1.1). 저장소 **public**.
+- 선택 모델: **소스공개 제한형 — PolyForm Noncommercial 1.0.0**(대안 BSL 1.1). 저장소 **공개 예정**(현재 private, 어느 정도 진행 후 public 전환).
 - 즉시 시행: §4의 1~5(소유권·상표·퍼미시브 정책·CI 게이트·NOTICE) 채택.
 - 스캐폴딩 시 추가: `LICENSE`(PolyForm Noncommercial), `THIRD-PARTY-NOTICES`, `cargo-deny.toml`,
   CI 라이선스 게이트, 기여 시 `CLA/DCO`.

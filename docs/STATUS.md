@@ -10,7 +10,7 @@
 | DR-2 | 디자인 | **프로툴 고밀도(Path Finder풍)**, 다크 기본, 키보드 우선 |
 | DR-3 | 배포 | **MSIX + Releases + winget** + 포터블(폴더/단일exe) 가능 설계 |
 | DR-4 | AI | 보류 (M5 전 별도 ADR) |
-| DR-5 | 라이선스 | **소스공개 제한형 PolyForm Noncommercial**(대안 BSL), public, 개인무료/상업유료 |
+| DR-5 | 라이선스 | **소스공개 제한형 PolyForm Noncommercial**(대안 BSL), **공개 예정(현재 private, 진행 후 public 전환)**, 개인무료/상업유료 |
 
 ## 2. 핵심 요구 (확정)
 
@@ -58,6 +58,7 @@
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
 - clone 후 **`CLAUDE.md`(자동 로드) + 이 STATUS** 로 즉시 인계 → [14](14-context-sharing.md).
+- **저장소 가시성**: 현재 **private**, 어느 정도 진행 후 **public 전환 예정**(DR-5 소스공개 방향). 공개 대비 지금부터 비밀 커밋 금지 규율 적용.
 - 비밀(서명 인증서·자격증명·라이선스 키·사업/법무)은 **저장소 밖**(GitHub Secrets·비밀번호 관리자·
   private repo·암호화 커밋). `.gitignore`로 사고 예방.
 

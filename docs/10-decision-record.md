@@ -13,7 +13,10 @@
 | **DR-2** | 디자인 방향 | **프로툴 고밀도 (Path Finder풍)** | 정보 밀도·키보드 우선·전문가 워크플로우. 플래그십(인라인 트리+교차선택)·듀얼/탭과 정합 |
 | **DR-3** | 배포 (OD4) | **MSIX + GitHub Releases + winget** (1차) + **포터블(폴더/단일exe) 가능하도록 설계** | 서명 MSIX 자동화. 포터블은 우선순위 아님·배포 시 판단하되 **지금 막지 않도록** 설계 → [12](12-packaging-portable.md) |
 | **DR-4** | AI 제공 (OD2) | **보류 — M5 착수 전 별도 ADR** | 프라이버시/비용 정책은 시점에 맞춰 결정 |
-| **DR-5** | 라이선스 (OD3) | **소스공개 제한형 — PolyForm Noncommercial**(대안 BSL), 저장소 public, 개인 무료/상업 유료 | 소스 공개(신뢰) + 유료 판매 보호 양립 → [13](13-licensing.md) |
+| **DR-5** | 라이선스 (OD3) | **소스공개 제한형 — PolyForm Noncommercial**(대안 BSL), 저장소 **공개 예정**(현재 private, 진행 후 public 전환), 개인 무료/상업 유료 | 소스 공개(신뢰) + 유료 판매 보호 양립 → [13](13-licensing.md) |
+
+> **저장소 가시성(보완)**: 현재 **private**. 소스공개(DR-5) 방향에 따라 **어느 정도 진행된 뒤 public 전환 예정**.
+> 그때까지도 공개 대비 비밀 커밋 금지 규율을 적용한다(시점 변경은 journal로 추적). [STATUS](STATUS.md)·[14](14-context-sharing.md) 동일 반영.
 
 ## 2. 기술 요소 동결 (Tech Stack Freeze)
 
@@ -61,7 +64,7 @@
 | --- | --- |
 | OD1 스택 | ✅ DR-1 (안 A) |
 | OD2 AI | ⏸ 보류 (DR-4, M5 전 ADR) |
-| OD3 라이선스 | ✅ DR-5 (소스공개 제한형 PolyForm Noncommercial, public, 개인무료/상업유료) |
+| OD3 라이선스 | ✅ DR-5 (소스공개 제한형 PolyForm Noncommercial, 공개 예정/현재 private, 개인무료/상업유료) |
 | OD4 패키징 | ✅ DR-3 (MSIX+winget) + 포터블 설계([12](12-packaging-portable.md)) |
 | OD5 Windows 빌드 환경 | ✅ [11](11-dev-environment.md) (Windows PC/VM + CI) |
 
