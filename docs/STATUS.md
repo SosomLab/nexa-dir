@@ -49,6 +49,8 @@
   - `core/`(Rust 워크스페이스 nexa-core/vfs/interop, **cargo test green**) · `app/Nexa.App`(WinUI 스켈레톤, Windows 빌드)
   - CI(.github/workflows) · LICENSE.md/LICENSE.ko.md/THIRD-PARTY-NOTICES · `.gitignore`/`.claude/settings.json`
   - 환경: `scripts/bootstrap.sh`(brew)·`scripts/bootstrap.ps1`(choco→winget→수동)·global.json·.vscode
+- **Windows 풀빌드 실측 검증** ✅ (2026-06-30): bootstrap.ps1로 Rust 1.96 + VS Build Tools 2022 + .NET SDK 9 설치 →
+  `cargo test`(코어 green) + `dotnet build app/Nexa.App`(경고0/오류0). bootstrap의 .NET SDK 감지는 `dotnet --list-sdks` 기준으로 개선.
   - 메타: 조직/연락처(SosomLab) 반영(README/LICENSE/Cargo.toml/csproj)
 - **다음 단위(M0)**: 인터롭 PoC(Rust↔C# 왕복) → 로컬 디렉터리 스트리밍 열거(nexa-vfs) →
   WinUI 가상화 리스트 렌더 → 네비게이션. (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — docs/11 §6-1)
