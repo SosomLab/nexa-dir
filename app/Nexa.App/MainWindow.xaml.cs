@@ -62,7 +62,8 @@ public sealed partial class MainWindow : Window
         RightPanel.Visibility = Visible(show);
         PanelSplitter.Visibility = Visible(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
-        RightCol.Width = show ? new GridLength(360) : new GridLength(0);
+        // 표시 시 좌/우 동일 크기(star) 복원
+        RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
     private void OnToggleTerminal(object sender, RoutedEventArgs e)

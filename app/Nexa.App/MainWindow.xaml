@@ -59,9 +59,10 @@
         <!-- 3 · 메인 영역 (좌/우 듀얼 패널 + splitter) -->
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="LeftCol" Width="*" MinWidth="200" />
+                <!-- 기본 좌/우 동일 크기(50:50) — 둘 다 star. splitter 드래그로 조절 가능 -->
+                <ColumnDefinition x:Name="LeftCol" Width="*" MinWidth="160" />
                 <ColumnDefinition x:Name="SplitterCol" Width="Auto" />
-                <ColumnDefinition x:Name="RightCol" Width="360" MinWidth="160" />
+                <ColumnDefinition x:Name="RightCol" Width="*" MinWidth="160" />
             </Grid.ColumnDefinitions>
 
             <!-- 좌 패널 (주) -->
