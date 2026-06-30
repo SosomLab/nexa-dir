@@ -70,10 +70,11 @@
 - FR-E2 스페이스바 퀵룩 오버레이 + 사이드 PreviewPane.
 - FR-E3 썸네일(셸 + 자체) 캐시.
 
-### FR-F 검색 `[M3] P1`
-- FR-F1 인스턴트 파일명 검색(전역 인덱스).
-- FR-F2 필터 문법(type/size/date/tag/path).
-- FR-F3 내용(전문) 검색, 결과를 가상 폴더로 탐색/작업.
+### FR-F 검색 `[M3] P1` — 상세 [24](24-search-everything.md)
+> **Everything식 인스턴트 파일명 검색**(NTFS MFT 일괄 열거 + USN 실시간 갱신, <50ms). 구현 대상 등록.
+- FR-F1 **인스턴트 파일명 검색**(전 드라이브, 인메모리 인덱스, 실시간 갱신). 비NTFS/원격은 walkdir+watch 폴백.
+- FR-F2 필터 문법(type/size/date/tag/path) + 부분/와일드카드/정규식 매칭.
+- FR-F3 내용(전문, tantivy) 검색, 결과를 **가상 폴더**로 탐색/작업(듀얼 패널·교차 선택과 결합).
 
 ### FR-G 클라우드 / 네트워크 / 원격 드라이브 `[M4] P2`
 > **목표로 설정하고 단계적(차근차근) 구현.** VFS provider 모델로 점진 확장.
