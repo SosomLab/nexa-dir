@@ -22,7 +22,7 @@
 - [ ] **Branch/Flat View** (XYplorer/Opus) — 하위 전체 평탄화, 가시노드 스트림과 결합. · `idea(08 R2)`
 - [ ] **Drop Stack(선택 바구니)** (Path Finder) — 교차폴더 선택과 시너지. · `idea(08 R3)`
 - [ ] **태그/색상 라벨** (Finder/XYplorer) — 검색 필터 결합. · `idea(08 R4)`
-- [ ] **고급 일괄 이름변경** (Opus/TC) — 정규식·메타 + 미리보기. · `idea(08 R5)`
+- [ ] **고급 일괄 이름변경** (Path Finder/Opus/TC) — 규칙 스택·정규식·메타 + 미리보기. · `roadmap(M1 P1/M2, 설계 25)`
 - [ ] **폴더 비교·동기화(diff/미러)** (TC/Opus) — 듀얼 패널 결합. · `idea(08 R6)`
 - [ ] **스마트 폴더/저장된 검색** (Finder). · `idea(08 R7)`
 - [ ] **브레드크럼 + 인라인 경로 편집**, 경로 복사 단축. · `idea`
