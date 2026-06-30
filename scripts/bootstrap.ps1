@@ -66,7 +66,20 @@ function Install-Pkg {
 # --- 도구 ---
 Install-Pkg -Name 'Git'        -CheckCmd git     -Choco git              -Winget Git.Git                 -ManualUrl 'https://git-scm.com/downloads'
 Install-Pkg -Name 'Rustup'     -CheckCmd rustup  -Choco 'rustup.install' -Winget Rustlang.Rustup         -ManualUrl 'https://rustup.rs  (rustup-init.exe)'
-Install-Pkg -Name '.NET 8 SDK' -CheckCmd dotnet  -Choco 'dotnet-8.0-sdk' -Winget Microsoft.DotNet.SDK.8  -ManualUrl 'https://dotnet.microsoft.com/download/dotnet/8.0'
+
+# .NET SDK — dotnet 런타임만 있고 SDK가 없는 PC가 있으므로 'dotnet --list-sdks'로 실제 SDK 유무를 확인한다.
+# (CheckCmd=dotnet 만으로는 런타임만 있어도 '설치됨'으로 오판 → SDK 미설치 PC에서 빌드 불가)
+$hasDotnetSdk = $false
+if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+  $sdks = & dotnet --list-sdks 2>$null
+  if ($sdks) { $hasDotnetSdk = $true }
+}
+if ($hasDotnetSdk) {
+  Write-OK (".NET SDK (이미 설치됨: " + (($sdks | Select-Object -First 1) -replace ' \[.*$','') + " 등)")
+} else {
+  Install-Pkg -Name '.NET 8 SDK' -Choco 'dotnet-8.0-sdk' -Winget Microsoft.DotNet.SDK.8 -ManualUrl 'https://dotnet.microsoft.com/download/dotnet/8.0'
+}
+
 Install-Pkg -Name 'VSCode'     -CheckCmd code    -Choco vscode           -Winget Microsoft.VisualStudioCode -ManualUrl 'https://code.visualstudio.com/download'
 Install-Pkg -Name 'Windows Terminal'             -Choco microsoft-windows-terminal -Winget Microsoft.WindowsTerminal -ManualUrl 'https://aka.ms/terminal'
 
