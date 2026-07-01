@@ -239,19 +239,32 @@ public sealed partial class MainWindow : Window
 
     private void OnNavUp(object sender, RoutedEventArgs e) => GoUp(IsLeftPanel(sender));
 
-    /// <summary>경로 바(세그먼트 클릭·편집 제출) 이동 요청 — 존재하는 폴더면 이동, 아니면 상태바 안내(입력 무시).</summary>
+    /// <summary>
+    /// 경로 바(세그먼트 클릭·편집 제출) 이동 요청.
+    /// 폴더면 이동. **끝이 파일이면(파일 존재) 파일명을 제외한 상위 폴더로 이동 후 그 파일 선택.**
+    /// 둘 다 아니면 상태바 안내(입력 무시·현재 경로 복귀).
+    /// </summary>
     private void OnPathBarNavigated(bool left, string path)
     {
         if (Directory.Exists(path))
         {
             SetActivePanel(left);
             Navigate(left, path, record: true);
+            return;
         }
-        else
+        if (File.Exists(path))
         {
-            StatusText.Text = $"경로 없음: {path}";
-            (left ? PathBarL : PathBarR).Path = (left ? _leftTab : _rightTab).Current;   // 현재 경로로 복귀
+            var dir = System.IO.Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            {
+                SetActivePanel(left);
+                Navigate(left, dir, record: true);   // 파일명 제외한 상위 폴더로 이동
+                SelectByPath(left, path);            // 그 파일을 선택·포커스
+                return;
+            }
         }
+        StatusText.Text = $"경로 없음: {path}";
+        (left ? PathBarL : PathBarR).Path = (left ? _leftTab : _rightTab).Current;   // 현재 경로로 복귀
     }
 
     /// <summary>
