@@ -25,7 +25,9 @@ public sealed class NexaPathBarNavigatedEventArgs : EventArgs
 public sealed partial class NexaPathBar : UserControl
 {
     private readonly ObservableCollection<PathSegment> _segments = new();
-    private static readonly Brush HoverBrush = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
+    // hover 반전: 밝은 배경 + 어두운 글자(다크 UI에서 확연히 튐).
+    private static readonly Brush HoverBg = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xEA, 0xEA));
+    private static readonly Brush HoverFg = new SolidColorBrush(Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A));
     private static readonly Brush TransparentBrush = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
 
     public NexaPathBar()
@@ -103,9 +105,14 @@ public sealed partial class NexaPathBar : UserControl
     // ── 브레드크럼 상호작용 ──────────────────────────────────────
     private void OnSegPointerEntered(object sender, PointerRoutedEventArgs e)
     {
+        // 클릭 가능한 세그먼트만 반전 강조(배경/글자색 뒤집기).
         if (sender is Border b && b.Tag is PathSegment s && !s.IsCurrent)
         {
-            b.Background = HoverBrush;   // 클릭 가능한 세그먼트만 hover 강조
+            b.Background = HoverBg;
+            if (b.Child is TextBlock tb)
+            {
+                tb.Foreground = HoverFg;
+            }
         }
     }
 
@@ -114,6 +121,10 @@ public sealed partial class NexaPathBar : UserControl
         if (sender is Border b)
         {
             b.Background = TransparentBrush;
+            if (b.Child is TextBlock tb)
+            {
+                tb.ClearValue(TextBlock.ForegroundProperty);   // 기본(상속) 글자색 복귀
+            }
         }
     }
 

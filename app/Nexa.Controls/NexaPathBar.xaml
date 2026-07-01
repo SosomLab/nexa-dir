@@ -20,9 +20,10 @@
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="local:PathSegment">
+                        <!-- 구분자 \ 와 폴더명을 바짝 붙여 fullpath처럼 보이게(세그먼트 라벨 좌우 패딩 최소) -->
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{x:Bind Prefix}" Opacity="0.5" VerticalAlignment="Center" />
-                            <Border Tag="{x:Bind}" Background="Transparent" CornerRadius="3" Padding="4,1"
+                            <Border Tag="{x:Bind}" Background="Transparent" CornerRadius="3" Padding="1,1"
                                     PointerEntered="OnSegPointerEntered" PointerExited="OnSegPointerExited"
                                     Tapped="OnSegTapped">
                                 <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" />
