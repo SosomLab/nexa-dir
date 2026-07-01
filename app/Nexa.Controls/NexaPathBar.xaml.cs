@@ -26,7 +26,7 @@ public sealed partial class NexaPathBar : UserControl
 {
     private readonly ObservableCollection<PathSegment> _segments = new();
     private static readonly Brush HoverBrush = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
-    private static readonly Brush TransparentBrush = new SolidColorBrush(Colors.Transparent);
+    private static readonly Brush TransparentBrush = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
 
     public NexaPathBar()
     {
