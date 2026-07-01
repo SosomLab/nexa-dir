@@ -122,6 +122,25 @@ AppSettings (기존)                    →  SettingsStore (확장)
 - `SortOptions.FoldersFirst`는 **스키마의 첫 입주자** → 설정 시스템이 실제로 무언가를 저장/복원함을 F15로 이미 검증.
 - 마이그레이션: `settings.json`에 `schemaVersion` 필드 → 향후 필드 추가/개명 대응.
 
+### 5-4. 현재 하드코딩 단축키 → 재정의 대상 (★ 할 일)
+
+> 지금 코드에 **하드코딩**된 키들을, 레지스트리 명령의 `DefaultKey`로 옮기고 `keybindings.json`으로 **사용자 재정의 가능**하게 이관한다(FR-I2). 신규 단축키는 처음부터 명령으로 등록한다.
+
+| 현재 키 | 동작 | 명령 id(예정) | 구현 |
+| --- | --- | --- | --- |
+| `↑` / `↓` | 선택 이동 | `nav.move.up`/`down` | F14/F16 |
+| `Shift+↑/↓` | 범위 선택 확장 | `select.range.up`/`down` | F17 |
+| `Ctrl+↑/↓` | 캐럿만 이동(비연속) | `caret.move.up`/`down` | F17 |
+| `Space` / `Ctrl+Space` | 단일 선택 / 토글 | `select.single`/`select.toggle` | F17 |
+| `→` / `←` | 폴더 펼침 / 접힘 | `tree.expand`/`tree.collapse` | F17 |
+| `←`(접힘 상태) | 부모로 이동 | `nav.parent.row` | F17-1 |
+| `Alt+↓` | 활성화(폴더 진입 / 파일 실행) | `item.activate` | F19 |
+| (예정) `Ctrl+T/W/Shift+T`·`Ctrl+Tab` | 탭 열기/닫기/복원/전환 | `tab.*` | FR-B |
+| `Alt`·`Alt+문자` | 메뉴 토글/접근 | (메뉴 시스템) | F12 |
+
+- 이관 시 **동작 코드는 명령의 `Execute`로 이동**, 키 입력 핸들러(`OnGridKeyDown`)는 **Keymap 조회 → 명령 실행**으로 축소.
+- 기본 키맵 세트(위 표)를 `defaults`로 두고, `keybindings.json`이 덮어씀(§5-1).
+
 ## 6. 우리 스택 매핑
 
 | 구성 | 위치 / 기술 |
@@ -138,11 +157,13 @@ AppSettings (기존)                    →  SettingsStore (확장)
 
 - **α (M1 토대)**: `CommandRegistry` + 기본 명령 등록(네비게이션·정렬 토글·선택·표시) + **팔레트 UI(Ctrl+Shift+P)** + 퍼지 검색 + 현재 단축키 표시. 상태는 인메모리.
   - 이때 **메뉴(NexaMenuBar)·툴바를 레지스트리 구동으로 전환**(트랙 D "실동작 연결"과 통합) → 배선 중복 제거.
-- **β (P1, 설정 시스템과 동반)**: `settings.json`/`keybindings.json`/`state.json` 로드·저장(§5), 단축키 재정의(FR-I2), MRU/빈도 영속화, 팔레트 환경설정.
+- **β (P1, 설정 시스템과 동반)**: `settings.json`/`keybindings.json`/`state.json` 로드·저장(§5), 단축키 재정의(FR-I2),
+  **현재 하드코딩 단축키(§5-4)를 명령 레지스트리로 이관** → `keybindings.json`으로 변경 가능하게, MRU/빈도 영속화, 팔레트 환경설정.
 - **γ (후속)**: 접두 모드(경로/항목 점프), `commands.user.json` 외부 실행(FR-K3/K5 런처와 공용), 플러그인 기여 명령(FR-L1), 파일 핫리로드, 한글 자모 퍼지.
 
 ## 8. 로드맵 / 백로그
 
 - FR-I2·FR-J4를 본 설계로 구체화. [02](02-roadmap.md) M1 "단일 액션 레지스트리" + P1 "명령 팔레트 고도화"에 링크.
+- **★ 할 일(사용자 요청)**: 현재 하드코딩된 키보드 단축키(§5-4: 이동/선택/펼침/`Alt+↓` 등)를 **명령 레지스트리 + `keybindings.json`으로 이관해 사용자가 변경 가능**하게. 신규 단축키도 명령으로 등록.
 - [04](04-trends-todo.md) "명령 팔레트(Ctrl+P)" → 본 설계로 승격. 구현 순서는 [19](19-implemented-features.md) 트랙 D와 통합(메뉴/툴바 실동작을 레지스트리로 전환).
 - 미해결(착수 전 확정): 기본 키맵 세트(참조 앱 대비표)·`state.json` vs `settings.json` 경계·JSONC 파서(주석 허용) 채택 여부.
