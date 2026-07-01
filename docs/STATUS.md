@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-07-01 (KST) · 단계: **M0 진행 중** — 데이터 흐름 슬라이스(코어→인터롭→C#→UI) + **레이아웃 골격(F6)** 완성, 영역 채움(네비게이션·경로바)이 다음 · 코어 9 tests green
+> 갱신: 2026-07-01 (KST) · 단계: **M0 마무리~M1 진입** — 데이터흐름(F1~5)+레이아웃(F6~9)+**플래그십 초안**(인라인 펼침·컬럼 F10 / 선택 F11·F17 / 네비 F13) 구현(F1~F17, [19](19-implemented-features.md)). 다음=**코어 VisibleRow 스트림(C1)**·경로바·탭 모델 · 코어 9 tests green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 
@@ -59,13 +59,24 @@
   | 5 | ItemsRepeater 가상화 렌더 | `ListView`→`ScrollViewer`+`ItemsRepeater`(트리 토대) | 빌드 0/0 · 앱 기동 | `1a14150` |
   | 6 | 레이아웃 골격(F6) | 7행 그리드(메뉴·툴바·런처·좌/우 듀얼·하단 도킹·상태바) + `GridSplitter` 크기조절 + 숨김 토글 + 영역 색상 구분(CommunityToolkit Sizers) | 빌드 0/0 · **CI success** | `105d9e8`…`597e52e` |
 
+- **레이아웃·플래그십 초안 진행** ✅ (F7~F17, 상세 [19](19-implemented-features.md)):
+
+  | 묶음 | 구현 |
+  | --- | --- |
+  | 레이아웃 정교화 (F7~F9) | 좌/우 듀얼 목록·하단 도킹 연동(F7) · **`NexaFileGrid` 재사용 컨트롤 추출**(F8, 독립 제품 [21](21-adr-0002-fileview-control.md)) · 스플리터 얇게+**자석 스냅**(F9) |
+  | ★ 플래그십 초안 (F10·F11·F17) | **인라인 폴더 펼침 + Finder식 4컬럼**(F10) · **파일 선택 단일/Ctrl 다중/Shift 범위**(F11) · **키보드 범위·비연속(Ctrl+Space)·→/← 펼침·캐럿**(F17) |
+  | 네비/메뉴/UX (F12~F16) | 초박형 커스텀 **`NexaMenuBar`**(F12) · **패널별 네비 뒤로/앞으로/위로**(F13) · Explorer식 선택·호버·클릭 즉시반응(F14) · 폴더우선 정렬 옵션화(F15) · 리사이즈 커서·키보드·탭 활성(F16) |
+
   기능별 구현·테스트 방법 → [19](19-implemented-features.md) · 빌드/실행 → [18](18-build-and-test.md) · 레이아웃 [20](20-ui-layout.md).
 
 - **빌드 이슈 해결**(2026-07-01): Sizers TFM 불일치(CS0234)로 F6가 Windows에서 빌드 실패 → 앱 TFM `19041→22621` 정합(`2bf0089`).
   방지 규약(맥은 WinUI 빌드 불가 → **CI green 확인 필수**, TFM 정합) → [18](18-build-and-test.md) §2 · CLAUDE.md §6.
 
-- **다음 단위(M0)**: 레이아웃 영역 **채움** — 좌 패널 **네비게이션**(폴더 진입·뒤로/앞으로/위로) · **경로 바(브레드크럼)** → 인라인 트리([07](07-flagship-tree-multiselect.md)).
-  (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — [11](11-dev-environment.md) §6-1)
+- **다음 단위(M0→M1)**:
+  1. **코어 `VisibleRow` 평면 스트림(C1)** — 현재 인라인 펼침·선택은 **앱(C#) 계층 초안**(F10/F11/F17). 대규모 가상화·성능(NFR-P1/P2)·이식을 위해 트리/선택 모델을 **Rust 코어로** 이관([07](07-flagship-tree-multiselect.md)).
+  2. **교차폴더 다중 선택 완성(C3/C4)** + 러버밴드 드래그 선택 + 혼합 파일 작업.
+  3. **경로 바(브레드크럼)** · **탭 모델**(현재 탭은 placeholder) · **설정 JSON 영속화**(F15 준비됨) · 컬럼 설정 모달([23](23-column-system.md)).
+  - 구조 권장: MainWindow.xaml.cs 비대화(721줄) → **`Nexa.ViewModels`(net8.0) 분리**(맥 빌드/테스트, MVVM) — [11](11-dev-environment.md) §6-1.
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
 
