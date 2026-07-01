@@ -1,31 +1,47 @@
 using System.Collections.Generic;
 using Microsoft.UI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
+using Windows.System;
+using Windows.UI;
+using Windows.UI.Core;
 
 namespace Nexa.Controls;
 
 /// <summary>
-/// 초박형 커스텀 메뉴 바(재사용 컨트롤). 최상위 메뉴는 <see cref="Button"/>, 드롭다운은 <see cref="MenuFlyout"/>.
-/// 기본 <c>MenuBar</c>가 내부 템플릿 때문에 18px급으로 못 줄어드는 문제(글자 잘림)를 우회한다.
-/// 높이=<see cref="MenuHeight"/>, 글자=<c>FontSize</c>로 완전 제어. 명령 연결은 후속.
+/// 초박형 커스텀 메뉴 바(재사용 컨트롤). 최상위 메뉴는 <see cref="Button"/>, 드롭다운은 경량 <see cref="Popup"/>(사각 Border).
+/// 기본 <c>MenuBar</c>/<c>MenuFlyout</c>의 한계(초박형 불가·둥근 팝업·hover 전환 불가)를 우회하며,
+/// <b>hover 전환</b>(열린 상태에서 다른 메뉴로 이동 시 자동 오픈) · <b>ALT 토글/단축키</b> · <b>사각 클래식 모양</b>을 구현한다.
 /// </summary>
 public sealed partial class NexaMenuBar : UserControl
 {
     private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
+    private static readonly SolidColorBrush ActiveHeaderBrush = new(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush ItemHoverBrush = new(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
+    private static readonly SolidColorBrush ItemTextBrush = new(Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A));
+
+    private readonly List<Button> _headers = new();
+    private readonly List<char> _mnemonics = new();   // 각 메뉴의 Alt 단축 문자(대문자), 없으면 '\0'
+
+    private int _activeIndex = -1;   // 현재 열린 메뉴(-1=없음)
+    private bool _altCombo;          // Alt와 함께 다른 키가 눌렸는가(단독 탭 판별)
+    private UIElement? _root;        // 루트(전역 키/클릭 후킹 대상)
 
     public NexaMenuBar()
     {
         InitializeComponent();
-        Loaded += (_, _) => Build();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     /// <summary>최상위 메뉴 목록(XAML에서 <c>NexaMenuBar.Menus</c>로 채운다).</summary>
     public IList<NexaMenu> Menus { get; } = new List<NexaMenu>();
 
-    /// <summary>메뉴 바(최상위 버튼) 높이(px). 기본 22, 초박형은 18 등.</summary>
+    /// <summary>메뉴 바(최상위 버튼) 높이(px).</summary>
     public static readonly DependencyProperty MenuHeightProperty =
         DependencyProperty.Register(
             nameof(MenuHeight), typeof(double), typeof(NexaMenuBar), new PropertyMetadata(22.0));
@@ -36,22 +52,41 @@ public sealed partial class NexaMenuBar : UserControl
         set => SetValue(MenuHeightProperty, value);
     }
 
-    /// <summary>Menus로부터 최상위 버튼 + 드롭다운을 생성한다(Loaded 시점).</summary>
-    private void Build()
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        BuildHeaders();
+        // 전역 키(ALT 토글/단축키·ESC) + 바깥 클릭 닫기 후킹.
+        if (XamlRoot?.Content is UIElement root)
+        {
+            _root = root;
+            root.AddHandler(KeyDownEvent, new KeyEventHandler(OnRootKeyDown), true);
+            root.AddHandler(KeyUpEvent, new KeyEventHandler(OnRootKeyUp), true);
+            root.AddHandler(PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), true);
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_root is not null)
+        {
+            _root.RemoveHandler(KeyDownEvent, new KeyEventHandler(OnRootKeyDown));
+            _root.RemoveHandler(KeyUpEvent, new KeyEventHandler(OnRootKeyUp));
+            _root.RemoveHandler(PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed));
+            _root = null;
+        }
+    }
+
+    /// <summary>Menus로부터 최상위 헤더 버튼을 생성한다(드롭다운은 Popup으로 별도 표시).</summary>
+    private void BuildHeaders()
     {
         Host.Children.Clear();
-        foreach (var menu in Menus)
+        _headers.Clear();
+        _mnemonics.Clear();
+
+        for (int i = 0; i < Menus.Count; i++)
         {
-            MenuFlyout? flyout = null;
-            if (menu.Items.Count > 0)
-            {
-                // 버튼 좌측 하단 정렬 → 클래식 풀다운(팝업/컨텍스트 아님)
-                flyout = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft };
-                foreach (var entry in menu.Items)
-                {
-                    flyout.Items.Add(new MenuFlyoutItem { Text = entry.Text });
-                }
-            }
+            var menu = Menus[i];
+            int index = i;
 
             var btn = new Button
             {
@@ -65,9 +100,199 @@ public sealed partial class NexaMenuBar : UserControl
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(0),
                 VerticalAlignment = VerticalAlignment.Stretch,
-                Flyout = flyout,
             };
+            btn.Click += (_, _) => { if (_activeIndex == index) CloseMenu(); else OpenMenu(index); };
+            btn.PointerEntered += (_, _) => { if (_activeIndex >= 0 && _activeIndex != index) OpenMenu(index); };
+
+            _headers.Add(btn);
+            _mnemonics.Add(ParseMnemonic(menu.Header));
             Host.Children.Add(btn);
         }
+    }
+
+    /// <summary>"파일(F)"에서 Alt 단축 문자 'F'를 추출(대문자). 없으면 '\0'.</summary>
+    private static char ParseMnemonic(string header)
+    {
+        int open = header.IndexOf('(');
+        if (open >= 0 && open + 1 < header.Length)
+        {
+            char c = header[open + 1];
+            if (char.IsLetter(c))
+            {
+                return char.ToUpperInvariant(c);
+            }
+        }
+        return '\0';
+    }
+
+    /// <summary>지정 메뉴를 헤더 아래에 사각 팝업으로 연다(항목 없으면 닫힘).</summary>
+    private void OpenMenu(int index)
+    {
+        if (index < 0 || index >= Menus.Count)
+        {
+            CloseMenu();
+            return;
+        }
+        var menu = Menus[index];
+        if (menu.Items.Count == 0)
+        {
+            CloseMenu();
+            SetActiveHeader(index);   // 항목 없어도 헤더는 활성 표시(트래킹 유지)
+            _activeIndex = index;
+            return;
+        }
+
+        // 항목 구성(사각 하이라이트 Border).
+        ItemsHost.Children.Clear();
+        foreach (var entry in menu.Items)
+        {
+            ItemsHost.Children.Add(CreateItem(entry.Text));
+        }
+
+        // 헤더 좌측 하단 정렬로 위치.
+        var btn = _headers[index];
+        Point p = btn.TransformToVisual(this).TransformPoint(new Point(0, 0));
+        MenuPopup.HorizontalOffset = p.X;
+        MenuPopup.VerticalOffset = p.Y + btn.ActualHeight;
+        MenuPopup.IsOpen = true;
+
+        _activeIndex = index;
+        SetActiveHeader(index);
+    }
+
+    private void CloseMenu()
+    {
+        MenuPopup.IsOpen = false;
+        _activeIndex = -1;
+        SetActiveHeader(-1);
+    }
+
+    /// <summary>활성 헤더만 배경 하이라이트.</summary>
+    private void SetActiveHeader(int index)
+    {
+        for (int i = 0; i < _headers.Count; i++)
+        {
+            _headers[i].Background = i == index ? ActiveHeaderBrush : TransparentBrush;
+        }
+    }
+
+    /// <summary>드롭다운 항목 하나(사각, hover 하이라이트, 클릭 시 닫힘). 명령 연결은 후속.</summary>
+    private Border CreateItem(string text)
+    {
+        var item = new Border
+        {
+            Padding = new Thickness(22, 4, 22, 4),
+            Background = TransparentBrush,
+            Child = new TextBlock
+            {
+                Text = text,
+                FontSize = FontSize,
+                Foreground = ItemTextBrush,
+            },
+        };
+        item.PointerEntered += (_, _) => item.Background = ItemHoverBrush;
+        item.PointerExited += (_, _) => item.Background = TransparentBrush;
+        item.Tapped += (_, _) => CloseMenu();   // TODO: 실제 명령 실행
+        return item;
+    }
+
+    // ── 전역 키/클릭 후킹 (ALT 토글·단축키, ESC, 바깥 클릭 닫기) ─────────
+
+    private void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Menu)
+        {
+            _altCombo = false;   // Alt 눌림 시작 — 단독 여부는 KeyUp에서 판정
+            return;
+        }
+        if (e.Key == VirtualKey.Escape && _activeIndex >= 0)
+        {
+            CloseMenu();
+            e.Handled = true;
+            return;
+        }
+
+        // Alt+문자 단축(또는 메뉴 활성 상태에서 문자) → 해당 메뉴 열기.
+        bool altDown = IsDown(VirtualKey.Menu);
+        if (altDown)
+        {
+            _altCombo = true;
+        }
+        if (altDown || _activeIndex >= 0)
+        {
+            int idx = FindMnemonic(e.Key);
+            if (idx >= 0)
+            {
+                OpenMenu(idx);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnRootKeyUp(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Menu)
+        {
+            if (!_altCombo)   // Alt 단독 탭 → 메뉴 토글
+            {
+                if (_activeIndex >= 0)
+                {
+                    CloseMenu();
+                }
+                else
+                {
+                    OpenMenu(0);
+                }
+                e.Handled = true;
+            }
+            _altCombo = false;
+        }
+    }
+
+    private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeIndex < 0)
+        {
+            return;
+        }
+        var src = e.OriginalSource as DependencyObject;
+        if (!IsWithin(src, Host) && !IsWithin(src, PopupBorder))
+        {
+            CloseMenu();
+        }
+    }
+
+    private int FindMnemonic(VirtualKey key)
+    {
+        // 문자 키(A~Z)만 대상.
+        if (key < VirtualKey.A || key > VirtualKey.Z)
+        {
+            return -1;
+        }
+        char c = (char)key;   // VirtualKey.A~Z = 'A'~'Z'
+        for (int i = 0; i < _mnemonics.Count; i++)
+        {
+            if (_mnemonics[i] == c)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static bool IsDown(VirtualKey key)
+        => (InputKeyboardSource.GetKeyStateForCurrentThread(key) & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
+
+    private static bool IsWithin(DependencyObject? node, DependencyObject ancestor)
+    {
+        while (node is not null)
+        {
+            if (ReferenceEquals(node, ancestor))
+            {
+                return true;
+            }
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return false;
     }
 }
