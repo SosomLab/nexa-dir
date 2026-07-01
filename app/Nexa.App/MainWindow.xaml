@@ -15,7 +15,7 @@
       하단 도킹: 기본 좌/우 분리(각 패널용 정보·터미널) → 터미널 활성 시 좌·우 2개.
       좌 패널 콘텐츠에 실제 디렉터리 목록(F4/F5) 보존.
     -->
-    <Grid x:Name="RootGrid" FontFamily="Segoe UI">
+    <Grid x:Name="RootGrid">
         <Grid.Resources>
             <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
             <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="280" />

@@ -8,6 +8,14 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Nexa Dir 기본 폰트 = Segoe UI. 아이콘 폰트(Segoe MDL2 Assets)는 명시 지정이라 영향 없음.
+                 WinUI는 Grid에 FontFamily를 못 주므로(상속형 부착속성 없음) 리소스로 지정:
+                 · ContentControlThemeFontFamily → Button 등 컨트롤 기본 폰트
+                 · 암시적 TextBlock Style → 모든 텍스트 기본 폰트 -->
+            <x:String x:Key="ContentControlThemeFontFamily">Segoe UI</x:String>
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
