@@ -176,6 +176,8 @@
 - **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)(`Nav`/`Navigate`/`GoBack`/`GoForward`/`GoUp`/`UpdateNavButtons`) · [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml)(`NavBtnStyle`)
 - **커밋**: `(이 단위)`
 - **테스트**: 폴더 더블클릭 후 뒤로/앞으로/위로 동작, 좌/우 독립 기록, 버튼 활성상태.
+- **F13-1 추가(상위 이동 시 자기 선택)**: **위로(상위 폴더) 이동 후 방금 떠난 폴더(=나)를 상위 목록에서 선택·캐럿·스크롤**.
+  `GoUp`이 떠나는 경로 기억 → 이동 후 `SelectByPath`(경로 일치 항목 단일 선택 + 포커스). Up 버튼·Alt+↑ 공통. (탐색기 관례)
 
 ### F14. Explorer식 선택/호버 + 키보드 이동 + 클릭 지연 수정
 - **무엇**: 호버=옅은 파랑, 선택(활성)=연한 파랑+파란 테두리, 선택(비활성/윈도우 비활성)=회색(포커스아웃). 테두리 항상 1px(높이 점프 방지). **키보드 ↑/↓** 단일 선택 이동. **클릭 지연** = `Tapped`+`DoubleTapped` 더블탭 대기 → **`PointerPressed`**(즉시)로 이동.

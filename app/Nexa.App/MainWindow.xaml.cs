@@ -178,10 +178,37 @@ public sealed partial class MainWindow : Window
     private void GoUp(bool left)
     {
         var nav = left ? _leftNav : _rightNav;
-        var parent = Directory.GetParent(nav.Current);
+        var from = nav.Current;   // 떠나는 폴더(=나) — 상위에서 이 폴더를 선택 상태로
+        var parent = Directory.GetParent(from);
         if (parent is not null)
         {
             Navigate(left, parent.FullName, record: true);
+            SetActivePanel(left);       // 그 패널을 활성으로(선택 포커스 색)
+            SelectByPath(left, from);   // 상위 목록에서 방금 떠난 폴더를 선택·포커스
+        }
+    }
+
+    /// <summary>지정 패널 목록에서 경로가 일치하는 항목을 단일 선택하고 캐럿·스크롤을 맞춘다(없으면 무시).</summary>
+    private void SelectByPath(bool left, string fullPath)
+    {
+        var list = left ? _leftItems : _rightItems;
+        var target = fullPath.TrimEnd('\\', '/');
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (string.Equals(list[i].FullPath.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var it in list)
+                {
+                    it.IsSelected = false;
+                }
+                list[i].IsSelected = true;
+                if (left) { _leftAnchor = list[i]; } else { _rightAnchor = list[i]; }
+                MoveCaret(left, list[i]);
+                (left ? DirGrid : DirGrid2).BringIndexIntoView(i);
+                UpdateSelectionCount(list);
+                RefreshSelectionFocus();   // 선택 항목 포커스 색(파랑) 반영
+                return;
+            }
         }
     }
 
