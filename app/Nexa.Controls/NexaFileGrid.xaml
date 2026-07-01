@@ -31,8 +31,8 @@
                                 <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
                                            TextTrimming="CharacterEllipsis" />
                             </Border>
-                            <!-- 리사이즈 핸들(우측 8px). PointerMove 캡처로 Width 조절 -->
-                            <Border Width="8" HorizontalAlignment="Right" Background="Transparent"
+                            <!-- 리사이즈 핸들(우측 8px). 오버 시 SizeWestEast 커서(ColumnResizeGrip). PointerMove 캡처로 Width 조절 -->
+                            <local:ColumnResizeGrip Width="8" HorizontalAlignment="Right" Background="Transparent"
                                     PointerPressed="OnResizeStart" PointerMoved="OnResizeMove"
                                     PointerReleased="OnResizeEnd" PointerCanceled="OnResizeEnd"
                                     Tag="{x:Bind}" />

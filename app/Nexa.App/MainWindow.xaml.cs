@@ -48,6 +48,10 @@ public sealed partial class MainWindow : Window
             DirGrid.Columns.Add(col);
             DirGrid2.Columns.Add(col);
         }
+        // 방향키 이동: 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 받도록 handledEventsToo로 배선.
+        // (XAML KeyDown은 이미 처리된 이벤트를 받지 못해 키보드 이동이 동작하지 않음)
+        DirGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
+        DirGrid2.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
         ShowInteropRoundTrip();
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
         Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
@@ -375,6 +379,17 @@ public sealed partial class MainWindow : Window
     {
         _activeLeft = left;
         RefreshSelectionFocus();
+    }
+
+    /// <summary>탭 바(탭 이름 영역) 클릭 → 그 패널을 활성화하고 목록에 포커스(키보드 이동 대상).</summary>
+    private void OnTabBarTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag)
+        {
+            bool left = tag == "L";
+            SetActivePanel(left);
+            (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);
+        }
     }
 
     /// <summary>선택 항목 포커스색 갱신 — (윈도우 활성 &amp;&amp; 그 패널 활성)일 때만 파랑, 아니면 회색.</summary>
