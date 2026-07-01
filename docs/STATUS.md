@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-06-30 (KST) · 단계: **M0 진행 중** — 데이터 흐름 수직 슬라이스(코어→인터롭→C#→UI) 완성, 가상화 렌더가 다음 · 코어 9 tests green
+> 갱신: 2026-07-01 (KST) · 단계: **M0 진행 중** — 데이터 흐름 슬라이스(코어→인터롭→C#→UI) + **레이아웃 골격(F6)** 완성, 영역 채움(네비게이션·경로바)이 다음 · 코어 9 tests green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 
@@ -56,11 +56,15 @@
   | 2 | 로컬 스트리밍 열거 | `nexa-vfs::read_dir_entries`(점진 Iterator, 오류 격리) | 7 tests green | `623da9d` |
   | 3 | 인터롭 디렉터리 열거 API | `nexa_dir_open/next/close`+`NexaEntry`(핸들 스트리밍) | 9 tests green | `541e887` |
   | 4 | 디렉터리 열거 C# 바인딩+UI | `ReadDir` → MainWindow 목록 표시 | 빌드 0/0 · 앱 기동 | `7e12c1f` |
-  | 5 | ItemsRepeater 가상화 렌더 | `ListView`→`ScrollViewer`+`ItemsRepeater`(트리 토대) | 빌드 0/0 · 앱 기동 | `(이번)` |
+  | 5 | ItemsRepeater 가상화 렌더 | `ListView`→`ScrollViewer`+`ItemsRepeater`(트리 토대) | 빌드 0/0 · 앱 기동 | `1a14150` |
+  | 6 | 레이아웃 골격(F6) | 7행 그리드(메뉴·툴바·런처·좌/우 듀얼·하단 도킹·상태바) + `GridSplitter` 크기조절 + 숨김 토글 + 영역 색상 구분(CommunityToolkit Sizers) | 빌드 0/0 · **CI success** | `105d9e8`…`597e52e` |
 
-  기능별 구현·테스트 방법 → [19](19-implemented-features.md) · 빌드/실행 → [18](18-build-and-test.md).
+  기능별 구현·테스트 방법 → [19](19-implemented-features.md) · 빌드/실행 → [18](18-build-and-test.md) · 레이아웃 [20](20-ui-layout.md).
 
-- **다음 단위(M0)**: 경로 입력/**네비게이션**(폴더 진입·뒤로/앞으로/위로) → 인라인 트리 펼침([07](07-flagship-tree-multiselect.md)).
+- **빌드 이슈 해결**(2026-07-01): Sizers TFM 불일치(CS0234)로 F6가 Windows에서 빌드 실패 → 앱 TFM `19041→22621` 정합(`2bf0089`).
+  방지 규약(맥은 WinUI 빌드 불가 → **CI green 확인 필수**, TFM 정합) → [18](18-build-and-test.md) §2 · CLAUDE.md §6.
+
+- **다음 단위(M0)**: 레이아웃 영역 **채움** — 좌 패널 **네비게이션**(폴더 진입·뒤로/앞으로/위로) · **경로 바(브레드크럼)** → 인라인 트리([07](07-flagship-tree-multiselect.md)).
   (권장: 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 — [11](11-dev-environment.md) §6-1)
 
 ## 7. 다른 PC에서 시작 / 컨텍스트 공유
