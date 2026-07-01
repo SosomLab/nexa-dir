@@ -21,6 +21,28 @@
 
 ---
 
+## 0-1. 빠른 시작 — 코어 빌드 → dll 복사 → 앱 빌드 → 실행 (Windows)
+
+> ⭐ **dll 복사는 수동으로 할 필요가 없다.** `dotnet build app/Nexa.App`가 **① cargo로 코어(nexa-interop) 빌드 → ② `nexa_interop.dll`을 앱 출력에 복사 → ③ 앱 빌드**를 **한 번에** 수행한다(csproj 타겟, §2-1). 그래서 실제 순서는 아래 2줄이면 끝.
+
+```powershell
+# (최초 1회) 환경: scripts/bootstrap.ps1  ·  앱 실행 런타임: Windows App Runtime 1.6 (§6-2)
+dotnet build app/Nexa.App -c Debug     # ①코어(cargo)+②dll 복사+③앱 빌드 (자동, 한 번에)
+dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=1, nexa_poc_add(2, 3)=5"
+```
+
+- 단계별 상세: 코어 **[§1]** · dll 자동 복사 **[§2-1]** · 앱 빌드 **[§2]** · 실행 **[§6-2]** · dll 잠금 오류 **[§6-3]**.
+- **코어만 따로(수동)** 빌드/복사하고 싶을 때(보통 불필요 — 위 `dotnet build`가 최신으로 재수행):
+  ```powershell
+  cd core; cargo build; cd ..                                   # → core/target/debug/nexa_interop.dll 생성
+  Copy-Item core\target\debug\nexa_interop.dll `
+    app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0\          # (선택) 수동 복사
+  ```
+- **Release**는 `-c Release`(코어도 `cargo build --release` → `core/target/release`에서 복사, §2-1).
+- **macOS 호스트**: 앱 빌드·실행 불가(§2 ⚠️) → 코어(§1)만. 앱은 Windows/VM/CI.
+
+---
+
 ## 1. 코어 — Rust 워크스페이스 (`core/`)
 
 맥/Windows/Linux 모두 빌드·테스트 가능(일상 개발은 맥 권장). 멤버: `nexa-core`, `nexa-vfs`, `nexa-interop`(cdylib).
