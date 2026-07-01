@@ -23,9 +23,11 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<DirItem> _leftItems = new();
     private readonly ObservableCollection<DirItem> _rightItems = new();
 
-    // 범위 선택(Shift) 기준점 — 패널별.
+    // 범위 선택(Shift) 기준점(고정 anchor) + 키보드 캐럿(현재 위치) — 패널별.
     private DirItem? _leftAnchor;
     private DirItem? _rightAnchor;
+    private DirItem? _leftCaret;
+    private DirItem? _rightCaret;
 
     // 패널(탭)별 이동 기록(뒤로/앞으로 스택 + 현재 경로).
     private sealed class Nav
@@ -227,7 +229,19 @@ public sealed partial class MainWindow : Window
             return;
         }
         e.Handled = true;
+        SetExpanded(item, !item.IsExpanded);
+    }
 
+    /// <summary>
+    /// 폴더 항목을 펼치거나 접는다(디스클로저 클릭·키보드 →/← 공용). 폴더가 아니거나 이미 그 상태면 무시.
+    /// 펼침: 자식을 바로 아래 depth+1로 삽입. 접힘: 뒤따르는 더 깊은(자손) 행을 제거.
+    /// </summary>
+    private void SetExpanded(DirItem item, bool expand)
+    {
+        if (!item.IsDir || item.IsExpanded == expand)
+        {
+            return;
+        }
         var list = _leftItems.Contains(item) ? _leftItems
                  : _rightItems.Contains(item) ? _rightItems
                  : null;
@@ -237,7 +251,7 @@ public sealed partial class MainWindow : Window
         }
         int idx = list.IndexOf(item);
 
-        if (item.IsExpanded)
+        if (!expand)
         {
             // 접힘: 이 폴더보다 깊은(자손) 행을 연속으로 제거.
             item.IsExpanded = false;
@@ -331,10 +345,12 @@ public sealed partial class MainWindow : Window
         if (left)
         {
             _leftAnchor = anchor;
+            _leftCaret = item;   // 키보드 이동이 클릭 지점부터 이어지도록 캐럿 갱신
         }
         else
         {
             _rightAnchor = anchor;
+            _rightCaret = item;
         }
 
         int count = 0;
@@ -418,10 +434,15 @@ public sealed partial class MainWindow : Window
         RefreshSelectionFocus();
     }
 
-    /// <summary>키보드 위/아래 → 활성 목록에서 선택을 한 칸 이동(단일 선택).</summary>
+    /// <summary>
+    /// 키보드 이동: ↑/↓ 선택 이동(Shift=범위 확장), →/← 현재 폴더 펼침/접힘.
+    /// 대상은 활성 패널(포커스 비의존). 캐럿(현재 위치)은 anchor와 분리해 Shift 범위를 지원.
+    /// </summary>
     private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Up && e.Key != VirtualKey.Down)
+        bool vertical = e.Key == VirtualKey.Up || e.Key == VirtualKey.Down;
+        bool horizontal = e.Key == VirtualKey.Left || e.Key == VirtualKey.Right;
+        if (!vertical && !horizontal)
         {
             return;
         }
@@ -432,9 +453,22 @@ public sealed partial class MainWindow : Window
             return;
         }
         SetActivePanel(left);
-        var anchor = left ? _leftAnchor : _rightAnchor;
-        int idx = anchor is not null ? list.IndexOf(anchor) : -1;
-        int next = e.Key == VirtualKey.Down ? idx + 1 : idx - 1;
+        var caret = left ? _leftCaret : _rightCaret;
+        int cur = caret is not null ? list.IndexOf(caret) : -1;
+
+        if (horizontal)
+        {
+            // →: 현재 폴더 펼침, ←: 현재 폴더 접힘(폴더가 아니면 무시).
+            if (cur >= 0 && list[cur].IsDir)
+            {
+                SetExpanded(list[cur], expand: e.Key == VirtualKey.Right);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // 세로 이동(캐럿 기준 한 칸).
+        int next = e.Key == VirtualKey.Down ? cur + 1 : cur - 1;
         if (next < 0)
         {
             next = 0;
@@ -443,21 +477,63 @@ public sealed partial class MainWindow : Window
         {
             next = list.Count - 1;
         }
-        foreach (var it in list)
+
+        var anchor = left ? _leftAnchor : _rightAnchor;
+        if (IsShiftDown())
         {
-            it.IsSelected = false;
-        }
-        list[next].IsSelected = true;
-        if (left)
-        {
-            _leftAnchor = list[next];
+            // 범위 확장: 고정 anchor ~ 새 캐럿(next) 선택.
+            if (anchor is null || !list.Contains(anchor))
+            {
+                anchor = cur >= 0 ? list[cur] : list[next];
+            }
+            int a = list.IndexOf(anchor);
+            int b = next;
+            if (a > b)
+            {
+                (a, b) = (b, a);
+            }
+            foreach (var it in list)
+            {
+                it.IsSelected = false;
+            }
+            for (int i = a; i <= b; i++)
+            {
+                list[i].IsSelected = true;
+            }
+            // anchor 유지(연속 Shift 확장), 캐럿만 이동.
         }
         else
         {
-            _rightAnchor = list[next];
+            // 단일 선택 이동: anchor=caret=next.
+            foreach (var it in list)
+            {
+                it.IsSelected = false;
+            }
+            list[next].IsSelected = true;
+            anchor = list[next];
+        }
+
+        if (left)
+        {
+            _leftAnchor = anchor;
+            _leftCaret = list[next];
+        }
+        else
+        {
+            _rightAnchor = anchor;
+            _rightCaret = list[next];
         }
         (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
-        StatusText.Text = "1개 선택됨";
+
+        int count = 0;
+        foreach (var it in list)
+        {
+            if (it.IsSelected)
+            {
+                count++;
+            }
+        }
+        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
         e.Handled = true;
     }
 
