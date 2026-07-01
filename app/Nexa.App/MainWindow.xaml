@@ -33,13 +33,13 @@
             <RowDefinition Height="Auto" />  <!-- 6 상태바 -->
         </Grid.RowDefinitions>
 
-        <!-- 0 · 메뉴 바 (주황) — 세로 타이트하게(Fit) -->
-        <MenuBar Grid.Row="0" Background="#33FFA500" Height="24" VerticalAlignment="Top" Padding="0">
+        <!-- 0 · 메뉴 바 (주황) — 세로 타이트하게(상/하 여백 1~2px) -->
+        <MenuBar Grid.Row="0" Background="#33FFA500" Height="20" VerticalAlignment="Top" Padding="0">
             <MenuBar.Resources>
                 <Style TargetType="MenuBarItem">
-                    <Setter Property="Padding" Value="8,0" />
+                    <Setter Property="Padding" Value="8,1" />
                     <Setter Property="FontSize" Value="12" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="18" />
                     <Setter Property="VerticalContentAlignment" Value="Center" />
                 </Style>
             </MenuBar.Resources>
