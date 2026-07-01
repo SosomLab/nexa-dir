@@ -136,7 +136,7 @@
 
 ### FR-I 횡단 `[전 단계]`
 - FR-I1 테마(Fluent/Mica, 다크/라이트, 밀도), 국제화(KO/EN).
-- FR-I2 단축키 재정의, 명령 팔레트(P1).
+- FR-I2 단축키 재정의, 명령 팔레트(P1) — 명령 레지스트리(SSOT)·JSON 설정 연동 상세 [26](26-command-palette.md).
 - FR-I3 설정 저장, provider 자격증명 관리.
 
 ## 4. 비기능 요구사항 (Non-Functional) — 측정 가능
