@@ -33,23 +33,37 @@
             <RowDefinition Height="Auto" />  <!-- 6 상태바 -->
         </Grid.RowDefinitions>
 
-        <!-- 0 · 메뉴 바 (주황) — 세로 타이트하게(상/하 여백 1~2px) -->
-        <MenuBar Grid.Row="0" Background="#33FFA500" Height="18" MinHeight="18" MaxHeight="18" VerticalAlignment="Center" Padding="0">
-            <MenuBar.Resources>
-                <Style TargetType="MenuBarItem">
-                    <Setter Property="Padding" Value="4,1" />
-                    <Setter Property="FontSize" Value="9" />
-                    <Setter Property="MinHeight" Value="18" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-            </MenuBar.Resources>
-            <MenuBarItem Title="파일(F)" />
-            <MenuBarItem Title="선택(M)" />
-            <MenuBarItem Title="명령(C)" />
-            <MenuBarItem Title="보기(V)" />
-            <MenuBarItem Title="도구(T)" />
-            <MenuBarItem Title="도움말(H)" />
-        </MenuBar>
+        <!-- 0 · 메뉴 바 (주황) — 커스텀 NexaMenuBar(초박형 18px/폰트9, 기본 MenuBar 한계 우회) -->
+        <ctrls:NexaMenuBar Grid.Row="0" Background="#33FFA500" MenuHeight="18" FontSize="9" VerticalAlignment="Top">
+            <ctrls:NexaMenuBar.Menus>
+                <ctrls:NexaMenu Header="파일(F)">
+                    <ctrls:NexaMenuEntry Text="새 탭" />
+                    <ctrls:NexaMenuEntry Text="새 창" />
+                    <ctrls:NexaMenuEntry Text="종료" />
+                </ctrls:NexaMenu>
+                <ctrls:NexaMenu Header="선택(M)">
+                    <ctrls:NexaMenuEntry Text="모두 선택" />
+                    <ctrls:NexaMenuEntry Text="선택 해제" />
+                </ctrls:NexaMenu>
+                <ctrls:NexaMenu Header="명령(C)">
+                    <ctrls:NexaMenuEntry Text="복사" />
+                    <ctrls:NexaMenuEntry Text="이동" />
+                    <ctrls:NexaMenuEntry Text="삭제" />
+                </ctrls:NexaMenu>
+                <ctrls:NexaMenu Header="네트워크(N)" />
+                <ctrls:NexaMenu Header="탭(T)" />
+                <ctrls:NexaMenu Header="즐겨찾기(A)" />
+                <ctrls:NexaMenu Header="표시(S)">
+                    <ctrls:NexaMenuEntry Text="아이콘" />
+                    <ctrls:NexaMenuEntry Text="목록" />
+                    <ctrls:NexaMenuEntry Text="컬럼" />
+                </ctrls:NexaMenu>
+                <ctrls:NexaMenu Header="구성(O)" />
+                <ctrls:NexaMenu Header="도움말(H)">
+                    <ctrls:NexaMenuEntry Text="정보" />
+                </ctrls:NexaMenu>
+            </ctrls:NexaMenuBar.Menus>
+        </ctrls:NexaMenuBar>
 
         <!-- 1 · 도구 모음 (파랑) -->
         <Border Grid.Row="1" Background="#334488DD" Padding="6,4">
