@@ -23,10 +23,9 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<DirItem> _leftItems = new();
     private readonly ObservableCollection<DirItem> _rightItems = new();
 
-    // 패널별 "펼친 폴더" 경로 기억. 폴더 진입/이동·재펼침 시 하위 펼침 상태를 동일하게 복원(F18, FR-X4).
-    // Windows 경로는 대소문자 비구분 → OrdinalIgnoreCase.
-    private readonly HashSet<string> _leftExpanded = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _rightExpanded = new(StringComparer.OrdinalIgnoreCase);
+    // 펼침 상태 유지(F18)는 이제 **탭별**(활성 탭의 Expanded). 경로 대소문자 무시.
+    private HashSet<string> _leftExpanded => _leftTab.Expanded;
+    private HashSet<string> _rightExpanded => _rightTab.Expanded;
 
     // 범위 선택(Shift) 기준점(고정 anchor) + 키보드 캐럿(현재 위치) — 패널별.
     private DirItem? _leftAnchor;
@@ -34,15 +33,14 @@ public sealed partial class MainWindow : Window
     private DirItem? _leftCaret;
     private DirItem? _rightCaret;
 
-    // 패널(탭)별 이동 기록(뒤로/앞으로 스택 + 현재 경로).
-    private sealed class Nav
-    {
-        public string Current = string.Empty;
-        public readonly Stack<string> Back = new();
-        public readonly Stack<string> Fwd = new();
-    }
-    private readonly Nav _leftNav = new();
-    private readonly Nav _rightNav = new();
+    // 패널별 탭: 각 탭(PanelTab)이 자체 이동 기록·펼침 상태를 가짐. 활성 탭이 현재 뷰.
+    private readonly ObservableCollection<PanelTab> _leftTabs = new();
+    private readonly ObservableCollection<PanelTab> _rightTabs = new();
+    private PanelTab _leftTab = new();
+    private PanelTab _rightTab = new();
+    // 기존 네비게이션 코드 유지용 접근자 — 활성 탭의 이동 기록.
+    private PanelTab _leftNav => _leftTab;
+    private PanelTab _rightNav => _rightTab;
 
     public MainWindow()
     {
@@ -59,6 +57,13 @@ public sealed partial class MainWindow : Window
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
         ShowInteropRoundTrip();
+        // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
+        _leftTab.IsActive = true;
+        _rightTab.IsActive = true;
+        _leftTabs.Add(_leftTab);
+        _rightTabs.Add(_rightTab);
+        LeftTabs.ItemsSource = _leftTabs;
+        RightTabs.ItemsSource = _rightTabs;
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
         Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
         Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
@@ -133,6 +138,7 @@ public sealed partial class MainWindow : Window
             nav.Fwd.Clear();
         }
         nav.Current = path;
+        nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
         if (left)
         {
             LoadDirectory(path, _leftItems, DirGrid, DirHeader, PathText);
@@ -459,7 +465,7 @@ public sealed partial class MainWindow : Window
         RefreshSelectionFocus();
     }
 
-    /// <summary>탭 바(탭 이름 영역) 클릭 → 그 패널을 활성화하고 목록에 포커스(키보드 이동 대상).</summary>
+    /// <summary>탭 바(빈 영역) 클릭 → 그 패널을 활성화하고 목록에 포커스(키보드 이동 대상).</summary>
     private void OnTabBarTapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is string tag)
@@ -467,6 +473,66 @@ public sealed partial class MainWindow : Window
             bool left = tag == "L";
             SetActivePanel(left);
             (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);
+        }
+    }
+
+    // ── 패널 탭 ─────────────────────────────────────────────────────
+    // 각 탭 = PanelTab(경로·이동기록·펼침상태). 활성 탭이 그 패널의 현재 뷰.
+
+    /// <summary>탭 표시 이름 = 폴더명(루트/드라이브면 경로 자체).</summary>
+    private static string TabTitle(string path)
+    {
+        var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
+        return string.IsNullOrEmpty(name) ? path : name;
+    }
+
+    /// <summary>지정 패널의 활성 탭을 <paramref name="tab"/>로 전환하고 그 탭의 경로/상태로 뷰를 갱신한다.</summary>
+    private void SwitchToTab(bool left, PanelTab tab)
+    {
+        var active = left ? _leftTab : _rightTab;
+        if (!ReferenceEquals(active, tab))
+        {
+            active.IsActive = false;
+            tab.IsActive = true;
+            if (left) { _leftTab = tab; _leftCaret = null; _leftAnchor = null; }
+            else { _rightTab = tab; _rightCaret = null; _rightAnchor = null; }
+        }
+        SetActivePanel(left);
+        Navigate(left, tab.Current, record: false);   // 활성 탭 경로 로드(펼침 상태 유지)
+    }
+
+    /// <summary>새 탭 추가(현재 탭 경로 기준, 없으면 홈) 후 그 탭으로 전환.</summary>
+    private void AddTab(bool left)
+    {
+        var basePath = (left ? _leftTab : _rightTab).Current;
+        if (string.IsNullOrEmpty(basePath))
+        {
+            basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+        var tab = new PanelTab { Current = basePath };
+        (left ? _leftTabs : _rightTabs).Add(tab);
+        SwitchToTab(left, tab);
+    }
+
+    /// <summary>탭 클릭 → 그 탭으로 전환.</summary>
+    private void OnTabTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab)
+        {
+            bool left = _leftTabs.Contains(tab);
+            SwitchToTab(left, tab);
+            (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>탭 영역 더블클릭 → 새 탭 추가(+ 버튼 대체).</summary>
+    private void OnTabBarDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag)
+        {
+            AddTab(tag == "L");
+            e.Handled = true;
         }
     }
 

@@ -118,13 +118,33 @@
                         <RowDefinition Height="*" />    <!-- 목록 -->
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#3340A0FF" Padding="6,3" Tag="L" Tapped="OnTabBarTapped">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Border Background="#553070C0" CornerRadius="4" Padding="8,2"><TextBlock Text="홈" /></Border>
-                            <Border Background="#22FFFFFF" CornerRadius="4" Padding="8,2"><TextBlock Text="탭 2" Opacity="0.7" /></Border>
-                            <Button Content="＋" Padding="6,0" />
-                            <TextBlock Text="좌 패널 탭 바" Opacity="0.5" VerticalAlignment="Center" Margin="6,0,0,0" />
-                        </StackPanel>
+                    <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄. -->
+                    <Border Grid.Row="0" Background="#3340A0FF" Padding="4,3" Tag="L"
+                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped">
+                        <ItemsRepeater x:Name="LeftTabs">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
+                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="local:PanelTab">
+                                    <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
+                                            Tag="{x:Bind}" Tapped="OnTabTapped">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="2" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
+                                                    Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
+                                            <TextBlock Grid.Row="1" Text="{x:Bind Title, Mode=OneWay}"
+                                                       TextTrimming="CharacterEllipsis" MaxLines="1"
+                                                       Padding="8,1" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
@@ -187,12 +207,33 @@
                         <RowDefinition Height="*" />    <!-- 목록 -->
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#33FF6060" Padding="6,3" Tag="R" Tapped="OnTabBarTapped">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Border Background="#55C03030" CornerRadius="4" Padding="8,2"><TextBlock Text="탭 1" /></Border>
-                            <Button Content="＋" Padding="6,0" />
-                            <TextBlock Text="우 패널 탭 바" Opacity="0.5" VerticalAlignment="Center" Margin="6,0,0,0" />
-                        </StackPanel>
+                    <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙) -->
+                    <Border Grid.Row="0" Background="#33FF6060" Padding="4,3" Tag="R"
+                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped">
+                        <ItemsRepeater x:Name="RightTabs">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
+                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="local:PanelTab">
+                                    <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
+                                            Tag="{x:Bind}" Tapped="OnTabTapped">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="2" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
+                                                    Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
+                                            <TextBlock Grid.Row="1" Text="{x:Bind Title, Mode=OneWay}"
+                                                       TextTrimming="CharacterEllipsis" MaxLines="1"
+                                                       Padding="8,1" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">

@@ -270,6 +270,25 @@
   | 파일 실행 | 파일 행에 캐럿 두고 **Alt+↓** | 연결된 기본 프로그램으로 열림 |
 - **후속**: Enter로도 활성화(옵션) · 더블클릭 시 파일도 실행(현재는 폴더만).
 
+### F20. 패널별 탭 (멀티라인·고정크기, 더블클릭 추가) — FR-B
+- **무엇**: 좌/우 패널에 **실제 탭**. 각 탭 = `PanelTab`(경로·이동기록·펼침상태 **탭별**). 활성 탭이 그 패널의 현재 뷰.
+  - **멀티라인·고정크기**: `ItemsRepeater` + `UniformGridLayout`(MinItemWidth 132, 줄바꿈으로 여러 줄, 긴 이름은 `…`).
+  - **활성 탭 상단 하이라이트 줄** + 배경으로 구분(커스텀 탭).
+  - **`+` 버튼·설명 텍스트 제거** → **탭 영역 더블클릭으로 새 탭 추가**.
+  - 탭 클릭 → 그 탭으로 전환(경로/펼침 상태 유지). **바로 하단에 네비 버튼(←/→/↑) + 전체 경로**(기존 네비 바).
+- **구현 위치**:
+  - [app/Nexa.App/PanelTab.cs](../app/Nexa.App/PanelTab.cs)(신설) — `PanelTab`(INotifyPropertyChanged: Title/IsActive/TabBackground/AccentVisibility)
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — 패널별 `ObservableCollection<PanelTab>`+활성 탭, `_leftNav/_leftExpanded`를 활성 탭 접근자로 전환, `SwitchToTab`/`AddTab`/`OnTabTapped`/`OnTabBarDoubleTapped`, `Navigate`가 탭 Title 갱신
+  - [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 좌/우 탭 바를 `ItemsRepeater`(UniformGridLayout) 탭 스트립으로 교체
+- **커밋**: `(이 단위)`
+- **테스트(Windows)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | 추가 | 탭 영역 더블클릭 | 새 탭 생성·활성(멀티라인으로 쌓임) |
+  | 전환 | 다른 탭 클릭 | 그 탭 경로/펼침 상태로 뷰 전환, 상단 하이라이트 이동 |
+  | 고정크기 | 긴 폴더명 탭 | 고정폭 + `…` 말줄임 |
+- **설정(후속, FR-B4/B5)**: 배치(싱글라인+`<`/`>` ↔ 멀티라인)·크기(이름맞춤 ↔ 고정) **택1 설정** · 탭 닫기(x)·중간클릭 닫기·드래그 재배치·세션 복원.
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)
