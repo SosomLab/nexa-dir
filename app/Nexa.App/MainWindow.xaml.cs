@@ -1,16 +1,20 @@
 using System;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Nexa.App;
 
-/// <summary>메인 윈도우 — 레이아웃 골격(docs/20) + 디렉터리 목록(F4/F5).</summary>
+/// <summary>메인 윈도우 — 레이아웃 골격(docs/20) + 좌/우 패널 디렉터리 목록(F4/F5).</summary>
 public sealed partial class MainWindow : Window
 {
     public MainWindow()
     {
         InitializeComponent();
         ShowInteropRoundTrip();
-        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
+        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DirRepeater, DirHeader, PathText);
+        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), DirRepeater2, DirHeader2, PathText2);
+        UpdateBottomDock();
     }
 
     /// <summary>
@@ -32,21 +36,21 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 목록에 표시한다.
-    /// 실패는 헤더 메시지로 격리(앱은 계속 동작).
+    /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 지정 패널 목록에 표시한다.
+    /// 좌/우 패널이 같은 로직을 공유(패널별 repeater/header/path). 실패는 헤더 메시지로 격리.
     /// </summary>
-    private void LoadDirectory(string path)
+    private static void LoadDirectory(string path, ItemsRepeater repeater, TextBlock header, TextBlock pathText)
     {
         try
         {
             var items = NativeInterop.ReadDir(path);
-            DirRepeater.ItemsSource = items;
-            PathText.Text = path;
-            DirHeader.Text = $"{path} — {items.Count}개 항목 (코어 스트리밍 열거, ItemsRepeater 가상화)";
+            repeater.ItemsSource = items;
+            pathText.Text = path;
+            header.Text = $"{path} — {items.Count}개 항목";
         }
         catch (Exception ex)
         {
-            DirHeader.Text = $"디렉터리 열거 실패: {ex.Message}";
+            header.Text = $"디렉터리 열거 실패: {ex.Message}";
         }
     }
 
@@ -64,6 +68,8 @@ public sealed partial class MainWindow : Window
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
         // 표시 시 좌/우 동일 크기(star) 복원
         RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        // 듀얼→단일(좌 마스터) 전환 시 하단 우 도킹도 연동해서 숨김
+        UpdateBottomDock();
     }
 
     private void OnToggleTerminal(object sender, RoutedEventArgs e)
@@ -73,16 +79,32 @@ public sealed partial class MainWindow : Window
         TermSplitter.Visibility = Vis(show);
         TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
         TermRow.Height = show ? new GridLength(180) : new GridLength(0);
+        if (show)
+        {
+            UpdateBottomDock();
+        }
     }
 
-    /// <summary>하단 도킹을 좌/우 분리(기본)↔통합 전환. 분리 시 좌·우 각 패널용 정보·터미널 2개.</summary>
-    private void OnToggleBottomSplit(object sender, RoutedEventArgs e)
+    /// <summary>하단 도킹 좌/우 분리 토글 → 실제 반영은 UpdateBottomDock가 정책적으로 결정.</summary>
+    private void OnToggleBottomSplit(object sender, RoutedEventArgs e) => UpdateBottomDock();
+
+    /// <summary>
+    /// 하단 도킹의 좌/우 분리 상태를 패널 구성과 연동한다(docs/20).
+    /// - 하단 우 도킹은 **우 패널이 표시(듀얼)이고** 하단 분리가 켜졌을 때만 보인다.
+    /// - 우 패널을 숨기면(단일=좌 마스터) 하단 우 도킹도 숨기고 "분리" 토글은 비활성화.
+    /// </summary>
+    private void UpdateBottomDock()
     {
-        bool split = ToggleBottomSplitBtn.IsChecked == true;
-        BottomRightDock.Visibility = Vis(split);
-        BottomSplitter.Visibility = Vis(split);
-        BottomSplitterCol.Width = split ? GridLength.Auto : new GridLength(0);
-        BottomRightCol.Width = split ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        bool dual = ToggleRightBtn.IsChecked == true;          // 우 패널 표시 = 듀얼
+        bool split = ToggleBottomSplitBtn.IsChecked == true;   // 하단 좌/우 분리 요청
+        // 분리는 듀얼일 때만 의미 있음
+        ToggleBottomSplitBtn.IsEnabled = dual;
+        bool showRightDock = dual && split;
+
+        BottomRightDock.Visibility = Vis(showRightDock);
+        BottomSplitter.Visibility = Vis(showRightDock);
+        BottomSplitterCol.Width = showRightDock ? GridLength.Auto : new GridLength(0);
+        BottomRightCol.Width = showRightDock ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
     private static Visibility Vis(bool? on)
