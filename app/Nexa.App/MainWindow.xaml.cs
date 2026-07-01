@@ -117,4 +117,51 @@ public sealed partial class MainWindow : Window
 
     private static Visibility Vis(bool? on)
         => on == true ? Visibility.Visible : Visibility.Collapsed;
+
+    // ── 스플리터 스냅 (자석식) ─────────────────────────────────────
+    // 좌/우 분리선을 ① 창 중앙(50:50) ② 상↔하 분리선 위치에 자석처럼 정렬한다(양방향).
+    // 분리선 위치 = 좌 열의 ActualWidth. 임계 내면 스냅, 벗어나면 해제(24px).
+    private const double SnapPx = 24;
+    private bool _snapping;   // 스냅으로 Width를 되쓸 때 SizeChanged 재진입 방지
+
+    /// <summary>상단 좌/우 분리선 이동 → 중앙 또는 하단 분리선 위치로 스냅.</summary>
+    private void OnTopSplitSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_snapping || ToggleRightBtn.IsChecked != true) return;   // 듀얼일 때만
+        double left = LeftCol.ActualWidth, total = left + RightCol.ActualWidth;
+        if (total <= 0) return;
+        double? target = SnapTarget(left, total,
+            BottomRightDock.Visibility == Visibility.Visible ? BottomLeftCol.ActualWidth : (double?)null);
+        ApplySnap(LeftCol, RightCol, target, left, total);
+    }
+
+    /// <summary>하단 좌/우 분리선 이동 → 중앙 또는 상단 분리선 위치로 스냅.</summary>
+    private void OnBottomSplitSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_snapping || BottomRightDock.Visibility != Visibility.Visible) return;   // 분리(듀얼)일 때만
+        double left = BottomLeftCol.ActualWidth, total = left + BottomRightCol.ActualWidth;
+        if (total <= 0) return;
+        double? target = SnapTarget(left, total,
+            ToggleRightBtn.IsChecked == true ? LeftCol.ActualWidth : (double?)null);
+        ApplySnap(BottomLeftCol, BottomRightCol, target, left, total);
+    }
+
+    /// <summary>중앙(우선) 또는 상대 분리선 위치가 임계 내면 그 위치를 반환, 아니면 null.</summary>
+    private static double? SnapTarget(double boundary, double total, double? align)
+    {
+        double mid = total / 2;
+        if (Math.Abs(boundary - mid) <= SnapPx) return mid;
+        if (align is double a && a > 0 && Math.Abs(boundary - a) <= SnapPx) return a;
+        return null;
+    }
+
+    /// <summary>좌/우 열 폭을 target:(total-target) 비율(star)로 되써 분리선을 스냅한다.</summary>
+    private void ApplySnap(ColumnDefinition a, ColumnDefinition b, double? target, double current, double total)
+    {
+        if (target is not double t || Math.Abs(t - current) < 0.5) return;
+        _snapping = true;
+        a.Width = new GridLength(t, GridUnitType.Star);
+        b.Width = new GridLength(total - t, GridUnitType.Star);
+        _snapping = false;
+    }
 }

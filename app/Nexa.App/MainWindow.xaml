@@ -74,8 +74,9 @@
                 <ColumnDefinition x:Name="RightCol" Width="*" MinWidth="160" />
             </Grid.ColumnDefinitions>
 
-            <!-- 좌 패널 (주) — 파란 틴트 -->
-            <Border Grid.Column="0" Background="#22338ADF">
+            <!-- 좌 패널 (주) — 파란 틴트. ActualWidth = 좌/우 분리선 위치(스냅 계산용) -->
+            <Border x:Name="LeftPaneRoot" Grid.Column="0" Background="#22338ADF"
+                    SizeChanged="OnTopSplitSizeChanged">
                 <Grid RowSpacing="0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /> <!-- 탭 바 -->
@@ -120,8 +121,8 @@
                 </Grid>
             </Border>
 
-            <!-- 좌↔우 splitter -->
-            <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="8"
+            <!-- 좌↔우 splitter (얇게 + 스냅: 중앙/하단 분리선 정렬) -->
+            <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="4" Background="#22FFFFFF"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
             <!-- 우 패널 (듀얼) — 빨간 틴트. 좌 패널과 동일하게 파일 목록 표시 -->
@@ -170,8 +171,8 @@
             </Border>
         </Grid>
 
-        <!-- 4 · 메인↔하단 상하 splitter -->
-        <ctk:GridSplitter x:Name="TermSplitter" Grid.Row="4" Height="8"
+        <!-- 4 · 메인↔하단 상하 splitter (얇게) -->
+        <ctk:GridSplitter x:Name="TermSplitter" Grid.Row="4" Height="4" Background="#22FFFFFF"
                           ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" />
 
         <!-- 5 · 하단 도킹 패널 — 좌/우 분리(기본). 각 패널용 정보·터미널(ConPTY 후속) -->
@@ -182,16 +183,18 @@
                 <ColumnDefinition x:Name="BottomRightCol" Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 하단 좌 도킹 (청록) -->
-            <Border Grid.Column="0" Background="#3322C0C0" BorderBrush="#33000000" BorderThickness="0,1,0,0">
+            <!-- 하단 좌 도킹 (청록) — ActualWidth = 하단 좌/우 분리선 위치(스냅 계산용) -->
+            <Border x:Name="BottomLeftPaneRoot" Grid.Column="0" Background="#3322C0C0"
+                    BorderBrush="#33000000" BorderThickness="0,1,0,0"
+                    SizeChanged="OnBottomSplitSizeChanged">
                 <StackPanel Padding="8" Spacing="4">
                     <TextBlock Text="좌 패널 — 정보/미리보기/Hex/터미널 (placeholder)" Opacity="0.75" />
                     <TextBlock Text="left> macbook@host ~/Documents %" FontFamily="Consolas" Opacity="0.55" />
                 </StackPanel>
             </Border>
 
-            <!-- 하단 좌↔우 splitter -->
-            <ctk:GridSplitter x:Name="BottomSplitter" Grid.Column="1" Width="8"
+            <!-- 하단 좌↔우 splitter (얇게 + 스냅: 중앙/상단 분리선 정렬) -->
+            <ctk:GridSplitter x:Name="BottomSplitter" Grid.Column="1" Width="4" Background="#22FFFFFF"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
             <!-- 하단 우 도킹 (자주) -->
