@@ -83,7 +83,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnToggleExpand(object sender, TappedRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.DataContext is not DirItem item || !item.IsDir)
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item || !item.IsDir)
         {
             return;
         }
@@ -151,6 +151,8 @@ public sealed partial class MainWindow : Window
         TerminalPanel.Visibility = Vis(show);
         TermSplitter.Visibility = Vis(show);
         TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
+        // 숨김 시 MinHeight도 0으로 풀어 최소높이 빈 띠가 남지 않게 함(표시 시 80 복원).
+        TermRow.MinHeight = show ? 80 : 0;
         TermRow.Height = show ? new GridLength(180) : new GridLength(0);
         if (show)
         {
