@@ -86,6 +86,9 @@ dotnet run     --project app/Nexa.App          # 실행(수동 확인)
 ```
 
 - `.NET SDK`는 `global.json`(8.0.0 + `rollForward: latestMajor`)을 따름 → **9.x SDK로도 빌드 가능**.
+- ⚠️ **TFM 정합 규칙**: 앱 `TargetFramework`의 Windows 버전(현재 **22621**)은 **참조하는 UI 패키지(CommunityToolkit 등)가 제공하는 TFM과 일치**시켜야 한다. 불일치 시 복원은 되어도 **XAML 컴파일에서 CS0234**(`GridSplitter` 등 미해결) → `XamlCompiler` MSB3073. 확인: `Get-ChildItem <pkg>/lib`.
+  - `TargetFramework`(빌드 SDK) ≠ `TargetPlatformMinVersion`(실행 최소, 17763) — **역할이 다르며 값이 달라도 정상**.
+- ⚠️ **macOS에서 앱을 바꿨으면 CI 필수 확인**: WinUI는 맥에서 **빌드 불가** → 로컬 통과가 없다. push 후 **CI(windows) `app` job green을 반드시 확인**(`gh run watch`)해야 한다. 이 검증을 건너뛰면 빌드 깨짐이 여러 커밋 누적된다(실제 사례: 레이아웃 골격 3커밋이 TFM 불일치로 CI 연속 실패).
 - 현재는 스켈레톤(빈 윈도우) — 단위 테스트 프로젝트는 아직 없음. 기능 단위 추가 시 `Nexa.*.Tests` 프로젝트와 `dotnet test` 절차를 본 문서에 추가.
 - (권장 후속) 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 시: `dotnet test app/Nexa.ViewModels.Tests` 절차 추가([11](11-dev-environment.md) §6-1).
 

@@ -52,6 +52,7 @@
 - **커밋 규약**: Conventional Commits `type(scope): 요약`, 초안/확장 분리 커밋. 단위 백로그는 docs/15 §7.
 - **문서 우선**: 결정·설계는 `docs/`에, 의사결정은 `docs/10` + `docs/06`(ADR)에 기록.
 - **빌드/테스트 SSOT**: 부문별 빌드·테스트 절차는 [docs/18](docs/18-build-and-test.md)이 단일 출처. **빌드/테스트 명령·도구·전제·산출물·OS지원이 바뀌는 변경마다 같은 커밋에서 docs/18 갱신**(신뢰 원천은 CI).
+- **WinUI 앱 변경 검증**: 앱(WinUI)은 **맥 빌드 불가** → push 후 **CI(windows) `app` job green 확인 필수**(`gh run watch`). 앱 `TargetFramework`는 참조 UI 패키지(CommunityToolkit 등) 제공 TFM과 정합해야 함(불일치=XAML 컴파일 CS0234). `TargetFramework`(빌드 SDK)≠`TargetPlatformMinVersion`(실행 최소)은 정상. → [docs/18](docs/18-build-and-test.md) §2.
 - **작업 기록(journal)**: 진행마다 `docs/journal/YYYYMMDD_HHMMSS_<slug>.md` 누적(질문·결정·진행).
 - **의존성 정책**: **퍼미시브(MIT/Apache/BSD/ISC/MPL-2.0) 온리**, GPL/AGPL 금지, LGPL 격리.
   CI 라이선스 게이트(`cargo-deny`) 예정. (유료 판매 보호)
