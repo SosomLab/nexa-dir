@@ -104,6 +104,42 @@
 
 ---
 
+### F7. 좌/우 듀얼 목록 + 하단 도킹 연동 + 메뉴 Fit
+- **무엇**: 우 패널도 좌 패널과 동일하게 파일 목록 표시. 하단 도킹 좌/우 분리는 **듀얼(우 패널 표시)일 때만** — 우 패널 숨기면 하단 우도 숨김 + "분리" 토글 비활성(`UpdateBottomDock`). 메뉴 바 세로 축소(Fit).
+- **구현 위치**: [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml)(우 패널 목록·MenuBar Height) · [.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)(`LoadDirectory` 파라미터화, `UpdateBottomDock`)
+- **커밋**: `aee82c2`
+- **테스트**: `dotnet run` → 좌/우 목록, 우 패널 숨기면 하단 우도 숨김·분리 토글 비활성.
+
+### F8. NexaFileGrid 추출 (재사용 컨트롤 라이브러리)
+- **무엇**: 좌/우 목록의 `ScrollViewer`+`ItemsRepeater`를 재사용 컨트롤 **`NexaFileGrid`**(도메인 비종속)로 추출. `Nexa.Controls` 라이브러리 신설. **독립 판매 제품**(ADR-0002 §9, 라이선스 = Nexa Dir 동일 PolyForm).
+- **구현 위치**: [app/Nexa.Controls/NexaFileGrid.xaml(.cs)](../app/Nexa.Controls/) · 앱 `ProjectReference` + 좌/우 `<ctrls:NexaFileGrid>`
+- **커밋**: `d974b4a`(추출) · `4472ff8`(개명) · `732994d`(제품화/라이선스)
+- **테스트**: `dotnet build` 0/0 · 앱 기동 좌/우 `NexaFileGrid` 목록 정상.
+
+---
+
+## 구현 순서 (다음 단계 로드맵)
+
+> 트랙 **A(기반) → B(탐색) → C(플래그십) → D(주변)**. 각 단위 ≈ 1커밋(초안→확장). 백로그 근거 [15](15-dev-methodology.md) §7 · 설계 [20](20-ui-layout.md)/[21](21-adr-0002-fileview-control.md)/[23](23-column-system.md).
+
+| 순서 | 단위 | 내용 | 근거 |
+| --- | --- | --- | --- |
+| **A2** | 컬럼 헤더 + 컬럼 모델 | `NexaFileGrid`에 헤더 행 + `IColumn`/`ICellValueProvider`(이름/상태/크기/날짜) | [23](23-column-system.md) |
+| **A3** | 컬럼 리사이즈 | 헤더 경계 드래그로 컬럼 너비 조절 | [23](23-column-system.md) |
+| **A4** | 컬럼 동기화 ★요구 | 좌/우 패널 컬럼 크기 동기화(독립/실시간/수동 정책) | [23](23-column-system.md) §3 |
+| **A5** | 정렬 | 헤더 클릭 정렬(표시 텍스트와 별개 정렬키) | [23](23-column-system.md) §4 |
+| **B1** | 네비게이션 진입 | 더블클릭/Enter 폴더 진입, ↑ 위로 | FR-A3 |
+| **B2** | 뒤로/앞으로 + 히스토리 | 탭별 히스토리, 버튼 우클릭 N단계 점프 | FR-A3/B2 |
+| **B3** | 경로 바(브레드크럼) | 세그먼트 클릭 이동 + 우클릭 텍스트 주소(복사/붙여넣기/이동) | FR-A2 |
+| **C1** | 코어 가시 행 스트림 | `VisibleRow` + `expand`/`collapse` API(코어) | [07](07-flagship-tree-multiselect.md) §3 |
+| **C2** | 인라인 트리 펼침 | depth 들여쓰기 + ▶/▼, 지연 로드 | [07](07-flagship-tree-multiselect.md) |
+| **C3** | 교차 다중 선택 | `OrderedSet<NodeId>`(부모 무관), Ctrl/Shift/Ctrl+A | [07](07-flagship-tree-multiselect.md) §4 |
+| **C4** | 혼합 파일 작업 | 복사/이동/삭제 + 진행률·충돌·**Undo** | FR-D |
+| **D** | 주변 | 탭 모델 · 메뉴/툴바/컨텍스트메뉴 실동작 · 일괄 리네임([25](25-bulk-rename.md)) · 미리보기/터미널 패널 · 검색([24](24-search-everything.md), M3) · 뷰 모드(아이콘/컬럼/갤러리) | — |
+
+- **현재 위치**: F8까지 완료 → **다음 = A2**.
+- 각 단위는 Windows/VM에서 빌드·기동 검증 + CI green 확인(맥은 코어만).
+
 ## 게이트 (모든 기능 공통, 머지 전)
 ```bash
 cd core
