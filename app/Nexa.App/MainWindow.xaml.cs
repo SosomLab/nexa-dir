@@ -112,7 +112,7 @@ public sealed partial class MainWindow : Window
             grid.ItemsSource = items;
             pathText.Text = path;
             header.Text = $"{path} — {direct}개 항목";
-            // 저장된 펼침 상태 복원: 이 폴더로 진입/이동 시 하위 열린 폴더를 동일하게 표시(F18, FR-X4).
+            // 펼침 상태 유지: 이 폴더로 진입/이동해도 하위 열린 폴더를 동일하게 유지(F18, FR-X4).
             ApplySavedExpansion(items, ExpandedSet(items));
         }
         catch (Exception ex)
