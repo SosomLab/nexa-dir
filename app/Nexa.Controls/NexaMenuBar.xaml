@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Nexa.Controls.NexaMenuBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 초박형 메뉴 바(도메인 비종속). 기본 MenuBar는 내부 템플릿이 항목 높이를 강제해 초박형 불가 →
+         Button + MenuFlyout로 직접 구성해 높이/폰트를 완전 제어(MenuHeight/FontSize). -->
+    <Border Background="{x:Bind Background, Mode=OneWay}" Padding="0">
+        <StackPanel x:Name="Host" Orientation="Horizontal" VerticalAlignment="Stretch" />
+    </Border>
+</UserControl>
