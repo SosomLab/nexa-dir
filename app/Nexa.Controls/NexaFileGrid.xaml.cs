@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -14,6 +15,9 @@ public sealed partial class NexaFileGrid : UserControl
     {
         InitializeComponent();
     }
+
+    /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
+    public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
 
     /// <summary>행 데이터 컬렉션. 내부 <c>ItemsRepeater.ItemsSource</c>로 전달(가상화).</summary>
     public static readonly DependencyProperty ItemsSourceProperty =

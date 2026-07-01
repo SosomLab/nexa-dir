@@ -101,18 +101,18 @@
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
+                        <ctrls:NexaFileGrid.Columns>
+                            <ctrls:NexaGridColumn Header="종류" Key="kind" Width="64" />
+                            <ctrls:NexaGridColumn Header="이름" Key="name" Width="240" />
+                            <ctrls:NexaGridColumn Header="크기" Key="size" Width="100" />
+                        </ctrls:NexaFileGrid.Columns>
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <Grid ColumnSpacing="12" Padding="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
-                                </Grid>
+                                <StackPanel Orientation="Horizontal" Padding="0,2">
+                                    <TextBlock Width="64" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                                    <TextBlock Width="240" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Width="100" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                </StackPanel>
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>
                     </ctrls:NexaFileGrid>
@@ -155,18 +155,18 @@
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
+                        <ctrls:NexaFileGrid.Columns>
+                            <ctrls:NexaGridColumn Header="종류" Key="kind" Width="64" />
+                            <ctrls:NexaGridColumn Header="이름" Key="name" Width="240" />
+                            <ctrls:NexaGridColumn Header="크기" Key="size" Width="100" />
+                        </ctrls:NexaFileGrid.Columns>
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <Grid ColumnSpacing="12" Padding="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
-                                </Grid>
+                                <StackPanel Orientation="Horizontal" Padding="0,2">
+                                    <TextBlock Width="64" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                                    <TextBlock Width="240" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Width="100" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                </StackPanel>
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>
                     </ctrls:NexaFileGrid>

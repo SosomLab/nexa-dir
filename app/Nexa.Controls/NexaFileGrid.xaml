@@ -2,15 +2,39 @@
 <UserControl
     x:Class="Nexa.Controls.NexaFileGrid"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Nexa.Controls">
 
-    <!-- 가상화 목록/트리 컨트롤(도메인 비종속) — ItemsRepeater 래핑. 행 표현은 ItemTemplate 주입.
-         후속: 컬럼 헤더·리사이즈(IColumn/ICellValueProvider), 트리 depth·펼침(ADR-0002 §7). -->
-    <ScrollViewer VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
-        <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
+    <!-- 가상화 파일 그리드(도메인 비종속). 컬럼 헤더(Columns) + 본문(ItemsRepeater, ItemTemplate 주입).
+         후속: 헤더-본문 너비 동기화·리사이즈(A3), 정렬(A5), 트리 depth·펼침. -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- 컬럼 헤더 -->
+            <RowDefinition Height="*" />    <!-- 본문 -->
+        </Grid.RowDefinitions>
+
+        <!-- 컬럼 헤더 행 -->
+        <ItemsRepeater Grid.Row="0" ItemsSource="{x:Bind Columns, Mode=OneWay}">
             <ItemsRepeater.Layout>
-                <StackLayout Orientation="Vertical" Spacing="2" />
+                <StackLayout Orientation="Horizontal" />
             </ItemsRepeater.Layout>
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="local:NexaGridColumn">
+                    <Border Width="{x:Bind Width}" Padding="6,3"
+                            BorderThickness="0,0,1,1" BorderBrush="#22FFFFFF">
+                        <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.85" />
+                    </Border>
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
         </ItemsRepeater>
-    </ScrollViewer>
+
+        <!-- 본문(가상화) -->
+        <ScrollViewer Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
+            <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Orientation="Vertical" Spacing="2" />
+                </ItemsRepeater.Layout>
+            </ItemsRepeater>
+        </ScrollViewer>
+    </Grid>
 </UserControl>
