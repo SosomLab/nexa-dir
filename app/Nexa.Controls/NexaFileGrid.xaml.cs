@@ -23,6 +23,15 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
 
+    /// <summary>지정 인덱스 행이 실체화돼 있으면 화면에 보이도록 스크롤(키보드 이동용). 미실체화면 무시(초안).</summary>
+    public void BringIndexIntoView(int index)
+    {
+        if (Repeater.TryGetElement(index) is UIElement el)
+        {
+            el.StartBringIntoView();
+        }
+    }
+
     // ── 컬럼 리사이즈 (헤더 우측 핸들 드래그, PointerMove + 포인터 캡처) ──
     private NexaGridColumn? _resizingCol;
     private double _resizeStartX;
