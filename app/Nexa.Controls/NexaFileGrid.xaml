@@ -21,13 +21,16 @@
             <ItemsRepeater.ItemTemplate>
                 <DataTemplate x:DataType="local:NexaGridColumn">
                     <Grid Width="{x:Bind Width, Mode=OneWay}">
-                        <Border Padding="6,3" BorderThickness="0,0,1,1" BorderBrush="#22FFFFFF">
-                            <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.85"
+                        <!-- 헤더(연한 배경으로 구분) -->
+                        <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
+                                Background="#18FFFFFF">
+                            <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
                                        TextTrimming="CharacterEllipsis" />
                         </Border>
-                        <!-- 리사이즈 핸들(우측 6px). 드래그로 Width 조절 -->
-                        <Border Width="6" HorizontalAlignment="Right" Background="Transparent"
-                                ManipulationMode="TranslateX" ManipulationDelta="OnColumnResize"
+                        <!-- 리사이즈 핸들(우측 8px). PointerMove 캡처로 Width 조절 -->
+                        <Border Width="8" HorizontalAlignment="Right" Background="Transparent"
+                                PointerPressed="OnResizeStart" PointerMoved="OnResizeMove"
+                                PointerReleased="OnResizeEnd" PointerCanceled="OnResizeEnd"
                                 Tag="{x:Bind}" />
                     </Grid>
                 </DataTemplate>

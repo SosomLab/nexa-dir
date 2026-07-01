@@ -21,13 +21,40 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
 
-    /// <summary>헤더 리사이즈 핸들 드래그 → 해당 컬럼 <c>Width</c> 조절(최소 40px). 공유 컬럼이면 본문·좌/우 동시 반영.</summary>
-    private void OnColumnResize(object sender, ManipulationDeltaRoutedEventArgs e)
+    // ── 컬럼 리사이즈 (헤더 우측 핸들 드래그, PointerMove + 포인터 캡처) ──
+    private NexaGridColumn? _resizingCol;
+    private double _resizeStartX;
+    private double _resizeStartWidth;
+
+    private void OnResizeStart(object sender, PointerRoutedEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is NexaGridColumn col)
         {
-            col.Width = Math.Max(40, col.Width + e.Delta.Translation.X);
+            _resizingCol = col;
+            _resizeStartX = e.GetCurrentPoint(this).Position.X;
+            _resizeStartWidth = col.Width;
+            fe.CapturePointer(e.Pointer);
+            e.Handled = true;
         }
+    }
+
+    private void OnResizeMove(object sender, PointerRoutedEventArgs e)
+    {
+        if (_resizingCol is not null && sender is FrameworkElement fe && fe.PointerCaptures is { Count: > 0 })
+        {
+            double x = e.GetCurrentPoint(this).Position.X;
+            _resizingCol.Width = Math.Max(40, _resizeStartWidth + (x - _resizeStartX));
+            e.Handled = true;
+        }
+    }
+
+    private void OnResizeEnd(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            fe.ReleasePointerCapture(e.Pointer);
+        }
+        _resizingCol = null;
     }
 
     /// <summary>행 데이터 컬렉션. 내부 <c>ItemsRepeater.ItemsSource</c>로 전달(가상화).</summary>
