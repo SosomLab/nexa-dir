@@ -15,7 +15,13 @@
       하단 도킹: 기본 좌/우 분리(각 패널용 정보·터미널) → 터미널 활성 시 좌·우 2개.
       좌 패널 콘텐츠에 실제 디렉터리 목록(F4/F5) 보존.
     -->
-    <Grid>
+    <Grid x:Name="RootGrid">
+        <Grid.Resources>
+            <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
+            <ctrls:NexaGridColumn x:Key="ColKind" Header="종류" Key="kind" Width="64" />
+            <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="260" />
+            <ctrls:NexaGridColumn x:Key="ColSize" Header="크기" Key="size" Width="100" />
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />  <!-- 0 메뉴 바 -->
             <RowDefinition Height="Auto" />  <!-- 1 도구 모음 -->
@@ -101,17 +107,12 @@
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
-                        <ctrls:NexaFileGrid.Columns>
-                            <ctrls:NexaGridColumn Header="종류" Key="kind" Width="64" />
-                            <ctrls:NexaGridColumn Header="이름" Key="name" Width="240" />
-                            <ctrls:NexaGridColumn Header="크기" Key="size" Width="100" />
-                        </ctrls:NexaFileGrid.Columns>
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,2">
-                                    <TextBlock Width="64" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                    <TextBlock Width="240" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Width="100" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColKind}, Path=Width, Mode=OneWay}" Text="{x:Bind KindLabel}" Opacity="0.6" Padding="6,0,0,0" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" Padding="6,0,0,0" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColSize}, Path=Width, Mode=OneWay}" Text="{x:Bind SizeLabel}" Opacity="0.6" Padding="6,0,0,0" />
                                 </StackPanel>
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>
@@ -155,17 +156,12 @@
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
-                        <ctrls:NexaFileGrid.Columns>
-                            <ctrls:NexaGridColumn Header="종류" Key="kind" Width="64" />
-                            <ctrls:NexaGridColumn Header="이름" Key="name" Width="240" />
-                            <ctrls:NexaGridColumn Header="크기" Key="size" Width="100" />
-                        </ctrls:NexaFileGrid.Columns>
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,2">
-                                    <TextBlock Width="64" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                    <TextBlock Width="240" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Width="100" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColKind}, Path=Width, Mode=OneWay}" Text="{x:Bind KindLabel}" Opacity="0.6" Padding="6,0,0,0" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" Padding="6,0,0,0" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColSize}, Path=Width, Mode=OneWay}" Text="{x:Bind SizeLabel}" Opacity="0.6" Padding="6,0,0,0" />
                                 </StackPanel>
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>

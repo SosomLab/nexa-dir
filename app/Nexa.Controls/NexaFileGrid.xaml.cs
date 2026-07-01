@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 
 namespace Nexa.Controls;
 
@@ -18,6 +20,15 @@ public sealed partial class NexaFileGrid : UserControl
 
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
+
+    /// <summary>헤더 리사이즈 핸들 드래그 → 해당 컬럼 <c>Width</c> 조절(최소 40px). 공유 컬럼이면 본문·좌/우 동시 반영.</summary>
+    private void OnColumnResize(object sender, ManipulationDeltaRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is NexaGridColumn col)
+        {
+            col.Width = Math.Max(40, col.Width + e.Delta.Translation.X);
+        }
+    }
 
     /// <summary>행 데이터 컬렉션. 내부 <c>ItemsRepeater.ItemsSource</c>로 전달(가상화).</summary>
     public static readonly DependencyProperty ItemsSourceProperty =

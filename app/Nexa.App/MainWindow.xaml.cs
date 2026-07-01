@@ -11,6 +11,13 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // 좌/우 패널이 같은 컬럼 인스턴스를 공유 → 리사이즈가 헤더·본문·양쪽 패널에 동시 반영(A3/A4).
+        foreach (var key in new[] { "ColKind", "ColName", "ColSize" })
+        {
+            var col = (NexaGridColumn)RootGrid.Resources[key];
+            DirGrid.Columns.Add(col);
+            DirGrid2.Columns.Add(col);
+        }
         ShowInteropRoundTrip();
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
         LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DirGrid, DirHeader, PathText);
