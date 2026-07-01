@@ -335,7 +335,7 @@
   | 드라이브 | `C:` 클릭 | `C:\`로 이동 |
   | 편집 | 경로 바 우클릭 → 붙여넣기 → Enter | 그 경로로 이동. Esc/바깥 클릭 → 원복 |
 - **시인성 개선**: 세그먼트/구분자 `\` **간격 축소**(라벨 좌우 패딩 1px)로 fullpath처럼 표시 · **hover 시 배경/글자색 반전**(밝은 배경+어두운 글자)으로 확연히 강조.
-- **F23-1 파일 경로 처리**: 편집 제출 경로의 **끝이 폴더가 아니라 파일이면(파일 존재) 파일명을 제외한 상위 폴더로 이동 + 그 파일 선택**. (`OnPathBarNavigated`: `File.Exists`→`GetDirectoryName`→`Navigate`+`SelectByPath`)
+- **F23-1 파일 경로 처리**: 편집 제출 경로가 **폴더면 그대로 이동**, **파일이면 그 파일의 상위 폴더로 이동 + 그 파일 선택**. (`OnPathBarNavigated`: `Directory.Exists` / `File.Exists`→`GetDirectoryName`→`Navigate`+`SelectByPath`)
 - **후속(β/γ, [27](27-pathbar-component.md))**: 오버플로 `…`·UNC · 형제 `▾` 드롭다운 · 세그먼트 드롭 타깃 · VFS 스킴 Segmenter · 템플릿드 컨트롤화.
 
 ---

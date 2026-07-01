@@ -246,24 +246,25 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnPathBarNavigated(bool left, string path)
     {
-        if (Directory.Exists(path))
+        var p = (path ?? string.Empty).Trim();
+        if (Directory.Exists(p))
         {
             SetActivePanel(left);
-            Navigate(left, path, record: true);
+            Navigate(left, p, record: true);   // 폴더면 그대로 이동
             return;
         }
-        if (File.Exists(path))
+        if (File.Exists(p))
         {
-            var dir = System.IO.Path.GetDirectoryName(path);
+            var dir = System.IO.Path.GetDirectoryName(p);
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
                 SetActivePanel(left);
-                Navigate(left, dir, record: true);   // 파일명 제외한 상위 폴더로 이동
-                SelectByPath(left, path);            // 그 파일을 선택·포커스
+                Navigate(left, dir, record: true);   // 파일이면 그 파일의 상위 폴더로 이동
+                SelectByPath(left, p);               // 그 파일 선택
                 return;
             }
         }
-        StatusText.Text = $"경로 없음: {path}";
+        StatusText.Text = $"경로 없음: {p}";
         (left ? PathBarL : PathBarR).Path = (left ? _leftTab : _rightTab).Current;   // 현재 경로로 복귀
     }
 
