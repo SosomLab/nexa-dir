@@ -345,23 +345,13 @@ public sealed partial class MainWindow : Window
         if (left)
         {
             _leftAnchor = anchor;
-            _leftCaret = item;   // 키보드 이동이 클릭 지점부터 이어지도록 캐럿 갱신
         }
         else
         {
             _rightAnchor = anchor;
-            _rightCaret = item;
         }
-
-        int count = 0;
-        foreach (var it in list)
-        {
-            if (it.IsSelected)
-            {
-                count++;
-            }
-        }
-        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+        MoveCaret(left, item);   // 키보드 이동이 클릭 지점부터 이어지도록 캐럿 갱신(포커스 외곽선)
+        UpdateSelectionCount(list);
     }
 
     /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
@@ -434,15 +424,52 @@ public sealed partial class MainWindow : Window
         RefreshSelectionFocus();
     }
 
+    /// <summary>키보드 캐럿(현재 위치)을 이동하고 포커스 외곽선을 갱신한다(패널별 1개).</summary>
+    private void MoveCaret(bool left, DirItem? item)
+    {
+        var old = left ? _leftCaret : _rightCaret;
+        if (old is not null && !ReferenceEquals(old, item))
+        {
+            old.IsCaret = false;
+        }
+        if (item is not null)
+        {
+            item.IsCaret = true;
+        }
+        if (left)
+        {
+            _leftCaret = item;
+        }
+        else
+        {
+            _rightCaret = item;
+        }
+    }
+
+    /// <summary>선택 개수를 세어 상태바에 표시.</summary>
+    private void UpdateSelectionCount(IEnumerable<DirItem> list)
+    {
+        int count = 0;
+        foreach (var it in list)
+        {
+            if (it.IsSelected)
+            {
+                count++;
+            }
+        }
+        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+    }
+
     /// <summary>
-    /// 키보드 이동: ↑/↓ 선택 이동(Shift=범위 확장), →/← 현재 폴더 펼침/접힘.
-    /// 대상은 활성 패널(포커스 비의존). 캐럿(현재 위치)은 anchor와 분리해 Shift 범위를 지원.
+    /// 키보드 이동: ↑/↓ 선택 이동(Shift=범위 확장, Ctrl=위치만 이동), →/← 폴더 펼침/접힘,
+    /// Space=캐럿 항목 선택(Ctrl+Space=비연속 다중 선택 토글). 대상은 활성 패널(포커스 비의존).
     /// </summary>
     private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        bool space = e.Key == VirtualKey.Space;
         bool vertical = e.Key == VirtualKey.Up || e.Key == VirtualKey.Down;
         bool horizontal = e.Key == VirtualKey.Left || e.Key == VirtualKey.Right;
-        if (!vertical && !horizontal)
+        if (!space && !vertical && !horizontal)
         {
             return;
         }
@@ -455,6 +482,33 @@ public sealed partial class MainWindow : Window
         SetActivePanel(left);
         var caret = left ? _leftCaret : _rightCaret;
         int cur = caret is not null ? list.IndexOf(caret) : -1;
+        bool ctrl = IsCtrlDown();
+        bool shift = IsShiftDown();
+
+        if (space)
+        {
+            // 캐럿 항목 선택. Ctrl+Space=토글(비연속 다중, 나머지 유지), Space=단일 선택.
+            if (cur >= 0)
+            {
+                var item = list[cur];
+                if (ctrl)
+                {
+                    item.IsSelected = !item.IsSelected;
+                }
+                else
+                {
+                    foreach (var it in list)
+                    {
+                        it.IsSelected = false;
+                    }
+                    item.IsSelected = true;
+                }
+                if (left) { _leftAnchor = item; } else { _rightAnchor = item; }
+                UpdateSelectionCount(list);
+            }
+            e.Handled = true;
+            return;
+        }
 
         if (horizontal)
         {
@@ -478,8 +532,17 @@ public sealed partial class MainWindow : Window
             next = list.Count - 1;
         }
 
+        if (ctrl && !shift)
+        {
+            // 비연속 다중 선택 모드: 선택은 그대로 두고 캐럿(위치)만 이동. Space로 개별 토글.
+            MoveCaret(left, list[next]);
+            (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
+            e.Handled = true;
+            return;
+        }
+
         var anchor = left ? _leftAnchor : _rightAnchor;
-        if (IsShiftDown())
+        if (shift)
         {
             // 범위 확장: 고정 anchor ~ 새 캐럿(next) 선택.
             if (anchor is null || !list.Contains(anchor))
@@ -513,27 +576,10 @@ public sealed partial class MainWindow : Window
             anchor = list[next];
         }
 
-        if (left)
-        {
-            _leftAnchor = anchor;
-            _leftCaret = list[next];
-        }
-        else
-        {
-            _rightAnchor = anchor;
-            _rightCaret = list[next];
-        }
+        if (left) { _leftAnchor = anchor; } else { _rightAnchor = anchor; }
+        MoveCaret(left, list[next]);
         (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
-
-        int count = 0;
-        foreach (var it in list)
-        {
-            if (it.IsSelected)
-            {
-                count++;
-            }
-        }
-        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+        UpdateSelectionCount(list);
         e.Handled = true;
     }
 

@@ -110,10 +110,12 @@ internal sealed class DirItem : INotifyPropertyChanged
     private static readonly SolidColorBrush HoverBrush = new(ColorHelper.FromArgb(0x33, 0x99, 0xCC, 0xF5));
     private static readonly SolidColorBrush SelBorderActiveBrush = new(ColorHelper.FromArgb(0xFF, 0x3B, 0x82, 0xC4));
     private static readonly SolidColorBrush SelBorderInactiveBrush = new(ColorHelper.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
+    private static readonly SolidColorBrush CaretBorderBrush = new(ColorHelper.FromArgb(0xAA, 0xBB, 0xBB, 0xBB));
     private static readonly Thickness SelBorderThickness = new(1);
 
     private bool _isSelected;
     private bool _isHovered;
+    private bool _isCaret;
     private bool _panelFocused = true;
 
     /// <summary>선택 여부(단일/다중/범위).</summary>
@@ -128,6 +130,13 @@ internal sealed class DirItem : INotifyPropertyChanged
     {
         get => _isHovered;
         set { if (_isHovered != value) { _isHovered = value; RaiseVisual(); } }
+    }
+
+    /// <summary>키보드 캐럿(현재 위치) 여부 — 선택되지 않아도 얇은 포커스 외곽선 표시(Ctrl 이동 시 위치 식별).</summary>
+    public bool IsCaret
+    {
+        get => _isCaret;
+        set { if (_isCaret != value) { _isCaret = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBorderBrush))); } }
     }
 
     /// <summary>속한 패널이 활성(포커스)인지 — 비활성이면 선택색이 회색(포커스아웃).</summary>
@@ -149,9 +158,10 @@ internal sealed class DirItem : INotifyPropertyChanged
         _isSelected ? (_panelFocused ? SelectedActiveBrush : SelectedInactiveBrush)
         : _isHovered ? HoverBrush : RowTransparent;
 
-    /// <summary>선택 시 테두리(활성=파랑/비활성=회색), 아니면 없음.</summary>
+    /// <summary>테두리: 선택(활성=파랑/비활성=회색) &gt; 캐럿(포커스 외곽선) &gt; 없음.</summary>
     public Brush RowBorderBrush =>
-        _isSelected ? (_panelFocused ? SelBorderActiveBrush : SelBorderInactiveBrush) : RowTransparent;
+        _isSelected ? (_panelFocused ? SelBorderActiveBrush : SelBorderInactiveBrush)
+        : _isCaret ? CaretBorderBrush : RowTransparent;
 
     /// <summary>선택 시 1px 테두리.</summary>
     public Thickness RowBorderThickness => SelBorderThickness;   // 항상 1px(투명↔색만) → 선택 시 높이 점프 방지

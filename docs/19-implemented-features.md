@@ -214,20 +214,22 @@
   | 키보드 | 행 클릭 후 ↑/↓ | 선택이 한 칸씩 이동 + 화면에 유지(스크롤) |
   | 탭 클릭 | 비활성 패널의 "홈/탭 1/탭 2" 영역 클릭 | 그 패널 활성(선택색 파랑, 반대 패널 회색) |
 
-### F17. 키보드 범위 선택(Shift) + 폴더 펼침/접힘(→/←)
-- **무엇**: 키보드 이동 확장.
-  - **Shift+↑/↓**: 기준점(anchor) 고정, 캐럿만 이동하며 **범위 다중 선택** 확장(연속). 캐럿(현재 위치)을 anchor와 분리해 관리(`_leftCaret`/`_rightCaret`).
-  - **→**: 현재 행이 **폴더면 펼침**(디스클로저 클릭과 동일). **←**: 현재 행이 **폴더면 접힘**. 폴더가 아니면 무시.
-  - 펼침/접힘 로직을 `OnToggleExpand`에서 **`SetExpanded(item, expand)`** 로 추출해 클릭·키보드 공용.
-- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `OnGridKeyDown`(Shift 범위·→/← 분기), `SetExpanded`(공용), `_leftCaret`/`_rightCaret`(캐럿), `OnRowPointerPressed`(클릭 시 캐럿 갱신)
+### F17. 키보드 범위/비연속 선택 + 폴더 펼침/접힘 + 캐럿
+- **무엇**: 키보드 이동·선택 확장(Explorer 방식).
+  - **↑/↓**: 단일 선택 이동. **Shift+↑/↓**: 기준점(anchor) 고정, **연속 범위 다중 선택** 확장.
+  - **Ctrl+↑/↓**: 선택은 그대로 두고 **캐럿(위치)만 이동** — 비연속 다중 선택 모드. **Ctrl+Space**: 캐럿 항목 **선택 토글**(나머지 선택 유지) → 떨어진 항목들 다중 선택. **Space**(단독): 캐럿 항목 **단일 선택**.
+  - **→/←**: 현재 행이 **폴더면 펼침/접힘**(디스클로저 클릭과 동일, `SetExpanded` 공용). 폴더 아니면 무시.
+  - **캐럿 표시**: 선택되지 않아도 현재 위치를 **얇은 포커스 외곽선**(`DirItem.IsCaret` → `RowBorderBrush`)으로 표시 → Ctrl 이동 위치 식별. 캐럿(현재)은 anchor(범위 고정점)와 분리(`_leftCaret`/`_rightCaret`).
+- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `OnGridKeyDown`(Shift 범위·Ctrl 이동·Space 토글·→/←), `MoveCaret`/`UpdateSelectionCount`/`SetExpanded`(공용), `OnRowPointerPressed`(클릭 시 캐럿 갱신) · [NativeInterop.cs](../app/Nexa.App/NativeInterop.cs)(`IsCaret`·`CaretBorderBrush`)
 - **커밋**: `(이 단위)`
 - **테스트(Windows/VM)**:
   | 방법 | 동작 | 기대 |
   | --- | --- | --- |
-  | 범위 | 행 클릭 후 **Shift+↓/↑** 반복 | 기준점~현재까지 연속 다중 선택, 상태바 "N개 선택됨" |
-  | 펼침 | 폴더 행 선택 후 **→** | 자식이 인라인 펼침(▼) |
-  | 접힘 | 펼쳐진 폴더 행에서 **←** | 자식 접힘(▶) |
-- **한계**: ← 접힘 시 부모로 이동(트리 상위 점프)은 미포함(현재 행 접힘만). Ctrl+↑/↓(선택 유지 이동)·Ctrl+A는 후속.
+  | 범위 | 행 클릭 후 **Shift+↓/↑** | 기준점~현재 연속 선택 |
+  | 비연속 | **Ctrl+↓/↑** 로 이동(외곽선만 이동) 후 **Ctrl+Space** 반복 | 떨어진 여러 항목 선택, 상태바 "N개 선택됨" |
+  | 단일 | **Space** | 캐럿 항목만 선택 |
+  | 펼침/접힘 | 폴더 행에서 **→ / ←** | 인라인 펼침(▼)/접힘(▶) |
+- **한계**: ← 접힘 시 부모로 점프는 미포함(현재 행 접힘만). **Ctrl+A**·Home/End·PageUp/Down은 후속.
 
 ---
 
