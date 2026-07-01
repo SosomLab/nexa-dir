@@ -161,8 +161,27 @@
   | 단일 | 행 클릭 | 그 행만 파란 하이라이트 |
   | 다중 | Ctrl+클릭 반복 | 개별 토글 누적 |
   | 범위 | 한 행 클릭 후 Shift+다른 행 | 사이 전체 선택, 상태바 "N개 선택됨" |
-- **한계(초안)**: **드래그(러버밴드) 선택**은 미포함 — 목록 오버레이+교차 히트테스트가 필요해 `NexaFileGrid`(컨트롤) 내부 단위로 후속. Ctrl+A·방향키 선택도 후속.
-- **후속**: 러버밴드 드래그 선택 · 폴더 교차 선택 유지(네비게이션 연계) · 혼합 파일 작업(C4).
+- **한계(초안)**: **드래그(러버밴드) 선택**은 미포함 — 목록 오버레이+교차 히트테스트가 필요해 `NexaFileGrid`(컨트롤) 내부 단위로 후속.
+- **후속**: 러버밴드 드래그 선택 · Shift+화살표 범위 확장 · 혼합 파일 작업(C4).
+
+### F12. 초박형 커스텀 메뉴 바(NexaMenuBar)
+- **무엇**: 기본 `MenuBar`/`MenuFlyout` 한계(초박형 불가·둥근 팝업·hover 전환 불가) 우회. **Button 헤더 + 경량 Popup(사각 Border)**. hover 전환(열린 상태서 옆 메뉴 이동 시 자동 오픈), ALT 토글/문자 단축키, ESC·바깥 클릭 닫기.
+- **구현 위치**: [NexaMenuBar.xaml(.cs)](../app/Nexa.Controls/) · [NexaMenu.cs](../app/Nexa.Controls/NexaMenu.cs) · [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml)(9개 메뉴)
+- **커밋**: `289c911`·`5045e03`·`57147f0`·`87cefbd`
+- **테스트**: 파일 클릭→사각 드롭다운, 옆 메뉴로 이동 시 자동 오픈, Alt 토글/Alt+F, Esc 닫기.
+- **후속**: 단축키 밑줄(&F) 표시, 실제 명령 연결(트랙 D).
+
+### F13. 네비게이션(패널/탭별 이동 기록) + 위로
+- **무엇**: 패널별 뒤로/앞으로 스택 + 현재 경로, **뒤로·앞으로·위로(상위 폴더)** 버튼 동작 + 활성상태 갱신. 더블클릭 진입도 기록. 네비 버튼 축소(22×22).
+- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)(`Nav`/`Navigate`/`GoBack`/`GoForward`/`GoUp`/`UpdateNavButtons`) · [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml)(`NavBtnStyle`)
+- **커밋**: `(이 단위)`
+- **테스트**: 폴더 더블클릭 후 뒤로/앞으로/위로 동작, 좌/우 독립 기록, 버튼 활성상태.
+
+### F14. Explorer식 선택/호버 + 키보드 이동 + 클릭 지연 수정
+- **무엇**: 호버=옅은 파랑, 선택(활성)=연한 파랑+파란 테두리, 선택(비활성/윈도우 비활성)=회색(포커스아웃). 테두리 항상 1px(높이 점프 방지). **키보드 ↑/↓** 단일 선택 이동. **클릭 지연** = `Tapped`+`DoubleTapped` 더블탭 대기 → **`PointerPressed`**(즉시)로 이동.
+- **구현 위치**: [NativeInterop.cs](../app/Nexa.App/NativeInterop.cs)(`DirItem` 선택/호버/포커스 브러시) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)(`SetActivePanel`/`RefreshSelectionFocus`/`OnWindowActivated`/`OnGridKeyDown`/`OnRowPointerPressed`) · [NexaFileGrid.xaml.cs](../app/Nexa.Controls/NexaFileGrid.xaml.cs)(`BringIndexIntoView`)
+- **커밋**: `(이 단위)`
+- **테스트**: 클릭 즉시 선택·행 높이 불변·↑↓ 이동·다른 앱 전환 시 선택 회색.
 
 ---
 
