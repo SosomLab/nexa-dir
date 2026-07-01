@@ -148,14 +148,20 @@
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
-                        <StackPanel Orientation="Horizontal" Spacing="3">
-                            <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                            <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                            <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
-                            <Border Background="#22FFFFFF" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
-                                <TextBlock x:Name="PathText" Text="경로 바 (placeholder)" Opacity="0.8" />
+                        <Grid ColumnSpacing="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
+                                <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
+                                <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
+                                <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#22FFFFFF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
                             </Border>
-                        </StackPanel>
+                        </Grid>
                     </Border>
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
@@ -237,14 +243,20 @@
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
-                        <StackPanel Orientation="Horizontal" Spacing="3">
-                            <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                            <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                            <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
-                            <Border Background="#22FFFFFF" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
-                                <TextBlock x:Name="PathText2" Text="경로 바 (placeholder)" Opacity="0.8" />
+                        <Grid ColumnSpacing="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
+                                <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
+                                <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
+                                <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#22FFFFFF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
                             </Border>
-                        </StackPanel>
+                        </Grid>
                     </Border>
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Nexa.Controls.NexaPathBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Nexa.Controls"
+    HorizontalContentAlignment="Stretch">
+
+    <!-- 브레드크럼(기본) ↔ 편집(TextBox) 2모드. 우클릭 시 편집 진입. -->
+    <Grid>
+        <!-- 브레드크럼: 세그먼트 가로 배치 + 넘치면 수평 스크롤 -->
+        <ScrollViewer x:Name="PART_Scroll"
+                      HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"
+                      VerticalAlignment="Center"
+                      RightTapped="OnBreadcrumbRightTapped">
+            <ItemsRepeater x:Name="PART_Breadcrumb">
+                <ItemsRepeater.Layout>
+                    <StackLayout Orientation="Horizontal" Spacing="0" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="local:PathSegment">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{x:Bind Prefix}" Opacity="0.5" VerticalAlignment="Center" />
+                            <Border Tag="{x:Bind}" Background="Transparent" CornerRadius="3" Padding="4,1"
+                                    PointerEntered="OnSegPointerEntered" PointerExited="OnSegPointerExited"
+                                    Tapped="OnSegTapped">
+                                <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+
+        <!-- 편집 모드: 전체 경로 텍스트(전체 선택·복사/붙여넣기). Enter=이동, Esc/포커스아웃=취소 -->
+        <TextBox x:Name="PART_Editor" Visibility="Collapsed"
+                 KeyDown="OnEditorKeyDown" LostFocus="OnEditorLostFocus" />
+    </Grid>
+</UserControl>

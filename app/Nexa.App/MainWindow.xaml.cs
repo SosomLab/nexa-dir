@@ -64,6 +64,9 @@ public sealed partial class MainWindow : Window
         _rightTabs.Add(_rightTab);
         LeftTabs.ItemsSource = _leftTabs;
         RightTabs.ItemsSource = _rightTabs;
+        // 경로 바(브레드크럼/편집) 이동 요청 → 실제 네비게이션(존재 확인 후). 좌/우 각각.
+        PathBarL.Navigated += (_, e) => OnPathBarNavigated(true, e.Path);
+        PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
         Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
         Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
@@ -94,7 +97,7 @@ public sealed partial class MainWindow : Window
     /// 좌/우 패널이 같은 로직을 공유(패널별 목록/header/path). 실패는 헤더 메시지로 격리.
     /// 목록은 <see cref="ObservableCollection{T}"/> — 펼침/접힘 시 자식을 삽입/제거해 트리를 표현.
     /// </summary>
-    private void LoadDirectory(string path, ObservableCollection<DirItem> items, NexaFileGrid grid, TextBlock header, TextBlock pathText)
+    private void LoadDirectory(string path, ObservableCollection<DirItem> items, NexaFileGrid grid, TextBlock header, NexaPathBar pathBar)
     {
         try
         {
@@ -115,7 +118,7 @@ public sealed partial class MainWindow : Window
                 direct++;
             }
             grid.ItemsSource = items;
-            pathText.Text = path;
+            pathBar.Path = path;
             header.Text = $"{path} — {direct}개 항목";
             // 펼침 상태 유지: 이 폴더로 진입/이동해도 하위 열린 폴더를 동일하게 유지(F18, FR-X4).
             ApplySavedExpansion(items, ExpandedSet(items));
@@ -141,11 +144,11 @@ public sealed partial class MainWindow : Window
         nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
         if (left)
         {
-            LoadDirectory(path, _leftItems, DirGrid, DirHeader, PathText);
+            LoadDirectory(path, _leftItems, DirGrid, DirHeader, PathBarL);
         }
         else
         {
-            LoadDirectory(path, _rightItems, DirGrid2, DirHeader2, PathText2);
+            LoadDirectory(path, _rightItems, DirGrid2, DirHeader2, PathBarR);
         }
         UpdateNavButtons(left);
     }
@@ -208,6 +211,21 @@ public sealed partial class MainWindow : Window
     private void OnNavForward(object sender, RoutedEventArgs e) => GoForward(IsLeftPanel(sender));
 
     private void OnNavUp(object sender, RoutedEventArgs e) => GoUp(IsLeftPanel(sender));
+
+    /// <summary>경로 바(세그먼트 클릭·편집 제출) 이동 요청 — 존재하는 폴더면 이동, 아니면 상태바 안내(입력 무시).</summary>
+    private void OnPathBarNavigated(bool left, string path)
+    {
+        if (Directory.Exists(path))
+        {
+            SetActivePanel(left);
+            Navigate(left, path, record: true);
+        }
+        else
+        {
+            StatusText.Text = $"경로 없음: {path}";
+            (left ? PathBarL : PathBarR).Path = (left ? _leftTab : _rightTab).Current;   // 현재 경로로 복귀
+        }
+    }
 
     /// <summary>
     /// 항목의 실제 셸 아이콘(폴더 커스텀 아이콘·파일 형식 아이콘)을 비동기로 로드한다.

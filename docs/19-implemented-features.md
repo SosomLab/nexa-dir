@@ -314,6 +314,25 @@
   | 빈 영역 더블클릭 | | 새 탭 추가(F20) 유지 |
 - **후속**: 설정 UI에서 4택1(FR-B) · 즐겨찾기 탭·팝업 메뉴 동작 · 탭 닫기(x) 버튼·중간클릭 닫기.
 
+### F23. NexaPathBar 계층 경로 바 (α: 브레드크럼 클릭 + 우클릭 편집) — FR-A2
+- **무엇**: 탭 하단 네비 바에 **`NexaPathBar`** 배치(전체 경로를 세그먼트로). 설계 [27](27-pathbar-component.md).
+  - **세그먼트 클릭 → 이동**(현재/마지막 세그먼트는 무동작·hover 없음, **드라이브 `C:`→`C:\`**), 클릭 가능한 세그먼트만 hover 강조.
+  - **우클릭 → 편집 모드**: 전체 경로 텍스트·**전체 선택**·복사/붙여넣기 → **Enter 이동**, **Esc/포커스아웃 → 입력 무시·복귀**.
+  - **네비게이션 비종속**: 컨트롤은 `Navigated(path)`만 raise, 호스트가 존재 확인 후 `Navigate`(없으면 상태바 안내·복귀).
+- **구현 위치**:
+  - [app/Nexa.Controls/NexaPathBar.xaml(.cs)](../app/Nexa.Controls/) — UserControl(α; 후속 템플릿드 전환), `Path` DP·`Navigated` 이벤트, 브레드크럼 `ItemsRepeater`+편집 `TextBox` 2모드
+  - [app/Nexa.Controls/PathSegment.cs](../app/Nexa.Controls/PathSegment.cs) — 세그먼트 모델(Prefix/Label/FullPath/IsCurrent)
+  - [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 좌/우 네비 바 `PathText`(TextBlock) → `NexaPathBar`(PathBarL/R), 버튼|경로 Grid 2열
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `LoadDirectory`가 `pathBar.Path` 설정, `OnPathBarNavigated`(존재 확인→`Navigate`)
+- **커밋**: `(이 단위)`
+- **테스트(Windows)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | 세그먼트 클릭 | 상위 세그먼트(예 `System32`) | 그 경로로 이동, 현재 세그먼트는 무반응 |
+  | 드라이브 | `C:` 클릭 | `C:\`로 이동 |
+  | 편집 | 경로 바 우클릭 → 붙여넣기 → Enter | 그 경로로 이동. Esc/바깥 클릭 → 원복 |
+- **후속(β/γ, [27](27-pathbar-component.md))**: 오버플로 `…`·UNC · 형제 `▾` 드롭다운 · 세그먼트 드롭 타깃 · VFS 스킴 Segmenter · 템플릿드 컨트롤화.
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)
