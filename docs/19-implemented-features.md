@@ -148,6 +148,22 @@
 - **한계(초안)**: 앱 계층에서 `ReadDir` 재귀 삽입(코어 `VisibleRow` 평면 스트림은 후속 C1). 교차 다중 선택(C3)·지연 가상화·아이콘 실파일형식은 후속.
 - **후속**: 헤더 **드래그 재정렬**(본문 컬럼-구동化 필요, [23](23-column-system.md) §6-2) · 컬럼 설정 모달([23](23-column-system.md) §6-1) · 코어 가시행 스트림(C1).
 
+### F11. 파일 선택 (단일·다중·범위) — 플래그십 C3 초안
+- **무엇**: 행 클릭 선택 + **Ctrl 토글 다중** + **Shift 범위**(기준점~클릭, 목록 순서). Ctrl+Shift는 기존 선택에 범위 추가. 선택 행 반투명 하이라이트, 상태바 "N개 선택됨". 좌/우 패널 독립 선택.
+- **구현 위치**:
+  - [NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) — `DirItem.IsSelected` + `RowBackground`(선택=반투명 파랑/비선택=투명)
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `OnRowTapped`(수정자별 분기), 패널별 기준점(`_leftAnchor`/`_rightAnchor`), `IsCtrlDown`/`IsShiftDown`/`KeyDown`
+  - [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 행 루트 전폭 `Background`(하이라이트)+`Tag`+`Tapped`(디스클로저 클릭은 `e.Handled`로 분리)
+- **커밋**: `(이 단위)`
+- **테스트(Windows/VM)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | 단일 | 행 클릭 | 그 행만 파란 하이라이트 |
+  | 다중 | Ctrl+클릭 반복 | 개별 토글 누적 |
+  | 범위 | 한 행 클릭 후 Shift+다른 행 | 사이 전체 선택, 상태바 "N개 선택됨" |
+- **한계(초안)**: **드래그(러버밴드) 선택**은 미포함 — 목록 오버레이+교차 히트테스트가 필요해 `NexaFileGrid`(컨트롤) 내부 단위로 후속. Ctrl+A·방향키 선택도 후속.
+- **후속**: 러버밴드 드래그 선택 · 폴더 교차 선택 유지(네비게이션 연계) · 혼합 파일 작업(C4).
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)
