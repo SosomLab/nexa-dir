@@ -235,6 +235,25 @@
   구현: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnGridKeyDown`(Left 분기)·`ParentIndex`.
   테스트(Windows): 펼친 트리에서 자식 행(예 `.vscode`)에서 `←` → 부모(`nexa-dir`)로 이동·선택. 최상위에서 `←` → 변화 없음.
 
+### F18. 펼침 상태 기억 & 진입 시 복원 (FR-X4 일부)
+- **무엇**: 폴더 인라인 펼침 상태를 **경로 기준으로 패널별 기억**했다가, 그 폴더로 **진입/이동(더블클릭·뒤로/앞으로/위로)** 할 때
+  하위의 열린 폴더들을 **동일한 상태로 복원**한다. 재펼침 시에도 하위 상태 유지(sticky).
+  - 예: `A`에서 `A2`를 펼쳐 `A21/A22/A23`이 보이고 `A22`를 펼쳐 `A221/A222/A223`이 보이는 상태에서
+    **`A2`로 진입** → `A2` 뷰에 `A21/A22(펼침:A221/A222/A223)/A23`가 동일하게 표시.
+  - 접힘은 그 폴더만 기억에서 제거(자손 펼침 상태는 유지) → **다시 펼치면 하위까지 복원**.
+- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)
+  - 패널별 `HashSet<string> _leftExpanded/_rightExpanded`(OrdinalIgnoreCase) — 펼친 폴더 경로 기억
+  - `SetExpanded`(기억 추가/제거) → `ExpandInPlace`/`CollapseInPlace`(삽입/제거) + `ApplySavedExpansion`(재귀 복원)
+  - `LoadDirectory`가 로드 후 `ApplySavedExpansion` 호출 → 진입/이동 시 자동 복원(헤더 항목수는 직접 자식 기준)
+- **커밋**: `(이 단위)`
+- **테스트(Windows)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | 진입 복원 | 폴더 여러 단계 펼친 뒤 그중 한 폴더 더블클릭 진입 | 진입한 폴더의 하위 펼침 상태가 **동일하게 표시** |
+  | 위로 복원 | 위로/뒤로로 상위 복귀 | 이전에 펼쳐둔 하위 상태 그대로 |
+  | 접힘 기억 | 접었다가 다시 펼침 | 접기 전 하위 펼침 상태까지 복원 |
+- **한계/후속**: 세션 종료 후 영속화(JSON)는 미포함(인메모리) · 외부 변경(watcher) 반영 · 코어 `VisibleRow` 스트림(C1) 이관 시 통합.
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)

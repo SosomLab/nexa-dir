@@ -23,6 +23,11 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<DirItem> _leftItems = new();
     private readonly ObservableCollection<DirItem> _rightItems = new();
 
+    // 패널별 "펼친 폴더" 경로 기억. 폴더 진입/이동·재펼침 시 하위 펼침 상태를 동일하게 복원(F18, FR-X4).
+    // Windows 경로는 대소문자 비구분 → OrdinalIgnoreCase.
+    private readonly HashSet<string> _leftExpanded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _rightExpanded = new(StringComparer.OrdinalIgnoreCase);
+
     // 범위 선택(Shift) 기준점(고정 anchor) + 키보드 캐럿(현재 위치) — 패널별.
     private DirItem? _leftAnchor;
     private DirItem? _rightAnchor;
@@ -97,14 +102,18 @@ public sealed partial class MainWindow : Window
             {
                 _rightAnchor = null;
             }
+            int direct = 0;
             foreach (var it in NativeInterop.ReadDir(path, 0))
             {
                 items.Add(it);
                 _ = LoadIconAsync(it);   // 실제 셸 아이콘 비동기 로드(폴백: 글리프)
+                direct++;
             }
             grid.ItemsSource = items;
             pathText.Text = path;
-            header.Text = $"{path} — {items.Count}개 항목";
+            header.Text = $"{path} — {direct}개 항목";
+            // 저장된 펼침 상태 복원: 이 폴더로 진입/이동 시 하위 열린 폴더를 동일하게 표시(F18, FR-X4).
+            ApplySavedExpansion(items, ExpandedSet(items));
         }
         catch (Exception ex)
         {
@@ -232,9 +241,17 @@ public sealed partial class MainWindow : Window
         SetExpanded(item, !item.IsExpanded);
     }
 
+    /// <summary>경로 비교 정규화(끝 구분자 제거).</summary>
+    private static string NormPath(string p) => p.TrimEnd('\\', '/');
+
+    /// <summary>패널 목록에 대응하는 "펼친 폴더" 기억 집합.</summary>
+    private HashSet<string> ExpandedSet(ObservableCollection<DirItem> list)
+        => ReferenceEquals(list, _leftItems) ? _leftExpanded : _rightExpanded;
+
     /// <summary>
     /// 폴더 항목을 펼치거나 접는다(디스클로저 클릭·키보드 →/← 공용). 폴더가 아니거나 이미 그 상태면 무시.
-    /// 펼침: 자식을 바로 아래 depth+1로 삽입. 접힘: 뒤따르는 더 깊은(자손) 행을 제거.
+    /// 펼침 시 그 폴더의 경로를 기억하고, 하위에 저장된 펼침 상태도 함께 복원한다(F18).
+    /// 접힘 시 그 폴더만 기억에서 제거(자손 상태는 유지 → 재펼침 시 복원). 자손 행은 목록에서 제거.
     /// </summary>
     private void SetExpanded(DirItem item, bool expand)
     {
@@ -249,33 +266,70 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        int idx = list.IndexOf(item);
-
+        var set = ExpandedSet(list);
         if (!expand)
         {
-            // 접힘: 이 폴더보다 깊은(자손) 행을 연속으로 제거.
-            item.IsExpanded = false;
-            while (idx + 1 < list.Count && list[idx + 1].Depth > item.Depth)
-            {
-                list.RemoveAt(idx + 1);
-            }
+            set.Remove(NormPath(item.FullPath));   // 이 폴더는 접힘으로 기억(자손 상태는 유지)
+            CollapseInPlace(list, item);
         }
         else
         {
-            // 펼침: 자식을 depth+1로 열거해 바로 아래 삽입(실패는 상태바로 격리).
-            try
+            set.Add(NormPath(item.FullPath));
+            ExpandInPlace(list, item);
+            ApplySavedExpansion(list, set);        // 하위에 저장된 펼침 상태 복원(재귀)
+        }
+    }
+
+    /// <summary>폴더 자식을 depth+1로 바로 아래 삽입(펼침). 기억 집합은 건드리지 않음. 실패는 상태바로 격리.</summary>
+    private void ExpandInPlace(ObservableCollection<DirItem> list, DirItem item)
+    {
+        if (item.IsExpanded)
+        {
+            return;
+        }
+        try
+        {
+            int at = list.IndexOf(item) + 1;
+            foreach (var child in NativeInterop.ReadDir(item.FullPath, item.Depth + 1))
             {
-                int at = idx + 1;
-                foreach (var child in NativeInterop.ReadDir(item.FullPath, item.Depth + 1))
-                {
-                    list.Insert(at++, child);
-                    _ = LoadIconAsync(child);
-                }
-                item.IsExpanded = true;
+                list.Insert(at++, child);
+                _ = LoadIconAsync(child);
             }
-            catch (Exception ex)
+            item.IsExpanded = true;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"펼치기 실패: {ex.Message}";
+        }
+    }
+
+    /// <summary>이 폴더보다 깊은(자손) 행을 연속 제거(접힘). 기억 집합은 건드리지 않음.</summary>
+    private static void CollapseInPlace(ObservableCollection<DirItem> list, DirItem item)
+    {
+        item.IsExpanded = false;
+        int idx = list.IndexOf(item);
+        while (idx + 1 < list.Count && list[idx + 1].Depth > item.Depth)
+        {
+            list.RemoveAt(idx + 1);
+        }
+    }
+
+    /// <summary>
+    /// 목록을 훑어 기억 집합(<paramref name="set"/>)에 있는 폴더를 펼친다.
+    /// 삽입된 자식도 순차로 방문되므로 **임의 깊이까지 재귀 복원**된다(폴더 진입/이동 시 하위 상태 동일 표시, F18).
+    /// </summary>
+    private void ApplySavedExpansion(ObservableCollection<DirItem> list, HashSet<string> set)
+    {
+        if (set.Count == 0)
+        {
+            return;
+        }
+        for (int i = 0; i < list.Count; i++)
+        {
+            var it = list[i];
+            if (it.IsDir && !it.IsExpanded && set.Contains(NormPath(it.FullPath)))
             {
-                StatusText.Text = $"펼치기 실패: {ex.Message}";
+                ExpandInPlace(list, it);
             }
         }
     }
