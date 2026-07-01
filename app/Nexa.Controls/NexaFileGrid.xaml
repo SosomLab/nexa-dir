@@ -13,29 +13,33 @@
             <RowDefinition Height="*" />    <!-- 본문 -->
         </Grid.RowDefinitions>
 
-        <!-- 컬럼 헤더 행 (각 컬럼 우측에 리사이즈 핸들) -->
-        <ItemsRepeater Grid.Row="0" ItemsSource="{x:Bind Columns, Mode=OneWay}">
-            <ItemsRepeater.Layout>
-                <StackLayout Orientation="Horizontal" />
-            </ItemsRepeater.Layout>
-            <ItemsRepeater.ItemTemplate>
-                <DataTemplate x:DataType="local:NexaGridColumn">
-                    <Grid Width="{x:Bind Width, Mode=OneWay}">
-                        <!-- 헤더(연한 배경으로 구분) -->
-                        <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
-                                Background="#18FFFFFF">
-                            <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
-                                       TextTrimming="CharacterEllipsis" />
-                        </Border>
-                        <!-- 리사이즈 핸들(우측 8px). PointerMove 캡처로 Width 조절 -->
-                        <Border Width="8" HorizontalAlignment="Right" Background="Transparent"
-                                PointerPressed="OnResizeStart" PointerMoved="OnResizeMove"
-                                PointerReleased="OnResizeEnd" PointerCanceled="OnResizeEnd"
-                                Tag="{x:Bind}" />
-                    </Grid>
-                </DataTemplate>
-            </ItemsRepeater.ItemTemplate>
-        </ItemsRepeater>
+        <!-- 컬럼 헤더 행: 전폭 헤더 바(HeaderBackground, 설정에서 변경 가능) + 컬럼별 셀(우측 리사이즈 핸들) -->
+        <Grid Grid.Row="0">
+            <!-- 헤더 바 배경 — 본문과 다른 색으로 구분. HeaderBackground DP 바인딩(설정 오버라이드) -->
+            <Border Background="{x:Bind HeaderBackground, Mode=OneWay}"
+                    BorderBrush="#33FFFFFF" BorderThickness="0,0,0,1" />
+            <ItemsRepeater ItemsSource="{x:Bind Columns, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Orientation="Horizontal" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="local:NexaGridColumn">
+                        <Grid Width="{x:Bind Width, Mode=OneWay}">
+                            <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당) -->
+                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF">
+                                <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Border>
+                            <!-- 리사이즈 핸들(우측 8px). PointerMove 캡처로 Width 조절 -->
+                            <Border Width="8" HorizontalAlignment="Right" Background="Transparent"
+                                    PointerPressed="OnResizeStart" PointerMoved="OnResizeMove"
+                                    PointerReleased="OnResizeEnd" PointerCanceled="OnResizeEnd"
+                                    Tag="{x:Bind}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </Grid>
 
         <!-- 본문(가상화) -->
         <ScrollViewer Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">

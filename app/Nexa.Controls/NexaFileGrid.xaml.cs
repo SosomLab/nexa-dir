@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 
 namespace Nexa.Controls;
 
@@ -71,6 +73,21 @@ public sealed partial class NexaFileGrid : UserControl
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((NexaFileGrid)d).Repeater.ItemsSource = e.NewValue;
+
+    /// <summary>
+    /// 헤더 행 배경 브러시(본문과 구분). 기본은 슬레이트 톤이며 <b>설정에서 변경 가능</b>하도록
+    /// 의존성 속성으로 노출한다(앱/설정이 바인딩·오버라이드). 후속: HeaderForeground 등.
+    /// </summary>
+    public static readonly DependencyProperty HeaderBackgroundProperty =
+        DependencyProperty.Register(
+            nameof(HeaderBackground), typeof(Brush), typeof(NexaFileGrid),
+            new PropertyMetadata(new SolidColorBrush(ColorHelper.FromArgb(0xFF, 0x80, 0x84, 0x88))));
+
+    public Brush HeaderBackground
+    {
+        get => (Brush)GetValue(HeaderBackgroundProperty);
+        set => SetValue(HeaderBackgroundProperty, value);
+    }
 
     /// <summary>행 표현 템플릿(도메인 측에서 주입). 컨트롤은 행 의미를 모른다.</summary>
     public static readonly DependencyProperty ItemTemplateProperty =
