@@ -22,6 +22,16 @@
             <ctrls:NexaGridColumn x:Key="ColDate" Header="수정한 날짜" Key="modified" Width="120" />
             <ctrls:NexaGridColumn x:Key="ColKind" Header="종류" Key="kind" Width="90" />
             <ctrls:NexaGridColumn x:Key="ColSize" Header="크기" Key="size" Width="90" />
+            <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트 -->
+            <Style x:Key="NavBtnStyle" TargetType="Button">
+                <Setter Property="Width" Value="22" />
+                <Setter Property="Height" Value="22" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+                <Setter Property="FontSize" Value="11" />
+            </Style>
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />  <!-- 0 메뉴 바 -->
@@ -118,10 +128,10 @@
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="뒤로(미구현)" />
-                            <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="앞으로(미구현)" />
-                            <Button Content="&#xE74A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="위로" />
+                        <StackPanel Orientation="Horizontal" Spacing="3">
+                            <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
+                            <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
+                            <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
                             <Border Background="#22FFFFFF" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
                                 <TextBlock x:Name="PathText" Text="경로 바 (placeholder)" Opacity="0.8" />
                             </Border>
@@ -130,16 +140,19 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True" KeyDown="OnGridKeyDown">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
-                                            Tag="{x:Bind}" Tapped="OnRowTapped" DoubleTapped="OnRowDoubleTapped">
+                                            BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
+                                            BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
+                                            Tag="{x:Bind}" PointerPressed="OnRowPointerPressed" DoubleTapped="OnRowDoubleTapped"
+                                            PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />
-                                        <Border Width="16" Height="16" Background="Transparent" Tag="{x:Bind}" Tapped="OnToggleExpand" VerticalAlignment="Center">
+                                        <Border Width="16" Height="16" Background="Transparent" Tag="{x:Bind}" PointerPressed="OnToggleExpand" VerticalAlignment="Center">
                                             <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontFamily="Segoe MDL2 Assets" FontSize="9" Opacity="0.8" />
                                         </Border>
                                         <!-- 실제 셸 아이콘(있으면) + 글리프 폴백 -->
@@ -183,10 +196,10 @@
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="뒤로(미구현)" />
-                            <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" IsEnabled="False" ToolTipService.ToolTip="앞으로(미구현)" />
-                            <Button Content="&#xE74A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="위로" />
+                        <StackPanel Orientation="Horizontal" Spacing="3">
+                            <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
+                            <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
+                            <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
                             <Border Background="#22FFFFFF" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
                                 <TextBlock x:Name="PathText2" Text="경로 바 (placeholder)" Opacity="0.8" />
                             </Border>
@@ -195,16 +208,19 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True" KeyDown="OnGridKeyDown">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
-                                            Tag="{x:Bind}" Tapped="OnRowTapped" DoubleTapped="OnRowDoubleTapped">
+                                            BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
+                                            BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
+                                            Tag="{x:Bind}" PointerPressed="OnRowPointerPressed" DoubleTapped="OnRowDoubleTapped"
+                                            PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />
-                                        <Border Width="16" Height="16" Background="Transparent" Tag="{x:Bind}" Tapped="OnToggleExpand" VerticalAlignment="Center">
+                                        <Border Width="16" Height="16" Background="Transparent" Tag="{x:Bind}" PointerPressed="OnToggleExpand" VerticalAlignment="Center">
                                             <FontIcon Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" FontFamily="Segoe MDL2 Assets" FontSize="9" Opacity="0.8" />
                                         </Border>
                                         <!-- 실제 셸 아이콘(있으면) + 글리프 폴백 -->

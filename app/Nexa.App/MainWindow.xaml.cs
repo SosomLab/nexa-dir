@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -25,6 +27,16 @@ public sealed partial class MainWindow : Window
     private DirItem? _leftAnchor;
     private DirItem? _rightAnchor;
 
+    // 패널(탭)별 이동 기록(뒤로/앞으로 스택 + 현재 경로).
+    private sealed class Nav
+    {
+        public string Current = string.Empty;
+        public readonly Stack<string> Back = new();
+        public readonly Stack<string> Fwd = new();
+    }
+    private readonly Nav _leftNav = new();
+    private readonly Nav _rightNav = new();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -38,9 +50,10 @@ public sealed partial class MainWindow : Window
         }
         ShowInteropRoundTrip();
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
-        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), _leftItems, DirGrid, DirHeader, PathText);
-        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), _rightItems, DirGrid2, DirHeader2, PathText2);
+        Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
+        Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
         UpdateBottomDock();
+        Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
     }
 
     /// <summary>
@@ -94,6 +107,88 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ── 네비게이션(패널/탭별 이동 기록: 뒤로·앞으로·위로) ─────────────
+
+    /// <summary>지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).</summary>
+    private void Navigate(bool left, string path, bool record)
+    {
+        var nav = left ? _leftNav : _rightNav;
+        if (record && !string.IsNullOrEmpty(nav.Current))
+        {
+            nav.Back.Push(nav.Current);
+            nav.Fwd.Clear();
+        }
+        nav.Current = path;
+        if (left)
+        {
+            LoadDirectory(path, _leftItems, DirGrid, DirHeader, PathText);
+        }
+        else
+        {
+            LoadDirectory(path, _rightItems, DirGrid2, DirHeader2, PathText2);
+        }
+        UpdateNavButtons(left);
+    }
+
+    private void GoBack(bool left)
+    {
+        var nav = left ? _leftNav : _rightNav;
+        if (nav.Back.Count == 0)
+        {
+            return;
+        }
+        nav.Fwd.Push(nav.Current);
+        Navigate(left, nav.Back.Pop(), record: false);
+    }
+
+    private void GoForward(bool left)
+    {
+        var nav = left ? _leftNav : _rightNav;
+        if (nav.Fwd.Count == 0)
+        {
+            return;
+        }
+        nav.Back.Push(nav.Current);
+        Navigate(left, nav.Fwd.Pop(), record: false);
+    }
+
+    private void GoUp(bool left)
+    {
+        var nav = left ? _leftNav : _rightNav;
+        var parent = Directory.GetParent(nav.Current);
+        if (parent is not null)
+        {
+            Navigate(left, parent.FullName, record: true);
+        }
+    }
+
+    /// <summary>뒤로/앞으로/위로 버튼 활성 상태 갱신.</summary>
+    private void UpdateNavButtons(bool left)
+    {
+        var nav = left ? _leftNav : _rightNav;
+        bool up = !string.IsNullOrEmpty(nav.Current) && Directory.GetParent(nav.Current) is not null;
+        if (left)
+        {
+            BackBtnL.IsEnabled = nav.Back.Count > 0;
+            FwdBtnL.IsEnabled = nav.Fwd.Count > 0;
+            UpBtnL.IsEnabled = up;
+        }
+        else
+        {
+            BackBtnR.IsEnabled = nav.Back.Count > 0;
+            FwdBtnR.IsEnabled = nav.Fwd.Count > 0;
+            UpBtnR.IsEnabled = up;
+        }
+    }
+
+    private static bool IsLeftPanel(object sender) => sender is FrameworkElement fe && (fe.Tag as string) == "L";
+
+    private void OnNavBack(object sender, RoutedEventArgs e) => GoBack(IsLeftPanel(sender));
+
+    private void OnNavForward(object sender, RoutedEventArgs e) => GoForward(IsLeftPanel(sender));
+
+    private void OnNavUp(object sender, RoutedEventArgs e) => GoUp(IsLeftPanel(sender));
+
     /// <summary>
     /// 항목의 실제 셸 아이콘(폴더 커스텀 아이콘·파일 형식 아이콘)을 비동기로 로드한다.
     /// 성공 시 <see cref="DirItem.IconImage"/> 설정(글리프→실제 아이콘 교체), 실패는 글리프 유지.
@@ -122,7 +217,7 @@ public sealed partial class MainWindow : Window
     /// 폴더 행의 디스클로저(▶/▼)를 눌러 인라인으로 펼치거나 접는다.
     /// 펼침: 해당 폴더의 자식을 바로 아래에 depth+1로 삽입. 접힘: 뒤따르는 더 깊은 행을 제거.
     /// </summary>
-    private void OnToggleExpand(object sender, TappedRoutedEventArgs e)
+    private void OnToggleExpand(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item || !item.IsDir)
         {
@@ -171,7 +266,7 @@ public sealed partial class MainWindow : Window
     // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) ────────────────────
     // 선택 상태는 DirItem.IsSelected(행 배경). 범위 기준점(anchor)은 패널별.
 
-    private void OnRowTapped(object sender, TappedRoutedEventArgs e)
+    private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
@@ -185,6 +280,8 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool left = list == _leftItems;
+        SetActivePanel(left);   // 클릭한 패널이 활성 → 반대 패널 선택은 회색(포커스아웃)
+        (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
         bool ctrl = IsCtrlDown();
         bool shift = IsShiftDown();
         DirItem? anchor = left ? _leftAnchor : _rightAnchor;
@@ -261,13 +358,109 @@ public sealed partial class MainWindow : Window
         }
         if (_leftItems.Contains(item))
         {
-            LoadDirectory(item.FullPath, _leftItems, DirGrid, DirHeader, PathText);
+            Navigate(true, item.FullPath, record: true);
         }
         else if (_rightItems.Contains(item))
         {
-            LoadDirectory(item.FullPath, _rightItems, DirGrid2, DirHeader2, PathText2);
+            Navigate(false, item.FullPath, record: true);
         }
         e.Handled = true;
+    }
+
+    private bool _activeLeft = true;
+    private bool _windowActive = true;
+
+    /// <summary>활성(포커스) 패널 전환.</summary>
+    private void SetActivePanel(bool left)
+    {
+        _activeLeft = left;
+        RefreshSelectionFocus();
+    }
+
+    /// <summary>선택 항목 포커스색 갱신 — (윈도우 활성 &amp;&amp; 그 패널 활성)일 때만 파랑, 아니면 회색.</summary>
+    private void RefreshSelectionFocus()
+    {
+        bool leftFocused = _windowActive && _activeLeft;
+        bool rightFocused = _windowActive && !_activeLeft;
+        foreach (var it in _leftItems)
+        {
+            if (it.IsSelected)
+            {
+                it.PanelFocused = leftFocused;
+            }
+        }
+        foreach (var it in _rightItems)
+        {
+            if (it.IsSelected)
+            {
+                it.PanelFocused = rightFocused;
+            }
+        }
+    }
+
+    private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs e)
+    {
+        _windowActive = e.WindowActivationState != Microsoft.UI.Xaml.WindowActivationState.Deactivated;
+        RefreshSelectionFocus();
+    }
+
+    /// <summary>키보드 위/아래 → 활성 목록에서 선택을 한 칸 이동(단일 선택).</summary>
+    private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Up && e.Key != VirtualKey.Down)
+        {
+            return;
+        }
+        bool left = ReferenceEquals(sender, DirGrid);
+        var list = left ? _leftItems : _rightItems;
+        if (list.Count == 0)
+        {
+            return;
+        }
+        SetActivePanel(left);
+        var anchor = left ? _leftAnchor : _rightAnchor;
+        int idx = anchor is not null ? list.IndexOf(anchor) : -1;
+        int next = e.Key == VirtualKey.Down ? idx + 1 : idx - 1;
+        if (next < 0)
+        {
+            next = 0;
+        }
+        if (next >= list.Count)
+        {
+            next = list.Count - 1;
+        }
+        foreach (var it in list)
+        {
+            it.IsSelected = false;
+        }
+        list[next].IsSelected = true;
+        if (left)
+        {
+            _leftAnchor = list[next];
+        }
+        else
+        {
+            _rightAnchor = list[next];
+        }
+        (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
+        StatusText.Text = "1개 선택됨";
+        e.Handled = true;
+    }
+
+    private void OnRowPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item)
+        {
+            item.IsHovered = true;
+        }
+    }
+
+    private void OnRowPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item)
+        {
+            item.IsHovered = false;
+        }
     }
 
     private static bool IsCtrlDown() => KeyDown(VirtualKey.Control);

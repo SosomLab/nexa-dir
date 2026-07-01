@@ -102,29 +102,59 @@ internal sealed class DirItem : INotifyPropertyChanged
             ? "링크"
             : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? $"{ext} 파일" : "파일";
 
-    // ── 선택 상태(단일/다중/범위) ──────────────────────────────────
-    private static readonly SolidColorBrush SelectedBrush = new(ColorHelper.FromArgb(0x66, 0x3D, 0x7E, 0xC8));
-    private static readonly SolidColorBrush RowTransparent = new(ColorHelper.FromArgb(0x00, 0x00, 0x00, 0x00));
+    // ── 선택/호버/포커스 비주얼(Explorer식) ───────────────────────────
+    // 선택(활성 패널)=연한 파랑+파란 테두리, 선택(비활성=포커스아웃)=회색, 호버=옅은 파랑.
+    private static readonly SolidColorBrush RowTransparent = new(ColorHelper.FromArgb(0x00, 0, 0, 0));
+    private static readonly SolidColorBrush SelectedActiveBrush = new(ColorHelper.FromArgb(0x66, 0x66, 0xB3, 0xFF));
+    private static readonly SolidColorBrush SelectedInactiveBrush = new(ColorHelper.FromArgb(0x77, 0x70, 0x70, 0x70));
+    private static readonly SolidColorBrush HoverBrush = new(ColorHelper.FromArgb(0x33, 0x99, 0xCC, 0xF5));
+    private static readonly SolidColorBrush SelBorderActiveBrush = new(ColorHelper.FromArgb(0xFF, 0x3B, 0x82, 0xC4));
+    private static readonly SolidColorBrush SelBorderInactiveBrush = new(ColorHelper.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
+    private static readonly Thickness SelBorderThickness = new(1);
 
     private bool _isSelected;
+    private bool _isHovered;
+    private bool _panelFocused = true;
 
-    /// <summary>선택 여부. 변경 시 <see cref="RowBackground"/>가 갱신된다.</summary>
+    /// <summary>선택 여부(단일/다중/범위).</summary>
     public bool IsSelected
     {
         get => _isSelected;
-        set
-        {
-            if (_isSelected != value)
-            {
-                _isSelected = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBackground)));
-            }
-        }
+        set { if (_isSelected != value) { _isSelected = value; RaiseVisual(); } }
     }
 
-    /// <summary>행 배경: 선택 시 반투명 파랑, 아니면 투명(전폭 클릭 히트 유지).</summary>
-    public Brush RowBackground => _isSelected ? SelectedBrush : RowTransparent;
+    /// <summary>마우스 호버 여부(선택 아닐 때만 하이라이트).</summary>
+    public bool IsHovered
+    {
+        get => _isHovered;
+        set { if (_isHovered != value) { _isHovered = value; RaiseVisual(); } }
+    }
+
+    /// <summary>속한 패널이 활성(포커스)인지 — 비활성이면 선택색이 회색(포커스아웃).</summary>
+    public bool PanelFocused
+    {
+        get => _panelFocused;
+        set { if (_panelFocused != value) { _panelFocused = value; RaiseVisual(); } }
+    }
+
+    private void RaiseVisual()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBackground)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBorderBrush)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBorderThickness)));
+    }
+
+    /// <summary>행 배경: 선택(활성=파랑/비활성=회색) · 호버(옅은 파랑) · 그 외 투명(전폭 클릭 유지).</summary>
+    public Brush RowBackground =>
+        _isSelected ? (_panelFocused ? SelectedActiveBrush : SelectedInactiveBrush)
+        : _isHovered ? HoverBrush : RowTransparent;
+
+    /// <summary>선택 시 테두리(활성=파랑/비활성=회색), 아니면 없음.</summary>
+    public Brush RowBorderBrush =>
+        _isSelected ? (_panelFocused ? SelBorderActiveBrush : SelBorderInactiveBrush) : RowTransparent;
+
+    /// <summary>선택 시 1px 테두리.</summary>
+    public Thickness RowBorderThickness => SelBorderThickness;   // 항상 1px(투명↔색만) → 선택 시 높이 점프 방지
 
     // ── 실제 셸 아이콘(폴더 커스텀/파일 형식) ────────────────────────
     private ImageSource? _iconImage;
