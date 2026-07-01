@@ -100,8 +100,8 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:VirtualizedTreeGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
-                        <ctrls:VirtualizedTreeGrid.ItemTemplate>
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
+                        <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <Grid ColumnSpacing="12" Padding="0,2">
                                     <Grid.ColumnDefinitions>
@@ -114,8 +114,8 @@
                                     <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
                                 </Grid>
                             </DataTemplate>
-                        </ctrls:VirtualizedTreeGrid.ItemTemplate>
-                    </ctrls:VirtualizedTreeGrid>
+                        </ctrls:NexaFileGrid.ItemTemplate>
+                    </ctrls:NexaFileGrid>
                 </Grid>
             </Border>
 
@@ -154,8 +154,8 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:VirtualizedTreeGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
-                        <ctrls:VirtualizedTreeGrid.ItemTemplate>
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
+                        <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <Grid ColumnSpacing="12" Padding="0,2">
                                     <Grid.ColumnDefinitions>
@@ -168,8 +168,8 @@
                                     <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
                                 </Grid>
                             </DataTemplate>
-                        </ctrls:VirtualizedTreeGrid.ItemTemplate>
-                    </ctrls:VirtualizedTreeGrid>
+                        </ctrls:NexaFileGrid.ItemTemplate>
+                    </ctrls:NexaFileGrid>
                 </Grid>
             </Border>
         </Grid>

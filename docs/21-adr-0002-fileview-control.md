@@ -60,10 +60,10 @@ WinUI 기성 단일 컴포넌트(ListView/TreeView/DataGrid)를 **쓰지 않고*
 
 ItemsRepeater 기반 컨트롤은 **별도 WinUI 클래스 라이브러리 `app/Nexa.Controls`** 로 분리해 다른 기능에서도 가져다 쓴다.
 
-- **도메인 비종속 컨트롤**: `VirtualizedTreeGrid` — 행/컬럼/선택을 **추상 인터페이스**(`IRowSource` · `IColumn` · `ISelectionModel`)로 받는다. **파일 개념을 모른다**.
-- **파일 특화 = 어댑터**: `FileTreeGrid` = `VirtualizedTreeGrid` + 파일 `RowSource`(코어 `FileSource` 바인딩). 어댑터는 앱/도메인 측.
+- **도메인 비종속 컨트롤**: `NexaFileGrid` — 행/컬럼/선택을 **추상 인터페이스**(`IRowSource` · `IColumn` · `ISelectionModel`)로 받는다. **파일 개념을 모른다**.
+- **파일 특화 = 어댑터**: `FileTreeGrid` = `NexaFileGrid` + 파일 `RowSource`(코어 `FileSource` 바인딩). 어댑터는 앱/도메인 측.
 - **재사용처**: 파일 목록 · 검색 결과 뷰 · 클라우드 브라우저 · 플러그인 패널 등 **가상화 트리-그리드가 필요한 모든 곳**.
 - **의존 경계**: 컨트롤은 **ItemsRepeater + CommunityToolkit Sizers만** 참조(코어/도메인 **비참조**) → 향후 **NuGet 패키지화 가능**. 계층: 컨트롤(표현/상호작용) ↔ 어댑터(도메인 매핑) ↔ 코어(데이터).
 - **테스트**: 컨트롤은 도메인 없이 단위 테스트 가능(가짜 `IRowSource`로 가상화·선택·컬럼 검증).
-- ADR-0003의 `IFileView` 구현(`DetailsView`)은 이 `VirtualizedTreeGrid`를 사용한다.
+- ADR-0003의 `IFileView` 구현(`DetailsView`)은 이 `NexaFileGrid`를 사용한다.
 

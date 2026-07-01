@@ -1,6 +1,6 @@
 # 23 · 컬럼 시스템 (파일 보기)
 
-> `VirtualizedTreeGrid`/`FileTreeGrid`([21](21-adr-0002-fileview-control.md))의 **컬럼을 데이터로 정의**하는 설계.
+> `NexaFileGrid`/`FileTreeGrid`([21](21-adr-0002-fileview-control.md))의 **컬럼을 데이터로 정의**하는 설계.
 > 기본열·사용자 정의(수식)열·플러그인열, 클라우드 상태, 듀얼 패널 동기화를 모두 한 구조로 지원한다.
 
 ## 1. 컬럼은 "데이터"
@@ -18,7 +18,7 @@ ColumnLayout
   IReadOnlyList<IColumn> Columns                // 순서 포함
   Serialize()/Deserialize()                     // 저장·복원·동기 단위
 ```
-- 컨트롤(`VirtualizedTreeGrid`)은 **컬럼 의미를 모름** — `IColumn`/`ICellValueProvider`만 안다(도메인 비종속, ADR-0002 §9).
+- 컨트롤(`NexaFileGrid`)은 **컬럼 의미를 모름** — `IColumn`/`ICellValueProvider`만 안다(도메인 비종속, ADR-0002 §9).
 
 ## 2. 컬럼 종류
 

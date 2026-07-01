@@ -35,7 +35,7 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.*" />
   </ItemGroup>
 
-  <!-- 재사용 컨트롤 라이브러리(VirtualizedTreeGrid 등) — ADR-0002 §9 -->
+  <!-- 재사용 컨트롤 라이브러리(NexaFileGrid 등) — ADR-0002 §9 -->
   <ItemGroup>
     <ProjectReference Include="..\Nexa.Controls\Nexa.Controls.csproj" />
   </ItemGroup>

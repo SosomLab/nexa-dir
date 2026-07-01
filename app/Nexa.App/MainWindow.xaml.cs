@@ -40,7 +40,7 @@ public sealed partial class MainWindow : Window
     /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 지정 패널 목록에 표시한다.
     /// 좌/우 패널이 같은 로직을 공유(패널별 repeater/header/path). 실패는 헤더 메시지로 격리.
     /// </summary>
-    private static void LoadDirectory(string path, VirtualizedTreeGrid grid, TextBlock header, TextBlock pathText)
+    private static void LoadDirectory(string path, NexaFileGrid grid, TextBlock header, TextBlock pathText)
     {
         try
         {
