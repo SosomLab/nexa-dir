@@ -48,10 +48,9 @@ public sealed partial class MainWindow : Window
             DirGrid.Columns.Add(col);
             DirGrid2.Columns.Add(col);
         }
-        // 방향키 이동: 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 받도록 handledEventsToo로 배선.
-        // (XAML KeyDown은 이미 처리된 이벤트를 받지 못해 키보드 이동이 동작하지 않음)
-        DirGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
-        DirGrid2.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
+        // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
+        // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
+        RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
         ShowInteropRoundTrip();
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
         Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
@@ -426,7 +425,7 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        bool left = ReferenceEquals(sender, DirGrid);
+        bool left = _activeLeft;   // 활성 패널 기준(포커스 비의존) — 탭/행 클릭이 활성 패널을 정함
         var list = left ? _leftItems : _rightItems;
         if (list.Count == 0)
         {

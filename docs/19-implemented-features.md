@@ -201,7 +201,7 @@
 ### F16. UX 수정 — 리사이즈 커서 · 키보드 이동 · 탭 클릭 활성화
 - **무엇**: 사용자 피드백 3건 반영.
   1. **컬럼 리사이즈 커서**: 헤더 경계에 마우스를 올리면 일반 화살표 대신 **좌우 화살표(SizeWestEast)** 커서로 바뀌어 리사이즈 위치를 식별. WinUI 3는 `ProtectedCursor`(protected)로만 커서 지정 가능 → 전용 서브클래스 `ColumnResizeGrip`(Grid 기반)로 노출.
-  2. **키보드 위/아래 이동 수정**: `NexaFileGrid`의 `KeyDown`을 XAML 배선 → **코드비하인드 `AddHandler(..., handledEventsToo:true)`** 로 변경. 내부 `ScrollViewer`가 방향키를 먼저 처리(Handled)해도 그리드 핸들러가 받도록 하여 선택 이동이 실제 동작.
+  2. **키보드 위/아래 이동 수정**: UserControl 포커스 경로에 의존하지 않도록 **최상위 `RootGrid`에서 `AddHandler(KeyDownEvent, …, handledEventsToo:true)`** 로 방향키 수신 + **활성 패널(`_activeLeft`) 기준** 처리(탭/행 클릭이 활성 패널을 정함). 내부 `ScrollViewer`가 먼저 Handled 처리해도 항상 수신. (1차 시도 = 그리드별 AddHandler는 포커스 문제로 미동작 → RootGrid 방식으로 정정)
   3. **탭 이름 클릭 → 패널 활성화**: 좌/우 **탭 바(Border)** 클릭 시 그 패널을 활성화(`SetActivePanel`)하고 목록에 포커스(키보드 이동 대상 지정).
 - **구현 위치**:
   - [app/Nexa.Controls/ColumnResizeGrip.cs](../app/Nexa.Controls/ColumnResizeGrip.cs)(신설) · [NexaFileGrid.xaml](../app/Nexa.Controls/NexaFileGrid.xaml)(핸들을 `ColumnResizeGrip`으로)
