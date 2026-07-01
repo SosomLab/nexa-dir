@@ -34,7 +34,15 @@
         </Grid.RowDefinitions>
 
         <!-- 0 · 메뉴 바 (주황) — 세로 타이트하게(Fit) -->
-        <MenuBar Grid.Row="0" Background="#33FFA500" Height="28" VerticalAlignment="Top">
+        <MenuBar Grid.Row="0" Background="#33FFA500" Height="24" VerticalAlignment="Top" Padding="0">
+            <MenuBar.Resources>
+                <Style TargetType="MenuBarItem">
+                    <Setter Property="Padding" Value="8,0" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </Style>
+            </MenuBar.Resources>
             <MenuBarItem Title="파일(F)" />
             <MenuBarItem Title="선택(M)" />
             <MenuBarItem Title="명령(C)" />
@@ -111,7 +119,9 @@
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3">
+                                <StackPanel Orientation="Horizontal" Padding="0,3"
+                                            Background="{x:Bind RowBackground, Mode=OneWay}"
+                                            Tag="{x:Bind}" Tapped="OnRowTapped">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />
@@ -170,7 +180,9 @@
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3">
+                                <StackPanel Orientation="Horizontal" Padding="0,3"
+                                            Background="{x:Bind RowBackground, Mode=OneWay}"
+                                            Tag="{x:Bind}" Tapped="OnRowTapped">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />

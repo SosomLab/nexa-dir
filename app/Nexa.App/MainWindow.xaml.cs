@@ -17,6 +17,10 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<DirItem> _leftItems = new();
     private readonly ObservableCollection<DirItem> _rightItems = new();
 
+    // 범위 선택(Shift) 기준점 — 패널별.
+    private DirItem? _leftAnchor;
+    private DirItem? _rightAnchor;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -63,6 +67,14 @@ public sealed partial class MainWindow : Window
         try
         {
             items.Clear();
+            if (items == _leftItems)
+            {
+                _leftAnchor = null;
+            }
+            else
+            {
+                _rightAnchor = null;
+            }
             foreach (var it in NativeInterop.ReadDir(path, 0))
             {
                 items.Add(it);
@@ -125,6 +137,93 @@ public sealed partial class MainWindow : Window
             }
         }
     }
+
+    // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) ────────────────────
+    // 선택 상태는 DirItem.IsSelected(행 배경). 범위 기준점(anchor)은 패널별.
+
+    private void OnRowTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            return;
+        }
+        var list = _leftItems.Contains(item) ? _leftItems
+                 : _rightItems.Contains(item) ? _rightItems
+                 : null;
+        if (list is null)
+        {
+            return;
+        }
+        bool left = list == _leftItems;
+        bool ctrl = IsCtrlDown();
+        bool shift = IsShiftDown();
+        DirItem? anchor = left ? _leftAnchor : _rightAnchor;
+
+        if (shift && anchor is not null && list.Contains(anchor))
+        {
+            // 범위 선택: 기준점~클릭 항목(목록 순서). Ctrl 병행 시 기존 선택 유지(추가).
+            int a = list.IndexOf(anchor);
+            int b = list.IndexOf(item);
+            if (a > b)
+            {
+                (a, b) = (b, a);
+            }
+            if (!ctrl)
+            {
+                foreach (var it in list)
+                {
+                    it.IsSelected = false;
+                }
+            }
+            for (int i = a; i <= b; i++)
+            {
+                list[i].IsSelected = true;
+            }
+            // 기준점은 유지(연속 Shift 확장).
+        }
+        else if (ctrl)
+        {
+            // 토글 다중 선택.
+            item.IsSelected = !item.IsSelected;
+            anchor = item;
+        }
+        else
+        {
+            // 단일 선택(나머지 해제).
+            foreach (var it in list)
+            {
+                it.IsSelected = false;
+            }
+            item.IsSelected = true;
+            anchor = item;
+        }
+
+        if (left)
+        {
+            _leftAnchor = anchor;
+        }
+        else
+        {
+            _rightAnchor = anchor;
+        }
+
+        int count = 0;
+        foreach (var it in list)
+        {
+            if (it.IsSelected)
+            {
+                count++;
+            }
+        }
+        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+    }
+
+    private static bool IsCtrlDown() => KeyDown(VirtualKey.Control);
+
+    private static bool IsShiftDown() => KeyDown(VirtualKey.Shift);
+
+    private static bool KeyDown(VirtualKey key)
+        => (InputKeyboardSource.GetKeyStateForCurrentThread(key) & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
 
     // ── 레이아웃 토글 (영역 숨김/표시) ──────────────────────────────
     // 숨길 때 해당 splitter와 행/열 크기를 함께 0으로 만들어 빈 공간을 남기지 않는다(docs/20 §2).

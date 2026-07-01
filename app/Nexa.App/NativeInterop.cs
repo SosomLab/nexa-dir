@@ -101,6 +101,30 @@ internal sealed class DirItem : INotifyPropertyChanged
             ? "링크"
             : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? $"{ext} 파일" : "파일";
 
+    // ── 선택 상태(단일/다중/범위) ──────────────────────────────────
+    private static readonly SolidColorBrush SelectedBrush = new(ColorHelper.FromArgb(0x66, 0x3D, 0x7E, 0xC8));
+    private static readonly SolidColorBrush RowTransparent = new(ColorHelper.FromArgb(0x00, 0x00, 0x00, 0x00));
+
+    private bool _isSelected;
+
+    /// <summary>선택 여부. 변경 시 <see cref="RowBackground"/>가 갱신된다.</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBackground)));
+            }
+        }
+    }
+
+    /// <summary>행 배경: 선택 시 반투명 파랑, 아니면 투명(전폭 클릭 히트 유지).</summary>
+    public Brush RowBackground => _isSelected ? SelectedBrush : RowTransparent;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
