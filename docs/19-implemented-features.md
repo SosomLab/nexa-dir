@@ -183,6 +183,21 @@
 - **커밋**: `(이 단위)`
 - **테스트**: 클릭 즉시 선택·행 높이 불변·↑↓ 이동·다른 앱 전환 시 선택 회색.
 
+### F15. 폴더 우선 정렬 옵션화 (설정 준비)
+- **무엇**: 그동안 `ReadDir`에 하드코딩돼 있던 "폴더 먼저" 정렬을 **설정 값**(`SortOptions.FoldersFirst`, 기본 `true`)으로 분리. 동작(기본 폴더 우선 + 이름 오름차순)은 그대로지만, 이제 **한 스위치**로 제어 → 나중에 설정 UI/JSON에서 토글. 정렬 로직을 재사용 헬퍼(`SortItems`)로 추출.
+- **구현 위치**:
+  - [app/Nexa.App/Settings.cs](../app/Nexa.App/Settings.cs) — `SortOptions { FoldersFirst=true }` + `AppSettings.Sort` 인메모리 싱글턴(후속: JSON 로드/저장)
+  - [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) — `ReadDir(path, depth, sort?)`가 `AppSettings.Sort` 참조, `SortItems(items, sort)` 헬퍼(`FoldersFirst` 반영)
+- **커밋**: `(이 단위)`
+- **테스트(Windows/VM)**:
+  | 방법 | 명령 | 기대 |
+  | --- | --- | --- |
+  | 앱 실행 | `dotnet run --project app/Nexa.App` | 기본값 그대로 **폴더가 파일보다 먼저**, 각 그룹 이름 오름차순 |
+  | 빌드 | `dotnet build app/Nexa.App` | 0/0 |
+  | 옵션 확인 | `AppSettings.Sort.FoldersFirst=false`(임시) 후 실행 | 폴더/파일 구분 없이 **이름만으로** 정렬 |
+- **한계(초안)**: 설정 UI·JSON 영속화 없음(코드 기본값이 유일 원천). 변경 시 열린 목록 **재정렬은 미포함**(다음 로드/펼침부터 반영).
+- **후속**: 설정 시스템(JSON) 로드/저장 · **표시(보기) 메뉴 토글**(NexaMenuEntry에 체크·명령 확장, 트랙 D) · 정렬 키/방향(A5).
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)

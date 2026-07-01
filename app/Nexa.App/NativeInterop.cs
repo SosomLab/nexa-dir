@@ -225,10 +225,11 @@ internal static class NativeInterop
     /// <summary>
     /// 디렉터리를 열거해 엔트리 목록을 반환한다(open→next 반복→close 래핑).
     /// 네이티브 <c>name</c> 포인터는 즉시 관리형 문자열로 복사해 수명 문제를 차단한다.
-    /// 폴더 우선 + 이름 오름차순 정렬. <paramref name="depth"/>는 트리 들여쓰기용.
+    /// 정렬은 <paramref name="sort"/>(생략 시 <see cref="AppSettings.Sort"/>)를 따른다 —
+    /// 폴더 우선(기본) + 이름 오름차순. <paramref name="depth"/>는 트리 들여쓰기용.
     /// </summary>
     /// <exception cref="IOException">열기 실패(없는 경로·권한 등).</exception>
-    public static IReadOnlyList<DirItem> ReadDir(string path, int depth = 0)
+    public static IReadOnlyList<DirItem> ReadDir(string path, int depth = 0, SortOptions? sort = null)
     {
         IntPtr handle = nexa_dir_open(path);
         if (handle == IntPtr.Zero)
@@ -252,10 +253,20 @@ internal static class NativeInterop
             nexa_dir_close(handle);
         }
 
-        // 폴더 먼저, 그다음 이름 오름차순(대소문자 무시).
-        items.Sort((a, b) => a.IsDir != b.IsDir
-            ? (a.IsDir ? -1 : 1)
-            : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        SortItems(items, sort ?? AppSettings.Sort);
         return items;
+    }
+
+    /// <summary>
+    /// 파일 목록을 제자리 정렬한다. <see cref="SortOptions.FoldersFirst"/>가 켜져 있으면
+    /// 폴더를 파일보다 먼저 두고, 같은 그룹 안에서는 이름 오름차순(대소문자 무시).
+    /// 정렬 키·방향(A5)은 후속으로 <see cref="SortOptions"/>에 추가한다.
+    /// </summary>
+    internal static void SortItems(List<DirItem> items, SortOptions sort)
+    {
+        items.Sort((a, b) =>
+            sort.FoldersFirst && a.IsDir != b.IsDir
+                ? (a.IsDir ? -1 : 1)
+                : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
     }
 }
