@@ -34,7 +34,7 @@
         </Grid.RowDefinitions>
 
         <!-- 0 · 메뉴 바 (주황) — 커스텀 NexaMenuBar(초박형 18px/폰트9, 기본 MenuBar 한계 우회) -->
-        <ctrls:NexaMenuBar Grid.Row="0" Background="#33FFA500" MenuHeight="18" FontSize="9" VerticalAlignment="Top">
+        <ctrls:NexaMenuBar Grid.Row="0" Background="#33FFA500" MenuHeight="20" FontSize="10" VerticalAlignment="Top">
             <ctrls:NexaMenuBar.Menus>
                 <ctrls:NexaMenu Header="파일(F)">
                     <ctrls:NexaMenuEntry Text="새 탭" />

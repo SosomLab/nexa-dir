@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 
 namespace Nexa.Controls;
@@ -44,7 +45,8 @@ public sealed partial class NexaMenuBar : UserControl
             MenuFlyout? flyout = null;
             if (menu.Items.Count > 0)
             {
-                flyout = new MenuFlyout();
+                // 버튼 좌측 하단 정렬 → 클래식 풀다운(팝업/컨텍스트 아님)
+                flyout = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft };
                 foreach (var entry in menu.Items)
                 {
                     flyout.Items.Add(new MenuFlyoutItem { Text = entry.Text });
