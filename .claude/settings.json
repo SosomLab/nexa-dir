@@ -60,7 +60,10 @@
       "Bash(dotnet format:*)",
       "Bash(dotnet new:*)",
       "Bash(dotnet --version)",
-      "Bash(dotnet --info)"
+      "Bash(dotnet --info)",
+      "PowerShell(Set-Location:*)",
+      "PowerShell(Write-Output:*)",
+      "PowerShell(git:*)"
     ],
     "ask": [
       "Bash(rm:*)",
@@ -68,7 +71,12 @@
       "Bash(git clean:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
-      "Bash(sudo:*)"
+      "Bash(sudo:*)",
+      "PowerShell(git reset --hard:*)",
+      "PowerShell(git clean:*)",
+      "PowerShell(git push --force:*)",
+      "PowerShell(git push -f:*)",
+      "PowerShell(Remove-Item:*)"
     ]
   }
 }
