@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Nexa Dir 재사용 WinUI 컨트롤 라이브러리 (도메인 비종속) — ADR-0002 §9.
-       NexaFileGrid 등. 파일/검색/클라우드/플러그인 패널이 공유. -->
+  <!-- Nexa.Controls — 재사용 WinUI 컨트롤 라이브러리(도메인 비종속) — ADR-0002 §9.
+       NexaFileGrid 등. **독립 3rd-party 컴포넌트 제품**으로 배포/판매 가능.
+       라이선스는 Nexa Dir과 동일: 소스공개 제한형 PolyForm Noncommercial(개인·비상업 무료 / 상업 유료, DR-5). -->
   <PropertyGroup>
     <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
@@ -11,13 +12,29 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+
+    <!-- ── 제품/패키지 메타 (NuGet 배포·판매 대비) ── -->
+    <PackageId>SosomLab.Nexa.Controls</PackageId>
+    <Version>0.0.0</Version>
+    <Product>Nexa.Controls</Product>
     <Authors>Sangyong Bae</Authors>
     <Company>SosomLab</Company>
+    <Copyright>Copyright (c) 2026 SosomLab</Copyright>
+    <Description>재사용 WinUI 컨트롤 라이브러리 — NexaFileGrid(가상화 파일 그리드) 등. 도메인 비종속. 상업 라이선스 문의: kiros33@sosomlab.com</Description>
+    <PackageProjectUrl>https://sosomlab.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SosomLab/nexa-dir</RepositoryUrl>
+    <!-- 라이선스 = Nexa Dir과 동일(PolyForm Noncommercial). SPDX 비표준이라 파일 참조. -->
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+  <!-- NuGet 패키지에 라이선스 포함(pack 시). 의존성은 퍼미시브+WinUI만 → 재배포 가능. -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
 </Project>

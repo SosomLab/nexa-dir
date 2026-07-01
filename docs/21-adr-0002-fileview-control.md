@@ -67,3 +67,9 @@ ItemsRepeater 기반 컨트롤은 **별도 WinUI 클래스 라이브러리 `app/
 - **테스트**: 컨트롤은 도메인 없이 단위 테스트 가능(가짜 `IRowSource`로 가상화·선택·컬럼 검증).
 - ADR-0003의 `IFileView` 구현(`DetailsView`)은 이 `NexaFileGrid`를 사용한다.
 
+### 9-1. 제품화 (독립 판매 컴포넌트)
+- `Nexa.Controls`(NexaFileGrid 등)는 **독립 3rd-party WinUI 컴포넌트 제품**으로 배포/판매 가능하도록 개발한다.
+- **라이선스 = Nexa Dir과 동일**: 소스공개 제한형 **PolyForm Noncommercial**(개인·비상업 무료 / 상업 유료, DR-5 · [13](13-licensing.md)). 상업 문의 `kiros33@sosomlab.com`.
+- **패키지**: `PackageId = SosomLab.Nexa.Controls`, NuGet 라이선스 = `LICENSE.md`(SPDX 비표준이라 파일 참조). 의존성은 **퍼미시브 + WinUI만** → 재배포 안전.
+- **경계 유지**: 코어(Rust)·도메인(파일 개념) **비참조**(ADR §9) → 다른 제품/고객이 그대로 사용 가능. 판매 시 별도 저장소 분리도 가능(현재는 동거).
+
