@@ -43,7 +43,7 @@
 | 레이아웃 | 상단 **계층 경로 바** → **퀵 런처 바** → (주소/검색) → 좌/우 듀얼 패널(패널별 멀티라인 탭) → 하단 **터미널 패널(후속)** |
 | 기반 | WinUI 3 네이티브 + **고밀도 커스텀 테마**(Fluent 기반, 간격 축소) |
 | 테마 | 다크 기본 + 라이트, 강조색, 밀도 토글(컴팩트/표준) |
-| 폰트 | **기본 = Segoe UI**(앱 전역 기본, `ContentControlThemeFontFamily`+RootGrid). 아이콘 = Segoe MDL2 Assets |
+| 폰트 | **기본 = Segoe UI**(RootGrid FontFamily로 전역 텍스트 상속; 컨트롤 기본도 Segoe 계열). 아이콘 = Segoe MDL2 Assets. (앱 리소스로 `ContentControlThemeFontFamily` 재정의는 XAML 컴파일러 이슈로 제외) |
 | 인터랙션 | **키보드 우선**(F5/F6, →/←, Ctrl/Shift 교차선택), 명령 팔레트, 단일 액션 레지스트리 |
 | 뷰 모드 | 목록/디테일(기본)·타일·그리드, 후속 컬럼(Miller)·Flat View([08](08-competitive-feature-survey.md)) |
 | 시각 | 인라인 트리 들여쓰기·삼각형, 교차폴더 다중선택 하이라이트, 상태바(선택/용량/잡) |

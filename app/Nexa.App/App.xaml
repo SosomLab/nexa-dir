@@ -8,10 +8,6 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
-            <!-- Nexa Dir 기본 폰트 = Segoe UI. (아이콘 폰트 "Segoe MDL2 Assets"는 명시 지정이라 영향 없음)
-                 ContentControlThemeFontFamily 재정의 → 모든 컨트롤(Button 등) 기본 폰트에 반영. -->
-            <FontFamily x:Key="NexaAppFontFamily">Segoe UI</FontFamily>
-            <x:String x:Key="ContentControlThemeFontFamily">Segoe UI</x:String>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
