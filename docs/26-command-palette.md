@@ -135,6 +135,8 @@ AppSettings (기존)                    →  SettingsStore (확장)
 | `→` / `←` | 폴더 펼침 / 접힘 | `tree.expand`/`tree.collapse` | F17 |
 | `←`(접힘 상태) | 부모로 이동 | `nav.parent.row` | F17-1 |
 | `Alt+↓` | 활성화(폴더 진입 / 파일 실행) | `item.activate` | F19 |
+| `Alt+↑` / `Alt+←` / `Alt+→` | 위로 / 뒤로 / 앞으로 | `nav.up`/`nav.back`/`nav.forward` | F21 |
+| (탭) 영역 더블클릭 | 새 탭 | `tab.new` | F20 |
 | (예정) `Ctrl+T/W/Shift+T`·`Ctrl+Tab` | 탭 열기/닫기/복원/전환 | `tab.*` | FR-B |
 | `Alt`·`Alt+문자` | 메뉴 토글/접근 | (메뉴 시스템) | F12 |
 

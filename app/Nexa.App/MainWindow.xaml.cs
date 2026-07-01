@@ -646,12 +646,19 @@ public sealed partial class MainWindow : Window
         bool ctrl = IsCtrlDown();
         bool shift = IsShiftDown();
 
-        // Alt+↓: 캐럿 항목 활성화 — 폴더/심볼릭은 진입(더블클릭), 파일은 실행(확장자 연결).
-        if (e.Key == VirtualKey.Down && IsAltDown() && cur >= 0)
+        // Alt+방향키 네비게이션: ↑=위로(상위 폴더), ←/→=뒤로/앞으로(이전/다음), ↓=활성화(폴더 진입/파일 실행).
+        if (IsAltDown())
         {
-            ActivateItem(left, list[cur]);
-            e.Handled = true;
-            return;
+            switch (e.Key)
+            {
+                case VirtualKey.Up: GoUp(left); e.Handled = true; return;
+                case VirtualKey.Left: GoBack(left); e.Handled = true; return;
+                case VirtualKey.Right: GoForward(left); e.Handled = true; return;
+                case VirtualKey.Down:
+                    if (cur >= 0) { ActivateItem(left, list[cur]); }
+                    e.Handled = true;
+                    return;
+            }
         }
 
         if (space)
