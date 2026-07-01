@@ -701,17 +701,8 @@ public sealed partial class MainWindow : Window
         }
         bool left = _activeLeft;   // 활성 패널 기준(포커스 비의존) — 탭/행 클릭이 활성 패널을 정함
         var list = left ? _leftItems : _rightItems;
-        if (list.Count == 0)
-        {
-            return;
-        }
-        SetActivePanel(left);
-        var caret = left ? _leftCaret : _rightCaret;
-        int cur = caret is not null ? list.IndexOf(caret) : -1;
-        bool ctrl = IsCtrlDown();
-        bool shift = IsShiftDown();
 
-        // Alt+방향키 네비게이션: ↑=위로(상위 폴더), ←/→=뒤로/앞으로(이전/다음), ↓=활성화(폴더 진입/파일 실행).
+        // Alt+방향키 네비게이션: ↑=위로, ←/→=뒤로/앞으로, ↓=활성화. **목록이 비어도 동작**(패널/탭 이동은 목록 무관).
         if (IsAltDown())
         {
             switch (e.Key)
@@ -720,11 +711,25 @@ public sealed partial class MainWindow : Window
                 case VirtualKey.Left: GoBack(left); e.Handled = true; return;
                 case VirtualKey.Right: GoForward(left); e.Handled = true; return;
                 case VirtualKey.Down:
-                    if (cur >= 0) { ActivateItem(left, list[cur]); }
+                {
+                    var altCaret = left ? _leftCaret : _rightCaret;
+                    int altCur = altCaret is not null ? list.IndexOf(altCaret) : -1;
+                    if (altCur >= 0) { ActivateItem(left, list[altCur]); }
                     e.Handled = true;
                     return;
+                }
             }
         }
+
+        if (list.Count == 0)
+        {
+            return;   // 여기서부터는 목록 항목이 필요한 동작(선택 이동/펼침/Space)
+        }
+        SetActivePanel(left);
+        var caret = left ? _leftCaret : _rightCaret;
+        int cur = caret is not null ? list.IndexOf(caret) : -1;
+        bool ctrl = IsCtrlDown();
+        bool shift = IsShiftDown();
 
         if (space)
         {

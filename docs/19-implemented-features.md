@@ -295,6 +295,7 @@
 - **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnGridKeyDown`의 `IsAltDown()` 분기 → `GoUp`/`GoBack`/`GoForward`(F13 재사용).
 - **커밋**: `(이 단위, Alt 네비 별도 커밋)`
 - **테스트(Windows)**: 폴더 진입 몇 번 후 **Alt+←/→**로 이전/다음, **Alt+↑**로 상위 폴더. 좌/우 패널·탭 독립.
+- **F21-1 수정(빈 폴더)**: `OnGridKeyDown`의 **빈 목록 조기 return**이 Alt 네비까지 막아 **항목 0개 폴더에서 Alt+↑/←/→ 무동작**이던 버그 수정 → Alt 방향키 처리를 **목록 가드 앞**으로 이동(목록 무관). (위로 버튼은 별도 Click 핸들러라 정상이었음)
 
 ### F22. 탭 닫기 (Ctrl+W · 탭 더블클릭) + "탭 더블클릭 동작" 설정
 - **무엇**:
