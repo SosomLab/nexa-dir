@@ -446,6 +446,28 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
+    private static int ParentIndex(IList<DirItem> list, int index)
+    {
+        if (index < 0)
+        {
+            return -1;
+        }
+        int depth = list[index].Depth;
+        if (depth <= 0)
+        {
+            return -1; // 목록 최상위(부모 행이 목록에 없음)
+        }
+        for (int i = index - 1; i >= 0; i--)
+        {
+            if (list[i].Depth == depth - 1)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /// <summary>선택 개수를 세어 상태바에 표시.</summary>
     private void UpdateSelectionCount(IEnumerable<DirItem> list)
     {
@@ -512,10 +534,38 @@ public sealed partial class MainWindow : Window
 
         if (horizontal)
         {
-            // →: 현재 폴더 펼침, ←: 현재 폴더 접힘(폴더가 아니면 무시).
-            if (cur >= 0 && list[cur].IsDir)
+            if (e.Key == VirtualKey.Right)
             {
-                SetExpanded(list[cur], expand: e.Key == VirtualKey.Right);
+                // →: 현재 폴더 펼침(폴더가 아니면 무시).
+                if (cur >= 0 && list[cur].IsDir)
+                {
+                    SetExpanded(list[cur], expand: true);
+                }
+            }
+            else if (cur >= 0)
+            {
+                // ←: 펼쳐진 폴더면 접기. 접힌 폴더/파일이면 **상위(부모) 폴더로 이동**(단일 선택).
+                //     목록 최상위(부모 행 없음)면 아무 동작 없음.
+                if (list[cur].IsDir && list[cur].IsExpanded)
+                {
+                    SetExpanded(list[cur], expand: false);
+                }
+                else
+                {
+                    int p = ParentIndex(list, cur);
+                    if (p >= 0)
+                    {
+                        foreach (var it in list)
+                        {
+                            it.IsSelected = false;
+                        }
+                        list[p].IsSelected = true;
+                        if (left) { _leftAnchor = list[p]; } else { _rightAnchor = list[p]; }
+                        MoveCaret(left, list[p]);
+                        (left ? DirGrid : DirGrid2).BringIndexIntoView(p);
+                        UpdateSelectionCount(list);
+                    }
+                }
             }
             e.Handled = true;
             return;

@@ -229,7 +229,11 @@
   | 비연속 | **Ctrl+↓/↑** 로 이동(외곽선만 이동) 후 **Ctrl+Space** 반복 | 떨어진 여러 항목 선택, 상태바 "N개 선택됨" |
   | 단일 | **Space** | 캐럿 항목만 선택 |
   | 펼침/접힘 | 폴더 행에서 **→ / ←** | 인라인 펼침(▼)/접힘(▶) |
-- **한계**: ← 접힘 시 부모로 점프는 미포함(현재 행 접힘만). **Ctrl+A**·Home/End·PageUp/Down은 후속.
+- **한계**: **Ctrl+A**·Home/End·PageUp/Down은 후속.
+- **F17-1 추가(←로 부모 이동)**: `←`는 이제 **펼쳐진 폴더면 접기, 접힌 폴더/파일이면 상위(부모) 폴더 행으로 이동**(단일 선택).
+  목록 최상위(부모 행 없음, `Depth 0`)면 무동작. 부모 = 목록에서 `Depth`가 1 작은 최근접 상위 행(`ParentIndex`).
+  구현: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnGridKeyDown`(Left 분기)·`ParentIndex`.
+  테스트(Windows): 펼친 트리에서 자식 행(예 `.vscode`)에서 `←` → 부모(`nexa-dir`)로 이동·선택. 최상위에서 `←` → 변화 없음.
 
 ---
 
