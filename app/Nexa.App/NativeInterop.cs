@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Text;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI.Text;
 
@@ -124,6 +125,31 @@ internal sealed class DirItem : INotifyPropertyChanged
 
     /// <summary>행 배경: 선택 시 반투명 파랑, 아니면 투명(전폭 클릭 히트 유지).</summary>
     public Brush RowBackground => _isSelected ? SelectedBrush : RowTransparent;
+
+    // ── 실제 셸 아이콘(폴더 커스텀/파일 형식) ────────────────────────
+    private ImageSource? _iconImage;
+
+    /// <summary>셸 썸네일 아이콘(비동기 로드). null이면 글리프 폴백.</summary>
+    public ImageSource? IconImage
+    {
+        get => _iconImage;
+        set
+        {
+            if (!ReferenceEquals(_iconImage, value))
+            {
+                _iconImage = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconImage)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconImageVisibility)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GlyphVisibility)));
+            }
+        }
+    }
+
+    /// <summary>실제 아이콘이 있으면 이미지 표시.</summary>
+    public Visibility IconImageVisibility => _iconImage is null ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>실제 아이콘이 없으면 글리프 폴백 표시.</summary>
+    public Visibility GlyphVisibility => _iconImage is null ? Visibility.Visible : Visibility.Collapsed;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }

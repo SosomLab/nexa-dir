@@ -1,9 +1,13 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage;
+using Windows.Storage.FileProperties;
 using Windows.System;
 using Windows.UI.Core;
 using Nexa.Controls;
@@ -78,6 +82,7 @@ public sealed partial class MainWindow : Window
             foreach (var it in NativeInterop.ReadDir(path, 0))
             {
                 items.Add(it);
+                _ = LoadIconAsync(it);   // 실제 셸 아이콘 비동기 로드(폴백: 글리프)
             }
             grid.ItemsSource = items;
             pathText.Text = path;
@@ -86,6 +91,30 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             header.Text = $"디렉터리 열거 실패: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 항목의 실제 셸 아이콘(폴더 커스텀 아이콘·파일 형식 아이콘)을 비동기로 로드한다.
+    /// 성공 시 <see cref="DirItem.IconImage"/> 설정(글리프→실제 아이콘 교체), 실패는 글리프 유지.
+    /// </summary>
+    private static async Task LoadIconAsync(DirItem item)
+    {
+        try
+        {
+            StorageItemThumbnail thumb = item.IsDir
+                ? await (await StorageFolder.GetFolderFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16)
+                : await (await StorageFile.GetFileFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16);
+            if (thumb is not null && thumb.Type == ThumbnailType.Image)
+            {
+                var bmp = new BitmapImage();
+                await bmp.SetSourceAsync(thumb);
+                item.IconImage = bmp;
+            }
+        }
+        catch
+        {
+            // 접근 불가·미지원 → 글리프 폴백 유지.
         }
     }
 
@@ -128,6 +157,7 @@ public sealed partial class MainWindow : Window
                 foreach (var child in NativeInterop.ReadDir(item.FullPath, item.Depth + 1))
                 {
                     list.Insert(at++, child);
+                    _ = LoadIconAsync(child);
                 }
                 item.IsExpanded = true;
             }
@@ -216,6 +246,28 @@ public sealed partial class MainWindow : Window
             }
         }
         StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+    }
+
+    /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
+    private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            return;
+        }
+        if (!item.IsDir && item.Kind != NexaFileKind.Symlink)
+        {
+            return;   // 파일: 진입 대상 아님(향후 셸 실행)
+        }
+        if (_leftItems.Contains(item))
+        {
+            LoadDirectory(item.FullPath, _leftItems, DirGrid, DirHeader, PathText);
+        }
+        else if (_rightItems.Contains(item))
+        {
+            LoadDirectory(item.FullPath, _rightItems, DirGrid2, DirHeader2, PathText2);
+        }
+        e.Handled = true;
     }
 
     private static bool IsCtrlDown() => KeyDown(VirtualKey.Control);
