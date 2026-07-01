@@ -35,6 +35,11 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.*" />
   </ItemGroup>
 
+  <!-- 재사용 컨트롤 라이브러리(VirtualizedTreeGrid 등) — ADR-0002 §9 -->
+  <ItemGroup>
+    <ProjectReference Include="..\Nexa.Controls\Nexa.Controls.csproj" />
+  </ItemGroup>
+
   <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────
        dotnet build 시 cargo로 nexa-interop(cdylib)를 빌드하고, 산출 nexa_interop.dll을
        앱 출력 디렉토리로 복사한다. P/Invoke(NativeInterop.cs)가 런타임에 이 dll을 로드.

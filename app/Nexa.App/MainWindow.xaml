@@ -5,7 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Nexa.App"
     xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
+    xmlns:ctrls="using:Nexa.Controls"
     Title="Nexa Dir">
+
 
     <!--
       레이아웃 골격(docs/20). 초안: 영역마다 뚜렷한 배경색으로 구분(촌스러워도 식별 우선).
@@ -98,27 +100,22 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
-                    <ScrollViewer Grid.Row="3" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto" Padding="8,0">
-                        <ItemsRepeater x:Name="DirRepeater">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Orientation="Vertical" Spacing="2" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="local:DirItem">
-                                    <Grid ColumnSpacing="12" Padding="0,2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="64" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
+                    <ctrls:VirtualizedTreeGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0">
+                        <ctrls:VirtualizedTreeGrid.ItemTemplate>
+                            <DataTemplate x:DataType="local:DirItem">
+                                <Grid ColumnSpacing="12" Padding="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                </Grid>
+                            </DataTemplate>
+                        </ctrls:VirtualizedTreeGrid.ItemTemplate>
+                    </ctrls:VirtualizedTreeGrid>
                 </Grid>
             </Border>
 
@@ -157,27 +154,22 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
-                    <ScrollViewer Grid.Row="3" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto" Padding="8,0">
-                        <ItemsRepeater x:Name="DirRepeater2">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Orientation="Vertical" Spacing="2" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="local:DirItem">
-                                    <Grid ColumnSpacing="12" Padding="0,2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="64" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
+                    <ctrls:VirtualizedTreeGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0">
+                        <ctrls:VirtualizedTreeGrid.ItemTemplate>
+                            <DataTemplate x:DataType="local:DirItem">
+                                <Grid ColumnSpacing="12" Padding="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind KindLabel}" Opacity="0.6" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind SizeLabel}" Opacity="0.6" />
+                                </Grid>
+                            </DataTemplate>
+                        </ctrls:VirtualizedTreeGrid.ItemTemplate>
+                    </ctrls:VirtualizedTreeGrid>
                 </Grid>
             </Border>
         </Grid>

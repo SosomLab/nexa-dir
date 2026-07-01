@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Nexa Dir 재사용 WinUI 컨트롤 라이브러리 (도메인 비종속) — ADR-0002 §9.
+       VirtualizedTreeGrid 등. 파일/검색/클라우드/플러그인 패널이 공유. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Nexa.Controls</RootNamespace>
+    <UseWinUI>true</UseWinUI>
+    <!-- WinUI 라이브러리의 PRI 생성 도구 경로 활성(앱과 동일) — 없으면 MSB4062(ExpandPriContent) -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Authors>Sangyong Bae</Authors>
+    <Company>SosomLab</Company>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+</Project>

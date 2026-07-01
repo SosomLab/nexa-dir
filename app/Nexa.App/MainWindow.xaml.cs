@@ -1,6 +1,7 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Nexa.Controls;
 
 namespace Nexa.App;
 
@@ -12,8 +13,8 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         ShowInteropRoundTrip();
         // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
-        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DirRepeater, DirHeader, PathText);
-        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), DirRepeater2, DirHeader2, PathText2);
+        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DirGrid, DirHeader, PathText);
+        LoadDirectory(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), DirGrid2, DirHeader2, PathText2);
         UpdateBottomDock();
     }
 
@@ -39,12 +40,12 @@ public sealed partial class MainWindow : Window
     /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 지정 패널 목록에 표시한다.
     /// 좌/우 패널이 같은 로직을 공유(패널별 repeater/header/path). 실패는 헤더 메시지로 격리.
     /// </summary>
-    private static void LoadDirectory(string path, ItemsRepeater repeater, TextBlock header, TextBlock pathText)
+    private static void LoadDirectory(string path, VirtualizedTreeGrid grid, TextBlock header, TextBlock pathText)
     {
         try
         {
             var items = NativeInterop.ReadDir(path);
-            repeater.ItemsSource = items;
+            grid.ItemsSource = items;
             pathText.Text = path;
             header.Text = $"{path} — {items.Count}개 항목";
         }

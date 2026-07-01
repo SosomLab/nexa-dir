@@ -37,7 +37,7 @@ nexa-dir/
 │     └─ nexa-interop/     # C ABI cdylib(nexa_abi_version) — C# 인터롭 표면
 ├─ app/                    # ── WinUI 3 UI 셸(Windows 전용) ──
 │  ├─ README.md            # 앱 빌드 안내(Windows)
-│  ├─ Nexa.Controls/       # (예정) 재사용 WinUI 컨트롤 라이브러리 — VirtualizedTreeGrid(ItemsRepeater 기반·도메인 비종속) → ADR-0002 §9
+│  ├─ Nexa.Controls/       # 재사용 WinUI 컨트롤 라이브러리 — VirtualizedTreeGrid(ItemsRepeater 래핑·도메인 비종속) → ADR-0002 §9
 │  └─ Nexa.App/
 │     ├─ Nexa.App.csproj   # WinUI3, net8.0-windows, 비패키지 + cargo(nexa-interop)→dll 복사 타겟
 │     ├─ App.xaml(.cs)     # 앱 진입점·리소스
