@@ -129,6 +129,24 @@
   | 중앙 스냅 | 좌/우 경계를 창 중앙 부근으로 드래그 | **50:50에 흡착** |
   | 상↔하 정렬 | 상단 경계를 하단 분리선 X 부근으로(또는 반대) | **두 분리선 X 정렬에 흡착** |
 - **후속**: 스냅 위치 설정화 · 스플리터 위치 **설정 파일(JSON) 저장/복원**(백로그).
+- **추가 조정**: 폭 2↔4px 비교 후 **4px 확정**(Min/Max 고정) · 스냅 임계 **20px** · **Alt 드래그 시 스냅 임시 해제**(정밀) · 스플리터 **그립 숨김**(`Foreground=Transparent`) · 좌/우·상/하·하단 **최소 크기**(패널 160·하단높이 80, 숨김 시 MinWidth 0으로 완전 접힘).
+
+### F10. 인라인 폴더 펼침 + Finder 스타일 컬럼 (플래그십 초안)
+- **무엇**: 폴더 행의 디스클로저(▶/▼)를 눌러 **자식을 같은 목록에 인라인 삽입/제거**(macOS식 인라인 트리, FR-C 초안). 컬럼을 **이름·수정한 날짜·종류·크기**로 재구성(폴더 우선 정렬, 폴더명 굵게, 파란 폴더 아이콘, 크기 우측정렬). 헤더는 밝은 회색(`HeaderBackground` DP·설정 변경 가능).
+- **구현 위치**:
+  - [NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) — `DirItem`을 트리 모델로(`Depth`/`FullPath`/`IsExpanded` + 표시용 `ExpandGlyph`/`IconGlyph`/`IconBrush`/`NameWeight`/`ModifiedLabel`/`KindText`), `ReadDir(path, depth)`(폴더 우선+이름 정렬)
+  - [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 4컬럼 공유 인스턴스, 이름 셀(들여쓰기+디스클로저+아이콘+이름) 템플릿
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — 패널별 `ObservableCollection<DirItem>`, `OnToggleExpand`(펼침=자식 삽입/접힘=자손 제거)
+  - [NexaFileGrid.xaml(.cs)](../app/Nexa.Controls/) — 전폭 헤더 바 + `HeaderBackground` 의존성 속성
+- **커밋**: `(이 단위)`
+- **테스트(Windows/VM)**:
+  | 방법 | 명령 | 기대 |
+  | --- | --- | --- |
+  | 앱 실행 | `dotnet run --project app/Nexa.App` | 이름/수정한날짜/종류/크기 컬럼, 폴더 먼저·굵게·파란 아이콘 |
+  | 펼침 | 폴더 행 ▶ 클릭 | 자식이 **바로 아래 들여쓰기**로 표시(▼), 다시 클릭하면 접힘 |
+  | 헤더색 | — | 본문과 다른 **밝은 회색** 헤더 바 |
+- **한계(초안)**: 앱 계층에서 `ReadDir` 재귀 삽입(코어 `VisibleRow` 평면 스트림은 후속 C1). 교차 다중 선택(C3)·지연 가상화·아이콘 실파일형식은 후속.
+- **후속**: 헤더 **드래그 재정렬**(본문 컬럼-구동化 필요, [23](23-column-system.md) §6-2) · 컬럼 설정 모달([23](23-column-system.md) §6-1) · 코어 가시행 스트림(C1).
 
 ---
 
