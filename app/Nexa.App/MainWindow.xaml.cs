@@ -536,6 +536,45 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>탭 닫기 — 최소 1개는 유지. 활성 탭을 닫으면 이웃 탭으로 전환.</summary>
+    private void CloseTab(bool left, PanelTab tab)
+    {
+        var tabs = left ? _leftTabs : _rightTabs;
+        int idx = tabs.IndexOf(tab);
+        if (idx < 0 || tabs.Count <= 1)
+        {
+            return;   // 없거나 마지막 하나면 닫지 않음
+        }
+        bool wasActive = ReferenceEquals(tab, left ? _leftTab : _rightTab);
+        tabs.RemoveAt(idx);
+        if (wasActive)
+        {
+            SwitchToTab(left, tabs[Math.Min(idx, tabs.Count - 1)]);
+        }
+    }
+
+    /// <summary>탭 더블클릭 → 설정된 동작(기본: 닫기). 빈 영역 더블클릭(추가)과 구분되도록 여기서 소비.</summary>
+    private void OnTabDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not PanelTab tab)
+        {
+            return;
+        }
+        e.Handled = true;   // 탭 위 더블클릭은 탭 바(추가)로 전파하지 않음
+        bool left = _leftTabs.Contains(tab);
+        switch (AppSettings.Tab.DoubleClick)
+        {
+            case TabDoubleClickAction.Close:
+                CloseTab(left, tab);
+                break;
+            case TabDoubleClickAction.None:
+                break;
+            default:   // Favorite/PopupMenu — 후속
+                StatusText.Text = "탭 동작(즐겨찾기/팝업 메뉴)은 후속 구현";
+                break;
+        }
+    }
+
     /// <summary>선택 항목 포커스색 갱신 — (윈도우 활성 &amp;&amp; 그 패널 활성)일 때만 파랑, 아니면 회색.</summary>
     private void RefreshSelectionFocus()
     {
@@ -627,6 +666,14 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Ctrl+W: 활성 패널의 활성 탭 닫기.
+        if (e.Key == VirtualKey.W && IsCtrlDown())
+        {
+            CloseTab(_activeLeft, _activeLeft ? _leftTab : _rightTab);
+            e.Handled = true;
+            return;
+        }
+
         bool space = e.Key == VirtualKey.Space;
         bool vertical = e.Key == VirtualKey.Up || e.Key == VirtualKey.Down;
         bool horizontal = e.Key == VirtualKey.Left || e.Key == VirtualKey.Right;

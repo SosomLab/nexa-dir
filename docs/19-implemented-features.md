@@ -296,6 +296,24 @@
 - **커밋**: `(이 단위, Alt 네비 별도 커밋)`
 - **테스트(Windows)**: 폴더 진입 몇 번 후 **Alt+←/→**로 이전/다음, **Alt+↑**로 상위 폴더. 좌/우 패널·탭 독립.
 
+### F22. 탭 닫기 (Ctrl+W · 탭 더블클릭) + "탭 더블클릭 동작" 설정
+- **무엇**:
+  - **Ctrl+W** → 활성 패널의 **활성 탭 닫기**(최소 1개 유지, 활성 탭 닫으면 이웃 탭으로 전환).
+  - **탭 더블클릭** → 설정된 동작. **`탭 더블클릭 시 동작` 설정** 신설(기본 = **탭 닫기**): ①없음 ②탭 닫기 ③즐겨찾기 등록 ④팝업 메뉴.
+    *현재 = 닫기만 구현*(③④는 후속, 상태바 안내). 빈 탭 영역 더블클릭(새 탭 추가, F20)과 구분(탭 위 더블클릭은 소비).
+- **구현 위치**:
+  - [app/Nexa.App/Settings.cs](../app/Nexa.App/Settings.cs) — `TabDoubleClickAction`(None/Close/Favorite/PopupMenu) + `TabOptions.DoubleClick=Close` + `AppSettings.Tab`
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) — `CloseTab`(이웃 전환), `OnTabDoubleTapped`(설정 분기), `OnGridKeyDown`의 `Ctrl+W`
+  - [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) — 탭 아이템 `DoubleTapped="OnTabDoubleTapped"`
+- **커밋**: `(이 단위)`
+- **테스트(Windows)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | Ctrl+W | 탭 2개↑에서 | 활성 탭 닫힘·이웃 활성 (1개면 유지) |
+  | 탭 더블클릭 | 기본 설정 | 그 탭 닫힘 |
+  | 빈 영역 더블클릭 | | 새 탭 추가(F20) 유지 |
+- **후속**: 설정 UI에서 4택1(FR-B) · 즐겨찾기 탭·팝업 메뉴 동작 · 탭 닫기(x) 버튼·중간클릭 닫기.
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)
