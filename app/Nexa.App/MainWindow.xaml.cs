@@ -54,13 +54,13 @@ public sealed partial class MainWindow : Window
     // 숨길 때 해당 splitter와 행/열 크기를 함께 0으로 만들어 빈 공간을 남기지 않는다(docs/20 §2).
 
     private void OnToggleLauncher(object sender, RoutedEventArgs e)
-        => LauncherBar.Visibility = Visible(ToggleLauncherBtn.IsChecked);
+        => LauncherBar.Visibility = Vis(ToggleLauncherBtn.IsChecked);
 
     private void OnToggleRightPanel(object sender, RoutedEventArgs e)
     {
         bool show = ToggleRightBtn.IsChecked == true;
-        RightPanel.Visibility = Visible(show);
-        PanelSplitter.Visibility = Visible(show);
+        RightPanel.Visibility = Vis(show);
+        PanelSplitter.Visibility = Vis(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
         // 표시 시 좌/우 동일 크기(star) 복원
         RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
@@ -69,8 +69,8 @@ public sealed partial class MainWindow : Window
     private void OnToggleTerminal(object sender, RoutedEventArgs e)
     {
         bool show = ToggleTerminalBtn.IsChecked == true;
-        TerminalPanel.Visibility = Visible(show);
-        TermSplitter.Visibility = Visible(show);
+        TerminalPanel.Visibility = Vis(show);
+        TermSplitter.Visibility = Vis(show);
         TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
         TermRow.Height = show ? new GridLength(180) : new GridLength(0);
     }
@@ -79,12 +79,12 @@ public sealed partial class MainWindow : Window
     private void OnToggleBottomSplit(object sender, RoutedEventArgs e)
     {
         bool split = ToggleBottomSplitBtn.IsChecked == true;
-        BottomRightDock.Visibility = Visible(split);
-        BottomSplitter.Visibility = Visible(split);
+        BottomRightDock.Visibility = Vis(split);
+        BottomSplitter.Visibility = Vis(split);
         BottomSplitterCol.Width = split ? GridLength.Auto : new GridLength(0);
         BottomRightCol.Width = split ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
-    private static Visibility Visible(bool? on)
+    private static Visibility Vis(bool? on)
         => on == true ? Visibility.Visible : Visibility.Collapsed;
 }

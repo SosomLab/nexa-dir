@@ -36,7 +36,7 @@ dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — 
   ```powershell
   cd core; cargo build; cd ..                                   # → core/target/debug/nexa_interop.dll 생성
   Copy-Item core\target\debug\nexa_interop.dll `
-    app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0\          # (선택) 수동 복사
+    app\Nexa.App\bin\Debug\net8.0-windows10.0.22621.0\          # (선택) 수동 복사
   ```
 - **Release**는 `-c Release`(코어도 `cargo build --release` → `core/target/release`에서 복사, §2-1).
 - **macOS 호스트**: 앱 빌드·실행 불가(§2 ⚠️) → 코어(§1)만. 앱은 Windows/VM/CI.
@@ -67,7 +67,7 @@ cargo clippy --workspace --all-targets -- -D warnings   # 린트(경고=실패)
 
 ## 2. WinUI 앱 — C#/.NET (`app/Nexa.App`)
 
-**Windows 전용**(XAML 컴파일러가 Windows 네이티브). TFM `net8.0-windows10.0.19041.0`, 비패키지(unpackaged) 구성.
+**Windows 전용**(XAML 컴파일러가 Windows 네이티브). TFM `net8.0-windows10.0.22621.0`, 비패키지(unpackaged) 구성.
 
 > ⚠️ **macOS/Linux에서 `dotnet build/run app/Nexa.App` 실행 금지** — 즉시 다음 오류:
 > ```
@@ -185,7 +185,7 @@ dotnet run --project app/Nexa.App
 GUI를 띄우지 않고 `nexa_interop.dll`만으로 P/Invoke 왕복을 검증(§2-1 스니펫):
 ```powershell
 # 앱을 한 번 빌드해 dll이 출력에 있는 상태에서
-$out = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0").Path
+$out = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.22621.0").Path
 $env:Path = "$out;$env:Path"; [Environment]::CurrentDirectory = $out
 Add-Type @"
 using System.Runtime.InteropServices;
@@ -208,7 +208,7 @@ public static class T { [DllImport("nexa_interop", CallingConvention=CallingConv
 Stop-Process -Id 12820 -Force
 
 # 2) PID를 모를 때 — nexa_interop.dll을 모듈로 잡은 프로세스를 검색해 종료
-$abs = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.19041.0\nexa_interop.dll").Path
+$abs = (Resolve-Path "app\Nexa.App\bin\Debug\net8.0-windows10.0.22621.0\nexa_interop.dll").Path
 $locking = Get-Process pwsh, powershell, dotnet, Nexa.App -ErrorAction SilentlyContinue |
   Where-Object { try { ($_.Modules | Where-Object FileName -eq $abs).Count -gt 0 } catch { $false } }
 $locking | Select-Object Id, ProcessName, StartTime   # 무엇이 잡았는지 확인
