@@ -430,6 +430,25 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>항목 활성화: 폴더/심볼릭링크는 진입(더블클릭 동작), 파일은 연결 프로그램으로 실행한다.</summary>
+    private async void ActivateItem(bool left, DirItem item)
+    {
+        if (item.IsDir || item.Kind == NexaFileKind.Symlink)
+        {
+            Navigate(left, item.FullPath, record: true);
+            return;
+        }
+        try
+        {
+            var file = await StorageFile.GetFileFromPathAsync(item.FullPath);
+            await Launcher.LaunchFileAsync(file);   // 확장자 연결 프로그램으로 실행
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"실행 실패: {ex.Message}";
+        }
+    }
+
     private bool _activeLeft = true;
     private bool _windowActive = true;
 
@@ -560,6 +579,14 @@ public sealed partial class MainWindow : Window
         int cur = caret is not null ? list.IndexOf(caret) : -1;
         bool ctrl = IsCtrlDown();
         bool shift = IsShiftDown();
+
+        // Alt+↓: 캐럿 항목 활성화 — 폴더/심볼릭은 진입(더블클릭), 파일은 실행(확장자 연결).
+        if (e.Key == VirtualKey.Down && IsAltDown() && cur >= 0)
+        {
+            ActivateItem(left, list[cur]);
+            e.Handled = true;
+            return;
+        }
 
         if (space)
         {
