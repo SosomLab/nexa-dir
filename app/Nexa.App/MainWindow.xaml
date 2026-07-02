@@ -202,7 +202,7 @@
             </Border>
 
             <!-- 좌↔우 splitter (얇게 + 스냅: 중앙/하단 분리선 정렬) -->
-            <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="4" MinWidth="4" MaxWidth="4"
+            <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="3" MinWidth="3" MaxWidth="3"
                               Padding="0" Background="#22FFFFFF" Foreground="Transparent"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
@@ -298,7 +298,7 @@
         </Grid>
 
         <!-- 4 · 메인↔하단 상하 splitter (얇게) -->
-        <ctk:GridSplitter x:Name="TermSplitter" Grid.Row="4" Height="4" MinHeight="4" MaxHeight="4"
+        <ctk:GridSplitter x:Name="TermSplitter" Grid.Row="4" Height="3" MinHeight="3" MaxHeight="3"
                           Padding="0" Background="#22FFFFFF" Foreground="Transparent"
                           ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" />
 
@@ -321,7 +321,7 @@
             </Border>
 
             <!-- 하단 좌↔우 splitter (얇게 + 스냅: 중앙/상단 분리선 정렬) -->
-            <ctk:GridSplitter x:Name="BottomSplitter" Grid.Column="1" Width="4" MinWidth="4" MaxWidth="4"
+            <ctk:GridSplitter x:Name="BottomSplitter" Grid.Column="1" Width="3" MinWidth="3" MaxWidth="3"
                               Padding="0" Background="#22FFFFFF" Foreground="Transparent"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
