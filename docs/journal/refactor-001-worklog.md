@@ -206,7 +206,19 @@ refactor/001-audit  (분기: 6e81734)
 - **증상**: 최상단(index 0, 예: addins) 폴더 진입 후 위로 → 화면 깜빡·**아무것도 안 보임**, 스크롤해야 보임(addins는 선택됨).
 - **원인**: `ScrollIndexIntoView`가 `Reset` **직후 동기** 실행 → ItemsRepeater가 뷰포트 미실체화 상태에서 단일 요소만 강제 실체화+가운데 정렬 → 뷰포트 공백(+index 0 가운데 정렬은 위쪽 공백까지).
 - **수정 1차(불완전)**: `ScrollIndexIntoView`를 `DispatcherQueue`(Low)로 지연. → **먼 인덱스(예: 30↓)에선 여전히 공백**(GetOrCreateElement+StartBringIntoView가 실체화 창↔스크롤 오프셋 불일치를 유발, 위 스크롤 무동작·아래로 스크롤해야 보임).
-- **수정 2차(해결)**: `GetOrCreateElement`/`StartBringIntoView` 폐기 → **균일 행 높이 실측(`EstimateRowStride`)으로 목표 오프셋 계산해 `BodyScroll.ChangeView`로 정상 스크롤**. 가상화가 뷰포트를 정상 채워 공백 없음, 균일 높이라 가운데 정렬도 정확. (Reset 후 확정 위해 여전히 DispatcherQueue 지연.) app build 0 warn/err. ★재QA.
+- **수정 2차(해결)**: `GetOrCreateElement`/`StartBringIntoView` 폐기 → **균일 행 높이 실측(`EstimateRowStride`)으로 목표 오프셋 계산해 `BodyScroll.ChangeView`로 정상 스크롤**. 가상화가 뷰포트를 정상 채워 공백 없음, 균일 높이라 가운데 정렬도 정확. (Reset 후 확정 위해 여전히 DispatcherQueue 지연.) **★실기 QA 통과(2026-07-02)** — 먼 인덱스·최상단 모두 공백 없이 정상. 상세 비교: [31 스크롤노트](../31-scroll-into-view-notes.md).
+
+## 🔀 다른 PC 이어작업 핸드오프 (2026-07-02)
+
+- **브랜치**: `refactor/001-audit` (원격 최신, PR #1 draft, CI green). 클론/pull 후 이어서.
+- **완료(이 브랜치)**: 감사 → C1 코어 트리(nexa-tree)·ABI v3·로드검사 → MainWindow 가상화 배선 → F18 펼침유지 재구현 → 스크롤 위치 수정 → 크래시 로거. 코어 18 tests·app CI green.
+- **실기 QA 통과**: 표시/필터/네비/펼침(F18 진입·위로)/선택/스크롤(진입 top·상위 center, 최상단·먼 인덱스 공백 없음).
+- **남은 일(우선순위)**:
+  1. **성능 슬라이스 4** — 탭 전환 클릭 지연(#4)·대용량 스크롤(#3): 탭별 트리 핸들 캐시 + 펼침/접힘 Reset→범위 diff + 행매핑 O(log n) + 10만 벤치(AC5).
+  2. **E14 정리** — 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 제거.
+  3. **설정 화면** — 헤더 정보란 on/off(`ViewOptions.ShowHeaderInfo`)·상위이동 정렬(`UpNavTargetAlign`)·단축키 편집([26 §8](../26-command-palette.md)).
+  4. **머지 전 점검**: F18/스크롤/선택 회귀 없는지 최종 QA 후 main 머지.
+- **실행 주의**: IDE 내장 터미널에서 `dotnet run`은 즉시 종료(터미널 환경 이슈) → **pwsh 또는 빌드 exe** 사용. 미처리 예외는 `%LOCALAPPDATA%\NexaDir\crash.log`.
 
 ## 진행 예정 (E14~)
 
