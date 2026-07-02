@@ -19,19 +19,10 @@ namespace Nexa.App;
 /// <summary>메인 윈도우 — 레이아웃 골격(docs/20) + 좌/우 패널 디렉터리 목록(F4/F5).</summary>
 public sealed partial class MainWindow : Window
 {
-    // 패널별 평면 표시 목록(인라인 트리: 펼침 시 자식을 이 목록에 삽입/제거).
-    private readonly ObservableCollection<DirItem> _leftItems = new();
-    private readonly ObservableCollection<DirItem> _rightItems = new();
-
-    // 펼침 상태 유지(F18)는 이제 **탭별**(활성 탭의 Expanded). 경로 대소문자 무시.
-    private HashSet<string> _leftExpanded => _leftTab.Expanded;
-    private HashSet<string> _rightExpanded => _rightTab.Expanded;
-
-    // 범위 선택(Shift) 기준점(고정 anchor) + 키보드 캐럿(현재 위치) — 패널별.
-    private DirItem? _leftAnchor;
-    private DirItem? _rightAnchor;
-    private DirItem? _leftCaret;
-    private DirItem? _rightCaret;
+    // 패널별 가상화 목록: 코어 트리(nexa-tree)의 가시 노드 평면 스트림을 소비(C1, docs/29).
+    // 선택(OrderedSet)·캐럿·펼침 상태는 코어/컬렉션이 소유 — MainWindow는 위임만 한다.
+    private readonly VirtualTreeCollection _leftItems = new();
+    private readonly VirtualTreeCollection _rightItems = new();
 
     // 패널별 탭: 각 탭(PanelTab)이 자체 이동 기록·펼침 상태를 가짐. 활성 탭이 현재 뷰.
     private readonly ObservableCollection<PanelTab> _leftTabs = new();
@@ -59,6 +50,9 @@ public sealed partial class MainWindow : Window
         // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
         ShowInteropRoundTrip();
+        // 가상화 목록: 새 행이 실체화될 때 실제 셸 아이콘을 비동기 로드(폴백: 글리프).
+        _leftItems.RowBuilt = it => _ = LoadIconAsync(it);
+        _rightItems.RowBuilt = it => _ = LoadIconAsync(it);
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _leftTab.IsActive = true;
         _rightTab.IsActive = true;
@@ -98,33 +92,20 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 지정 패널 목록에 표시한다.
     /// 좌/우 패널이 같은 로직을 공유(패널별 목록/header/path). 실패는 헤더 메시지로 격리.
-    /// 목록은 <see cref="ObservableCollection{T}"/> — 펼침/접힘 시 자식을 삽입/제거해 트리를 표현.
+    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리(nexa-tree)의 가시 노드 평면 스트림을
+    /// 가상화로 소비한다(보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
     /// </summary>
-    private void LoadDirectory(string path, ObservableCollection<DirItem> items, NexaFileGrid grid, TextBlock header, NexaPathBar pathBar)
+    private void LoadDirectory(string path, VirtualTreeCollection items, NexaFileGrid grid, TextBlock header, NexaPathBar pathBar)
     {
         try
         {
-            items.Clear();
-            if (items == _leftItems)
-            {
-                _leftAnchor = null;
-            }
-            else
-            {
-                _rightAnchor = null;
-            }
-            int direct = 0;
-            foreach (var it in NativeInterop.ReadDir(path, 0))
-            {
-                items.Add(it);
-                _ = LoadIconAsync(it);   // 실제 셸 아이콘 비동기 로드(폴백: 글리프)
-                direct++;
-            }
+            var v = AppSettings.View;
+            bool ok = items.Open(path, v.ShowHiddenFiles, v.ShowDotFiles);
             grid.ItemsSource = items;
             pathBar.Path = path;
-            header.Text = $"{path} — {direct}개 항목";
-            // 펼침 상태 유지: 이 폴더로 진입/이동해도 하위 열린 폴더를 동일하게 유지(F18, FR-X4).
-            ApplySavedExpansion(items, ExpandedSet(items));
+            header.Text = ok
+                ? $"{path} — {items.Count}개 항목"
+                : $"디렉터리 열기 실패: {path}";
         }
         catch (Exception ex)
         {
@@ -223,25 +204,17 @@ public sealed partial class MainWindow : Window
     /// <summary>지정 패널 목록에서 경로가 일치하는 항목을 단일 선택하고 캐럿·스크롤을 맞춘다(없으면 무시).</summary>
     private void SelectByPath(bool left, string fullPath)
     {
-        var list = left ? _leftItems : _rightItems;
-        var target = fullPath.TrimEnd('\\', '/');
-        for (int i = 0; i < list.Count; i++)
+        var items = left ? _leftItems : _rightItems;
+        int i = items.IndexOfPath(fullPath);
+        if (i < 0)
         {
-            if (string.Equals(list[i].FullPath.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (var it in list)
-                {
-                    it.IsSelected = false;
-                }
-                list[i].IsSelected = true;
-                if (left) { _leftAnchor = list[i]; } else { _rightAnchor = list[i]; }
-                MoveCaret(left, list[i]);
-                (left ? DirGrid : DirGrid2).BringIndexIntoView(i);
-                UpdateSelectionCount(list);
-                RefreshSelectionFocus();   // 선택 항목 포커스 색(파랑) 반영
-                return;
-            }
+            return;
         }
+        items.Select(items[i], 0);   // 단일 선택(코어 위임)
+        items.SetCaret(i);
+        (left ? DirGrid : DirGrid2).BringIndexIntoView(i);
+        UpdateSelectionCount(items);
+        RefreshSelectionFocus();
     }
 
     /// <summary>뒤로/앞으로/위로 버튼 활성 상태 갱신.</summary>
@@ -386,103 +359,33 @@ public sealed partial class MainWindow : Window
             return;
         }
         e.Handled = true;
-        SetExpanded(item, !item.IsExpanded);
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        (left ? _leftItems : _rightItems).ToggleExpand(item);   // 코어 위임 → diff 반영(Reset)
     }
 
-    /// <summary>경로 비교 정규화(끝 구분자 제거).</summary>
-    private static string NormPath(string p) => p.TrimEnd('\\', '/');
-
-    /// <summary>패널 목록에 대응하는 "펼친 폴더" 기억 집합.</summary>
-    private HashSet<string> ExpandedSet(ObservableCollection<DirItem> list)
-        => ReferenceEquals(list, _leftItems) ? _leftExpanded : _rightExpanded;
-
-    /// <summary>
-    /// 폴더 항목을 펼치거나 접는다(디스클로저 클릭·키보드 →/← 공용). 폴더가 아니거나 이미 그 상태면 무시.
-    /// 펼침 시 그 폴더의 경로를 기억하고, 하위에 저장된 펼침 상태도 함께 복원한다(F18).
-    /// 접힘 시 그 폴더만 기억에서 제거(자손 상태는 유지 → 재펼침 시 복원). 자손 행은 목록에서 제거.
-    /// </summary>
-    private void SetExpanded(DirItem item, bool expand)
+    /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
+    private static int ParentIndex(VirtualTreeCollection items, int index)
     {
-        if (!item.IsDir || item.IsExpanded == expand)
+        if (index < 0)
         {
-            return;
+            return -1;
         }
-        var list = _leftItems.Contains(item) ? _leftItems
-                 : _rightItems.Contains(item) ? _rightItems
-                 : null;
-        if (list is null)
+        int depth = items[index].Depth;
+        if (depth <= 0)
         {
-            return;
+            return -1; // 목록 최상위(부모 행이 목록에 없음)
         }
-        var set = ExpandedSet(list);
-        if (!expand)
+        for (int i = index - 1; i >= 0; i--)
         {
-            set.Remove(NormPath(item.FullPath));   // 이 폴더는 접힘으로 기억(자손 상태는 유지)
-            CollapseInPlace(list, item);
-        }
-        else
-        {
-            set.Add(NormPath(item.FullPath));
-            ExpandInPlace(list, item);
-            ApplySavedExpansion(list, set);        // 하위에 저장된 펼침 상태 복원(재귀)
-        }
-    }
-
-    /// <summary>폴더 자식을 depth+1로 바로 아래 삽입(펼침). 기억 집합은 건드리지 않음. 실패는 상태바로 격리.</summary>
-    private void ExpandInPlace(ObservableCollection<DirItem> list, DirItem item)
-    {
-        if (item.IsExpanded)
-        {
-            return;
-        }
-        try
-        {
-            int at = list.IndexOf(item) + 1;
-            foreach (var child in NativeInterop.ReadDir(item.FullPath, item.Depth + 1))
+            if (items[i].Depth == depth - 1)
             {
-                list.Insert(at++, child);
-                _ = LoadIconAsync(child);
-            }
-            item.IsExpanded = true;
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"펼치기 실패: {ex.Message}";
-        }
-    }
-
-    /// <summary>이 폴더보다 깊은(자손) 행을 연속 제거(접힘). 기억 집합은 건드리지 않음.</summary>
-    private static void CollapseInPlace(ObservableCollection<DirItem> list, DirItem item)
-    {
-        item.IsExpanded = false;
-        int idx = list.IndexOf(item);
-        while (idx + 1 < list.Count && list[idx + 1].Depth > item.Depth)
-        {
-            list.RemoveAt(idx + 1);
-        }
-    }
-
-    /// <summary>
-    /// 목록을 훑어 기억 집합(<paramref name="set"/>)에 있는 폴더를 펼친다.
-    /// 삽입된 자식도 순차로 방문되므로 **임의 깊이까지 재귀 복원**된다(폴더 진입/이동 시 하위 상태 동일 표시, F18).
-    /// </summary>
-    private void ApplySavedExpansion(ObservableCollection<DirItem> list, HashSet<string> set)
-    {
-        if (set.Count == 0)
-        {
-            return;
-        }
-        for (int i = 0; i < list.Count; i++)
-        {
-            var it = list[i];
-            if (it.IsDir && !it.IsExpanded && set.Contains(NormPath(it.FullPath)))
-            {
-                ExpandInPlace(list, it);
+                return i;
             }
         }
+        return -1;
     }
 
-    // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) ────────────────────
+    // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) — 코어(OrderedSet) 위임 ─────
     // 선택 상태는 DirItem.IsSelected(행 배경). 범위 기준점(anchor)은 패널별.
 
     private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -497,69 +400,30 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var list = _leftItems.Contains(item) ? _leftItems
-                 : _rightItems.Contains(item) ? _rightItems
-                 : null;
-        if (list is null)
-        {
-            return;
-        }
-        bool left = list == _leftItems;
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        var items = left ? _leftItems : _rightItems;
         SetActivePanel(left);   // 클릭한 패널이 활성 → 반대 패널 선택은 회색(포커스아웃)
         (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
-        bool ctrl = IsCtrlDown();
-        bool shift = IsShiftDown();
-        DirItem? anchor = left ? _leftAnchor : _rightAnchor;
 
-        if (shift && anchor is not null && list.Contains(anchor))
+        // 선택은 코어(OrderedSet)에 위임: Shift=가시 범위(anchor~클릭), Ctrl=토글, 그 외=단일.
+        if (IsShiftDown())
         {
-            // 범위 선택: 기준점~클릭 항목(목록 순서). Ctrl 병행 시 기존 선택 유지(추가).
-            int a = list.IndexOf(anchor);
-            int b = list.IndexOf(item);
-            if (a > b)
-            {
-                (a, b) = (b, a);
-            }
-            if (!ctrl)
-            {
-                foreach (var it in list)
-                {
-                    it.IsSelected = false;
-                }
-            }
-            for (int i = a; i <= b; i++)
-            {
-                list[i].IsSelected = true;
-            }
-            // 기준점은 유지(연속 Shift 확장).
+            items.SelectRange(item);
         }
-        else if (ctrl)
+        else if (IsCtrlDown())
         {
-            // 토글 다중 선택.
-            item.IsSelected = !item.IsSelected;
-            anchor = item;
+            items.Select(item, 1);   // 토글
         }
         else
         {
-            // 단일 선택(나머지 해제).
-            foreach (var it in list)
-            {
-                it.IsSelected = false;
-            }
-            item.IsSelected = true;
-            anchor = item;
+            items.Select(item, 0);   // 단일
         }
-
-        if (left)
+        int idx = items.IndexOf(item);
+        if (idx >= 0)
         {
-            _leftAnchor = anchor;
+            items.SetCaret(idx);
         }
-        else
-        {
-            _rightAnchor = anchor;
-        }
-        MoveCaret(left, item);   // 키보드 이동이 클릭 지점부터 이어지도록 캐럿 갱신(포커스 외곽선)
-        UpdateSelectionCount(list);
+        UpdateSelectionCount(items);
     }
 
     /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
@@ -573,14 +437,8 @@ public sealed partial class MainWindow : Window
         {
             return;   // 파일: 진입 대상 아님(향후 셸 실행)
         }
-        if (_leftItems.Contains(item))
-        {
-            Navigate(true, item.FullPath, record: true);
-        }
-        else if (_rightItems.Contains(item))
-        {
-            Navigate(false, item.FullPath, record: true);
-        }
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        Navigate(left, item.FullPath, record: true);
         e.Handled = true;
     }
 
@@ -642,8 +500,8 @@ public sealed partial class MainWindow : Window
         {
             active.IsActive = false;
             tab.IsActive = true;
-            if (left) { _leftTab = tab; _leftCaret = null; _leftAnchor = null; }
-            else { _rightTab = tab; _rightCaret = null; _rightAnchor = null; }
+            if (left) { _leftTab = tab; }
+            else { _rightTab = tab; }
         }
         SetActivePanel(left);
         Navigate(left, tab.Current, record: false);   // 활성 탭 경로 로드(펼침 상태 유지)
@@ -726,22 +584,8 @@ public sealed partial class MainWindow : Window
     /// <summary>선택 항목 포커스색 갱신 — (윈도우 활성 &amp;&amp; 그 패널 활성)일 때만 파랑, 아니면 회색.</summary>
     private void RefreshSelectionFocus()
     {
-        bool leftFocused = _windowActive && _activeLeft;
-        bool rightFocused = _windowActive && !_activeLeft;
-        foreach (var it in _leftItems)
-        {
-            if (it.IsSelected)
-            {
-                it.PanelFocused = leftFocused;
-            }
-        }
-        foreach (var it in _rightItems)
-        {
-            if (it.IsSelected)
-            {
-                it.PanelFocused = rightFocused;
-            }
-        }
+        _leftItems.SetPanelFocused(_windowActive && _activeLeft);
+        _rightItems.SetPanelFocused(_windowActive && !_activeLeft);
     }
 
     private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs e)
@@ -750,61 +594,10 @@ public sealed partial class MainWindow : Window
         RefreshSelectionFocus();
     }
 
-    /// <summary>키보드 캐럿(현재 위치)을 이동하고 포커스 외곽선을 갱신한다(패널별 1개).</summary>
-    private void MoveCaret(bool left, DirItem? item)
+    /// <summary>선택 개수를 세어 상태바에 표시(코어 선택 수).</summary>
+    private void UpdateSelectionCount(VirtualTreeCollection items)
     {
-        var old = left ? _leftCaret : _rightCaret;
-        if (old is not null && !ReferenceEquals(old, item))
-        {
-            old.IsCaret = false;
-        }
-        if (item is not null)
-        {
-            item.IsCaret = true;
-        }
-        if (left)
-        {
-            _leftCaret = item;
-        }
-        else
-        {
-            _rightCaret = item;
-        }
-    }
-
-    /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
-    private static int ParentIndex(IList<DirItem> list, int index)
-    {
-        if (index < 0)
-        {
-            return -1;
-        }
-        int depth = list[index].Depth;
-        if (depth <= 0)
-        {
-            return -1; // 목록 최상위(부모 행이 목록에 없음)
-        }
-        for (int i = index - 1; i >= 0; i--)
-        {
-            if (list[i].Depth == depth - 1)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /// <summary>선택 개수를 세어 상태바에 표시.</summary>
-    private void UpdateSelectionCount(IEnumerable<DirItem> list)
-    {
-        int count = 0;
-        foreach (var it in list)
-        {
-            if (it.IsSelected)
-            {
-                count++;
-            }
-        }
+        int count = items.SelectionCount;
         StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
     }
 
@@ -830,7 +623,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool left = _activeLeft;   // 활성 패널 기준(포커스 비의존) — 탭/행 클릭이 활성 패널을 정함
-        var list = left ? _leftItems : _rightItems;
+        var items = left ? _leftItems : _rightItems;
 
         // Alt+방향키 네비게이션: ↑=위로, ←/→=뒤로/앞으로, ↓=활성화. **목록이 비어도 동작**(패널/탭 이동은 목록 무관).
         if (IsAltDown())
@@ -842,45 +635,31 @@ public sealed partial class MainWindow : Window
                 case VirtualKey.Right: GoForward(left); e.Handled = true; return;
                 case VirtualKey.Down:
                 {
-                    var altCaret = left ? _leftCaret : _rightCaret;
-                    int altCur = altCaret is not null ? list.IndexOf(altCaret) : -1;
-                    if (altCur >= 0) { ActivateItem(left, list[altCur]); }
+                    var c = items.CaretItem;
+                    if (c is not null) { ActivateItem(left, c); }
                     e.Handled = true;
                     return;
                 }
             }
         }
 
-        if (list.Count == 0)
+        if (items.Count == 0)
         {
             return;   // 여기서부터는 목록 항목이 필요한 동작(선택 이동/펼침/Space)
         }
         SetActivePanel(left);
-        var caret = left ? _leftCaret : _rightCaret;
-        int cur = caret is not null ? list.IndexOf(caret) : -1;
+        int cur = items.CaretIndex;
         bool ctrl = IsCtrlDown();
         bool shift = IsShiftDown();
+        var grid = left ? DirGrid : DirGrid2;
 
         if (space)
         {
             // 캐럿 항목 선택. Ctrl+Space=토글(비연속 다중, 나머지 유지), Space=단일 선택.
             if (cur >= 0)
             {
-                var item = list[cur];
-                if (ctrl)
-                {
-                    item.IsSelected = !item.IsSelected;
-                }
-                else
-                {
-                    foreach (var it in list)
-                    {
-                        it.IsSelected = false;
-                    }
-                    item.IsSelected = true;
-                }
-                if (left) { _leftAnchor = item; } else { _rightAnchor = item; }
-                UpdateSelectionCount(list);
+                items.Select(items[cur], (uint)(ctrl ? 1 : 0));
+                UpdateSelectionCount(items);
             }
             e.Handled = true;
             return;
@@ -890,34 +669,29 @@ public sealed partial class MainWindow : Window
         {
             if (e.Key == VirtualKey.Right)
             {
-                // →: 현재 폴더 펼침(폴더가 아니면 무시).
-                if (cur >= 0 && list[cur].IsDir)
+                // →: 현재 폴더 펼침(폴더가 아니거나 이미 펼쳤으면 무시).
+                if (cur >= 0 && items[cur].IsDir && !items[cur].IsExpanded)
                 {
-                    SetExpanded(list[cur], expand: true);
+                    items.ToggleExpand(items[cur]);
                 }
             }
             else if (cur >= 0)
             {
                 // ←: 펼쳐진 폴더면 접기. 접힌 폴더/파일이면 **상위(부모) 폴더로 이동**(단일 선택).
-                //     목록 최상위(부모 행 없음)면 아무 동작 없음.
-                if (list[cur].IsDir && list[cur].IsExpanded)
+                var it = items[cur];
+                if (it.IsDir && it.IsExpanded)
                 {
-                    SetExpanded(list[cur], expand: false);
+                    items.ToggleExpand(it);
                 }
                 else
                 {
-                    int p = ParentIndex(list, cur);
+                    int p = ParentIndex(items, cur);
                     if (p >= 0)
                     {
-                        foreach (var it in list)
-                        {
-                            it.IsSelected = false;
-                        }
-                        list[p].IsSelected = true;
-                        if (left) { _leftAnchor = list[p]; } else { _rightAnchor = list[p]; }
-                        MoveCaret(left, list[p]);
-                        (left ? DirGrid : DirGrid2).BringIndexIntoView(p);
-                        UpdateSelectionCount(list);
+                        items.Select(items[p], 0);
+                        items.SetCaret(p);
+                        grid.BringIndexIntoView(p);
+                        UpdateSelectionCount(items);
                     }
                 }
             }
@@ -925,65 +699,37 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // 세로 이동(캐럿 기준 한 칸).
-        int next = e.Key == VirtualKey.Down ? cur + 1 : cur - 1;
+        // 세로 이동(캐럿 기준 한 칸). 캐럿 없으면 맨 위부터.
+        int next = cur < 0 ? 0 : (e.Key == VirtualKey.Down ? cur + 1 : cur - 1);
         if (next < 0)
         {
             next = 0;
         }
-        if (next >= list.Count)
+        if (next >= items.Count)
         {
-            next = list.Count - 1;
+            next = items.Count - 1;
         }
 
         if (ctrl && !shift)
         {
             // 비연속 다중 선택 모드: 선택은 그대로 두고 캐럿(위치)만 이동. Space로 개별 토글.
-            MoveCaret(left, list[next]);
-            (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
+            items.SetCaret(next);
+            grid.BringIndexIntoView(next);
             e.Handled = true;
             return;
         }
 
-        var anchor = left ? _leftAnchor : _rightAnchor;
         if (shift)
         {
-            // 범위 확장: 고정 anchor ~ 새 캐럿(next) 선택.
-            if (anchor is null || !list.Contains(anchor))
-            {
-                anchor = cur >= 0 ? list[cur] : list[next];
-            }
-            int a = list.IndexOf(anchor);
-            int b = next;
-            if (a > b)
-            {
-                (a, b) = (b, a);
-            }
-            foreach (var it in list)
-            {
-                it.IsSelected = false;
-            }
-            for (int i = a; i <= b; i++)
-            {
-                list[i].IsSelected = true;
-            }
-            // anchor 유지(연속 Shift 확장), 캐럿만 이동.
+            items.SelectRange(items[next]);   // 코어 anchor~next 범위(anchor 유지)
         }
         else
         {
-            // 단일 선택 이동: anchor=caret=next.
-            foreach (var it in list)
-            {
-                it.IsSelected = false;
-            }
-            list[next].IsSelected = true;
-            anchor = list[next];
+            items.Select(items[next], 0);     // 단일(anchor=next)
         }
-
-        if (left) { _leftAnchor = anchor; } else { _rightAnchor = anchor; }
-        MoveCaret(left, list[next]);
-        (left ? DirGrid : DirGrid2).BringIndexIntoView(next);
-        UpdateSelectionCount(list);
+        items.SetCaret(next);
+        grid.BringIndexIntoView(next);
+        UpdateSelectionCount(items);
         e.Handled = true;
     }
 

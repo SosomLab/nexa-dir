@@ -23,6 +23,9 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
+    /// <summary>행이 새로 실체화될 때 1회 호출(아이콘 지연 로드 등). 호스트가 설정.</summary>
+    public Action<DirItem>? RowBuilt { get; set; }
+
     /// <summary>현재 코어 트리 핸들(없으면 <see cref="IntPtr.Zero"/>).</summary>
     public IntPtr Handle => _handle;
 
@@ -109,6 +112,7 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
             }
             var item = Build(index);
             _cache[index] = item;
+            RowBuilt?.Invoke(item);   // 새 실체화 → 아이콘 지연 로드 등
             return item;
         }
     }
