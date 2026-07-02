@@ -25,12 +25,33 @@ public sealed partial class NexaFileGrid : UserControl
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
 
     /// <summary>지정 인덱스 행이 실체화돼 있으면 화면에 보이도록 스크롤(키보드 이동용, 최소 스크롤). 미실체화면 무시.</summary>
+    /// <summary>
+    /// 지정 인덱스 행이 뷰포트 안에 보이도록 <b>최소 스크롤</b>한다(이미 보이면 무동작). 캐럿(↑↓/Space) 이동용.
+    /// <para>오프스크린 행은 <c>Repeater.TryGetElement</c>가 null이라 <c>StartBringIntoView</c>로는 스크롤이
+    /// 안 된다(먼 캐럿이 화면 밖으로 사라짐). 행 높이가 균일하므로 실측 stride로 목표 오프셋을 계산해
+    /// <c>ChangeView</c>한다 — 대상이 뷰포트 위면 상단, 아래면 하단에 맞추고, 안에 있으면 그대로 둔다
+    /// (캐럿이 화면 안일 때 불필요한 스크롤 튐 없음).</para>
+    /// </summary>
     public void BringIndexIntoView(int index)
     {
-        if (Repeater.TryGetElement(index) is UIElement el)
+        if (index < 0)
         {
-            el.StartBringIntoView();
+            return;
         }
+        double stride = EstimateRowStride();
+        double top = index * stride;
+        double bottom = top + stride;
+        double viewTop = BodyScroll.VerticalOffset;
+        double viewport = BodyScroll.ViewportHeight;
+        if (top < viewTop)
+        {
+            BodyScroll.ChangeView(null, top, null, disableAnimation: true);   // 위로: 대상 상단 맞춤
+        }
+        else if (bottom > viewTop + viewport)
+        {
+            BodyScroll.ChangeView(null, bottom - viewport, null, disableAnimation: true);   // 아래로: 대상 하단 맞춤
+        }
+        // 이미 뷰포트 안 → 무동작
     }
 
     /// <summary>본문 스크롤을 맨 위로 리셋(폴더 진입 시 첫 항목이 위에 오도록).</summary>

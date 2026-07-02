@@ -277,6 +277,13 @@ refactor/001-audit  (분기: 6e81734)
 - **한계**: 뷰포트 **위로 스크롤돼 안 보이는 행**을 키보드로 펼칠 때만 위쪽 삽입분만큼 어긋남(드묾, 캐럿은 보통 화면 안). 보이는 행 펼침/접힘은 정확. 컬렉션은 여전히 `Reset` 통지(세밀 diff는 불필요로 판단).
 - **검증(How)**: app build. **★실기 QA**: 큰 폴더 스크롤 내린 뒤 ① 폴더 펼침 → 화면 안 튐(토글 행 제자리) ② 접힘 → 위치 유지 ③ 진입/상위 이동 스크롤(E13)·클릭 즉시성(4-3) 회귀 없음.
 
+## E19 · 2026-07-02 · 키보드 캐럿 스크롤 추적 견고화 (오프셋 잔여) → `(이 커밋)` ★실기 QA
+
+- **왜**: E18 점검 중 발견 — 키보드 ↑↓/Space 캐럿 이동이 아직 구 `BringIndexIntoView`(`Repeater.TryGetElement`→`StartBringIntoView`)를 사용. **오프스크린 행은 TryGetElement가 null이라 스크롤이 안 됨**(E13이 GoUp에서 이미 버린 방식) → 방향키로 캐럿을 계속 밀면 화면 밖으로 사라질 수 있음.
+- **무엇 · 파일** [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `BringIndexIntoView`를 **최소 스크롤**로 재구현 — 균일 행 높이 실측 stride로 목표 오프셋 계산, 대상이 뷰포트 **위면 상단/아래면 하단** 맞춤, **안에 있으면 무동작**(캐럿이 보이면 스크롤 튐 없음). 오프스크린에서도 정상 동작. 호출 3곳(↑↓ 이동·Ctrl 이동·Space 부모 이동) 무변경(본문만 교체).
+- **비고**: 캐럿 이동은 `Reset`을 안 쏘므로(SetCaret=비주얼만) DispatcherQueue 지연 불요 — 즉시 `ChangeView`.
+- **검증(How)**: app build. **★실기 QA**: 큰 폴더에서 ↓ 길게 눌러 캐럿이 항상 화면 안(하단 추적)·↑도 상단 추적·화면 안 캐럿은 안 튐.
+
 ## 진행 예정 (다음 라운드)
 
 - **감사 잔여(다음 라운드 후보)**: C1 `PanelView` 통합(bool left 소거)·A2 `Nexa.ViewModels` 분리 · B1 FFI 패닉 가드 · B5 `Directory.Build.props` · D2 커밋해시 백필.
