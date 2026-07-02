@@ -205,7 +205,8 @@ refactor/001-audit  (분기: 6e81734)
 
 - **증상**: 최상단(index 0, 예: addins) 폴더 진입 후 위로 → 화면 깜빡·**아무것도 안 보임**, 스크롤해야 보임(addins는 선택됨).
 - **원인**: `ScrollIndexIntoView`가 `Reset` **직후 동기** 실행 → ItemsRepeater가 뷰포트 미실체화 상태에서 단일 요소만 강제 실체화+가운데 정렬 → 뷰포트 공백(+index 0 가운데 정렬은 위쪽 공백까지).
-- **수정**: [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs) `ScrollIndexIntoView`를 **`DispatcherQueue`(Low)로 지연** — Reset 레이아웃 패스 완료 후 실행. index 0 가운데 정렬은 오프셋 0으로 클램프되어 최상단 표시. app build 0 warn/err. ★재QA.
+- **수정 1차(불완전)**: `ScrollIndexIntoView`를 `DispatcherQueue`(Low)로 지연. → **먼 인덱스(예: 30↓)에선 여전히 공백**(GetOrCreateElement+StartBringIntoView가 실체화 창↔스크롤 오프셋 불일치를 유발, 위 스크롤 무동작·아래로 스크롤해야 보임).
+- **수정 2차(해결)**: `GetOrCreateElement`/`StartBringIntoView` 폐기 → **균일 행 높이 실측(`EstimateRowStride`)으로 목표 오프셋 계산해 `BodyScroll.ChangeView`로 정상 스크롤**. 가상화가 뷰포트를 정상 채워 공백 없음, 균일 높이라 가운데 정렬도 정확. (Reset 후 확정 위해 여전히 DispatcherQueue 지연.) app build 0 warn/err. ★재QA.
 
 ## 진행 예정 (E14~)
 

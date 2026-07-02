@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -36,10 +37,11 @@ public sealed partial class NexaFileGrid : UserControl
     public void ScrollToTop() => BodyScroll.ChangeView(null, 0, null, disableAnimation: true);
 
     /// <summary>
-    /// 지정 인덱스 행을 <b>강제 실체화</b>해 화면에 스크롤(오프스크린도 동작). 네비게이션 대상 표시용.
-    /// <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
-    /// <para>Reset(폴더 재로드) 직후 동기 호출하면 ItemsRepeater가 뷰포트를 아직 실체화하지 못해
-    /// 빈 화면/깜빡임이 생긴다 → **Reset 레이아웃 패스 이후로 지연**(DispatcherQueue) 실행한다.</para>
+    /// 지정 인덱스 행을 화면에 스크롤한다. <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
+    /// <para>ItemsRepeater에서 <c>GetOrCreateElement</c>+<c>StartBringIntoView</c>로 먼 인덱스를 강제
+    /// 실체화하면 실체화 창과 스크롤 오프셋이 어긋나 <b>상단 공백</b>이 남는다. 이 그리드는 행 높이가
+    /// 균일하므로, **실측 행 높이로 목표 오프셋을 계산해 <c>ScrollViewer.ChangeView</c>로 정상 스크롤**한다
+    /// → 가상화가 뷰포트를 정상 채움(공백 없음). Reset 직후 확정 위해 DispatcherQueue로 지연.</para>
     /// </summary>
     public void ScrollIndexIntoView(int index, double verticalAlignmentRatio)
     {
@@ -47,20 +49,31 @@ public sealed partial class NexaFileGrid : UserControl
         {
             return;
         }
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
-            if (Repeater.ItemsSourceView is null || index >= Repeater.ItemsSourceView.Count)
+            var view = Repeater.ItemsSourceView;
+            if (view is null || index >= view.Count)
             {
                 return;   // 그새 목록이 바뀌었으면 무시
             }
-            var el = Repeater.GetOrCreateElement(index);   // 오프스크린이어도 실체화
-            Repeater.UpdateLayout();                        // 배치 확정 후라야 스크롤이 정확
-            el.StartBringIntoView(new BringIntoViewOptions
-            {
-                VerticalAlignmentRatio = verticalAlignmentRatio,
-                AnimationDesired = false,
-            });
+            double stride = EstimateRowStride();
+            // 대상 행 상단이 (뷰포트 - 행) * ratio 위치에 오도록 오프셋 계산(균일 높이 가정). 0 이상으로 클램프.
+            double offset = index * stride - (BodyScroll.ViewportHeight - stride) * verticalAlignmentRatio;
+            BodyScroll.ChangeView(null, Math.Max(0, offset), null, disableAnimation: true);
         });
+    }
+
+    /// <summary>실체화된 행에서 행 간 간격(높이+Spacing)을 실측(없으면 기본값).</summary>
+    private double EstimateRowStride()
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (Repeater.TryGetElement(i) is FrameworkElement fe && fe.ActualHeight > 0)
+            {
+                return fe.ActualHeight + 2;   // StackLayout Spacing=2
+            }
+        }
+        return 24;   // 폴백(아이콘 16 + 패딩 6 + 간격 2)
     }
 
     // ── 컬럼 리사이즈 (헤더 우측 핸들 드래그, PointerMove + 포인터 캡처) ──
