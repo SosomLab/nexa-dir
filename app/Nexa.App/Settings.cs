@@ -57,4 +57,6 @@ internal static class AppSettings
     public static ViewOptions View { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
+    //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.
+    //  · 창 위치/크기 복원 + 다중 모니터 보정(WindowPlacement, state.json): docs/28.
 }

@@ -86,7 +86,7 @@ Gesture (택1)
 | `settings.json` | 앱 설정(정렬·팔레트·명령 활성) | ○(설정 UI + 직접) |
 | `keybindings.json` | 단축키 재정의(FR-I2) | ○ |
 | `commands.user.json` | 사용자 정의 명령(외부 실행, FR-K3) | ○ |
-| `state.json` | 세션 상태(팔레트 MRU/빈도·최근 경로) | ✕(앱이 관리) |
+| `state.json` | 세션 상태(팔레트 MRU/빈도·최근 경로·**창 위치/크기** [28](28-window-session-restore.md)) | ✕(앱이 관리) |
 
 ```jsonc
 // settings.json — AppSettings 확장(§Settings.cs가 이 스키마로 로드/저장)
