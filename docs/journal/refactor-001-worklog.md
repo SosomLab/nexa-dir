@@ -28,7 +28,9 @@ refactor/001-audit  (분기: 6e81734)
 │    └ 산출: nexa_entry_size + VerifyAbi() · docs/19(F28)·STATUS
 ├─ E6.1 CI 픽스: deny.toml에 nexa-tree 예외 ...... 284c479  (2026-07-02 15:03:01)
 │    └ PR #1(draft) 열고 push → CI 4-job green(core×2·deny·app)
-└─ E7~ C1 슬라이스 3b(앱 트리 재배선)·4(성능) .... 예정
+├─ E7 C1 슬라이스 3b-1 (트리 구조체 미러 + 가드) . ee79888  (2026-07-02 15:28:35)
+│    └ 산출: NexaRow/NexaRange 미러 + row/range_size + CheckLayout · docs/19(F28)
+└─ E8~ C1 슬라이스 3b-2(열거 재배선)·3b-3(선택)·4(성능) . 예정
 ```
 
 > ✅ **CI 검증 완료(PR #1, draft)**: 슬라이스 1·2·3a가 `refactor/001-audit`에서 core(win/mac)·cargo-deny·**WinUI app** 전 job green. 앱 ABI 검사(F28)까지 CI 통과.
@@ -104,9 +106,20 @@ refactor/001-audit  (분기: 6e81734)
   - 앱: `ShowInteropRoundTrip`([MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs):85)이 `VerifyAbi()` 선행 → 불일치 시 `인터롭 실패:` 격리.
 - **어떻게/검증(How)**: 코어 fmt/clippy/test 통과(17), 앱 로컬 `dotnet build` 0 err. **WinUI라 CI(app)로 최종 검증**(브랜치 CI는 push만으론 미실행 → PR 필요).
 
-## 진행 예정 (E7~)
+## E7 · 2026-07-02 15:28:35 · C1 슬라이스 3b-1 — 트리 구조체 미러 + 전체 크기 가드 → `ee79888`
 
-- **E7 · C1 슬라이스 3b**: `NexaRow`/`NexaRange` P/Invoke 미러 + 크기 가드, `MainWindow`의 C# `ExpandInPlace`/`CollapseInPlace`/`IsSelected`/`ApplySavedExpansion`을 코어 `nexa_tree_*`(VisibleRow) 소비로 교체(`ItemsRepeater` 가상화 + diff 반영). **큰 변경 · CI 검증 필수**.
-- **E8 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
+- **누가/왜(Who/Why)**: Claude. UI 재배선(3b-2/3) 전에 ABI 안전 계층을 완성 — 트리 구조체까지 레이아웃 가드.
+- **무엇/세부(What) · 파일:줄**:
+  - 코어: `nexa_row_size()`·`nexa_range_size()` export([nexa-interop/src/lib.rs](../../core/crates/nexa-interop/src/lib.rs)).
+  - 앱: 관리형 `NexaRow`/`NexaRange` 미러 struct(8→4→1바이트) + `nexa_row_size`/`nexa_range_size` P/Invoke + `VerifyAbi`가 `CheckLayout` 헬퍼로 3개 구조체 크기 모두 대조([NativeInterop.cs](../../app/Nexa.App/NativeInterop.cs)).
+- **검증(How)**: 코어 fmt/clippy/test 17 green, 앱 로컬 build **0 warning**(CS0649 없음). PR CI로 최종.
+
+## 진행 예정 (E8~)
+
+- **E8 · C1 슬라이스 3b-2**: `nexa_tree_*` 함수 P/Invoke + 패널당 `TreeHandle` 보유, `LoadDirectory`를 코어 트리 열기+가시행(`visible_len`/`row`) 소비로 전환(현 `ReadDir`/`DirItem` 채움 대체). 펼침/접힘은 다음.
+- **E9 · C1 슬라이스 3b-3**: 펼침/접힘(`nexa_tree_expand/collapse` + `RangeChange` diff) + 선택(`nexa_tree_select*`) 위임, C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems` 제거.
+- **E10 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
+
+> ✅ **CI(PR #1)**: 각 앱 변경 push마다 재실행 — `app` job green 확인하며 진행.
 
 > ⚠️ **CI 참고**: 워크플로 트리거는 `push: [main]` + `pull_request`. 리팩토링 브랜치는 **PR을 열어야 CI가 돈다**. 앱(WinUI) 변경(E6·E7)은 맥 빌드 불가 → PR로 `app` job green 확인.
