@@ -267,10 +267,20 @@ refactor/001-audit  (분기: 6e81734)
 - **참고**: 코어 `nexa_dir_*`(F2/F3)는 Rust에서 계속 export·테스트 — **C# 바인딩만** 제거(현재 소비자 없음). `SortOptions`/`AppSettings.Sort`는 A5 정렬 설정 스캐폴드라 유지. docs/19의 F2~F4·F24 C# 세부는 시점 기록(historical)으로 둠.
 - **검증(How)**: 코어 무영향. 앱부는 **PR CI(app) 빌드 green**으로 미사용 제거가 컴파일 깨지 않음을 확인.
 
-## 진행 예정 (E18~)
+## E18 · 2026-07-02 · C1 슬라이스 4-4 — 펼침/접힘 스크롤 위치 보존 → `(이 커밋)` ★실기 QA
 
-- **E18 · 4-4 펼침/접힘 스크롤 보존**: 펼침/접힘 시 스크롤 오프셋 유지(#3 "비자연" 잔여) — Reset 전후 오프셋 복원 또는 범위 diff. 런타임 QA 필요.
+- **왜**: #3 "비자연" 잔여 — `ToggleExpand`가 `Reset` 통지 → ItemsRepeater가 스크롤을 **맨 위로 리셋**. 스크롤 내린 상태에서 펼침/접힘 시 화면이 위로 튐(E11b QA 러프엣지로 예고됨).
+- **아이디어**: 펼침/접힘은 **토글 행 아래**만 바뀌므로(위쪽 행 불변), 토글 **직전 세로 오프셋을 캡처→직후 복원**하면 토글 행이 제자리 고정. 균일 행 높이라 오프셋만으로 정확(범위 diff 불요).
+- **무엇 · 파일**:
+  - [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `VerticalOffset`(읽기) + `RestoreVerticalOffset(offset)` — Reset 재레이아웃(오프셋→0) 이후 확정되도록 `DispatcherQueue`(Low) 지연 `ChangeView`(E13 패턴 재사용).
+  - [MainWindow.ToggleExpandRow](../../app/Nexa.App/MainWindow.xaml.cs): 토글 전 `grid.VerticalOffset` 캡처 → `ToggleExpand` → `RestoreVerticalOffset`. 마우스 디스클로저·키보드 →/← 공용 경로라 1곳.
+- **한계**: 뷰포트 **위로 스크롤돼 안 보이는 행**을 키보드로 펼칠 때만 위쪽 삽입분만큼 어긋남(드묾, 캐럿은 보통 화면 안). 보이는 행 펼침/접힘은 정확. 컬렉션은 여전히 `Reset` 통지(세밀 diff는 불필요로 판단).
+- **검증(How)**: app build. **★실기 QA**: 큰 폴더 스크롤 내린 뒤 ① 폴더 펼침 → 화면 안 튐(토글 행 제자리) ② 접힘 → 위치 유지 ③ 진입/상위 이동 스크롤(E13)·클릭 즉시성(4-3) 회귀 없음.
+
+## 진행 예정 (다음 라운드)
+
 - **감사 잔여(다음 라운드 후보)**: C1 `PanelView` 통합(bool left 소거)·A2 `Nexa.ViewModels` 분리 · B1 FFI 패닉 가드 · B5 `Directory.Build.props` · D2 커밋해시 백필.
+- **머지 전 최종 점검**: F18/스크롤(진입·상위·펼침)/선택/탭 캐시 회귀 없는지 QA 후 main 머지.
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 
 > ⚠️ **남은 MainWindow 재배선은 이 브랜치 최대 단일 변경** — WinUI 런타임 검증 불가(CI는 빌드만) → 실기 QA 필요. 회귀 위험 큰 만큼 위 E9/E10로 분할, 각 push마다 PR #1 CI(`app`) green 확인.

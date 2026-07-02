@@ -36,6 +36,24 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>본문 스크롤을 맨 위로 리셋(폴더 진입 시 첫 항목이 위에 오도록).</summary>
     public void ScrollToTop() => BodyScroll.ChangeView(null, 0, null, disableAnimation: true);
 
+    /// <summary>현재 본문 세로 스크롤 오프셋(px). 펼침/접힘 전 캡처용.</summary>
+    public double VerticalOffset => BodyScroll.VerticalOffset;
+
+    /// <summary>
+    /// 세로 스크롤 오프셋을 <paramref name="offset"/>로 복원한다(펼침/접힘의 Reset 후 위치 유지).
+    /// 펼침/접힘은 토글 행 <b>아래</b>만 바뀌므로 같은 오프셋을 되돌리면 위쪽 행이 제자리에 남는다.
+    /// Reset이 재레이아웃하며 오프셋을 0으로 되돌리므로, 그 뒤에 확정되도록 <c>DispatcherQueue</c>로 지연.
+    /// </summary>
+    public void RestoreVerticalOffset(double offset)
+    {
+        if (offset <= 0)
+        {
+            return;   // 이미 맨 위 — Reset의 기본(0)과 동일, 복원 불필요
+        }
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            BodyScroll.ChangeView(null, offset, null, disableAnimation: true));
+    }
+
     /// <summary>
     /// 지정 인덱스 행을 화면에 스크롤한다. <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
     /// <para>ItemsRepeater에서 <c>GetOrCreateElement</c>+<c>StartBringIntoView</c>로 먼 인덱스를 강제
