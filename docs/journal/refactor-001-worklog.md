@@ -190,9 +190,20 @@ refactor/001-audit  (분기: 6e81734)
   - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`(디스클로저·키보드 →/← 공용) — 코어 토글 후 **탭별 경로셋**(`PanelTab.Expanded`) add/remove. `LoadDirectory`가 `Open` 후 `ExpandPaths(tab.Expanded)` 호출. 헤더 항목수는 재펼침 전 직접 자식 수 유지.
 - **검증(How)**: app build 0 warn/err. **★실기 QA 통과(2026-07-02)** — (a) C:\에서 Oracle 하위 다단계 펼침 → **Oracle 진입** 시 펼침 유지 + 진입 뷰에서 network 하위 확장 정상, (b) **확장 후 위로(상위) 이동** 시에도 펼침 상태 유지(사용자 스크린샷 2건). 진입·위로 모두 확인 → **F18 회귀 해소**.
 
-## 진행 예정 (E13~)
+## E13 · C1 — 네비게이션 스크롤 위치 수정 (QA #5/#6) → `(이 커밋)` ★실기 QA
 
-- **E13 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
+- **증상**(사용자): (5) 폴더 **진입 시 맨 위**로 안 가고 이전 폴더의 스크롤 비율 위치가 보임. (6) **상위 이동** 시 이전 폴더가 선택은 되나 **화면 밖**(스크롤 필요).
+- **원인 분석**: C1이 같은 `VirtualTreeCollection`을 **Reset**으로 재사용 → (5) `ScrollViewer` 세로 오프셋이 이전 폴더 값 그대로 잔존. (6) `BringIndexIntoView`가 `Repeater.TryGetElement`(미실체화=null)라 **오프스크린 대상엔 무동작**.
+- **수정**:
+  - [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `ScrollToTop()`(오프셋 0) + `ScrollIndexIntoView(index, ratio)`(`GetOrCreateElement`+`UpdateLayout`로 **강제 실체화** 후 `StartBringIntoView(VerticalAlignmentRatio=ratio)`). 본문 ScrollViewer `x:Name=BodyScroll`.
+  - [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs): `LoadDirectory`가 로드 후 `ScrollToTop()`(진입=맨 위) · `SelectByPath`가 `ScrollIndexIntoView(i, ViewOptions.UpNavTargetAlign)`(상위 대상=**가운데** 기본).
+  - [Settings](../../app/Nexa.App/Settings.cs) `ViewOptions.UpNavTargetAlign`(기본 0.5) · `ShowHeaderInfo`(기본 true) 추가.
+- **설정 TODO**: 대상 정렬(가운데/맨앞/맨뒤) + 헤더 정보란 on/off → [26 §8](../26-command-palette.md). 기본값은 구현됨, 선택 UI만 TODO.
+- **검증**: app build 0 warn/err. ★실기 QA: (a) 폴더 진입 시 첫 항목 맨 위 / (b) 스크롤 내린 뒤 상위 이동 → 떠난 폴더가 **가운데** 선택 표시.
+
+## 진행 예정 (E14~)
+
+- **E14 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
 - **E13 · 4 성능**: QA #3(대용량 스크롤)·**#4(탭 전환 클릭 지연)** — 탭별 트리 핸들 캐시 + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n) + 10만 노드 벤치(AC5).
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 

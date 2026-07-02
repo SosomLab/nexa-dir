@@ -110,6 +110,7 @@ public sealed partial class MainWindow : Window
                 var tab = ReferenceEquals(items, _leftItems) ? _leftTab : _rightTab;
                 items.ExpandPaths(tab.Expanded);
             }
+            grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 이후 SelectByPath가 대상 중앙 정렬로 덮어씀.
             header.Text = ok
                 ? $"{path} — {direct}개 항목"
                 : $"디렉터리 열기 실패: {path}";
@@ -219,7 +220,8 @@ public sealed partial class MainWindow : Window
         }
         items.Select(items[i], 0);   // 단일 선택(코어 위임)
         items.SetCaret(i);
-        (left ? DirGrid : DirGrid2).BringIndexIntoView(i);
+        // 방금 떠난 폴더(네비 대상)를 화면에 보이게 — 기본 가운데(설정 UpNavTargetAlign). 오프스크린도 강제 실체화.
+        (left ? DirGrid : DirGrid2).ScrollIndexIntoView(i, AppSettings.View.UpNavTargetAlign);
         UpdateSelectionCount(items);
         RefreshSelectionFocus();
     }

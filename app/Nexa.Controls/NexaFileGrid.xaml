@@ -43,7 +43,7 @@
         </Grid>
 
         <!-- 본문(가상화) -->
-        <ScrollViewer Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="BodyScroll" Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
             <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <StackLayout Orientation="Vertical" Spacing="2" />

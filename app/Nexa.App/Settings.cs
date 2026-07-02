@@ -39,6 +39,15 @@ internal sealed class ViewOptions
 
     /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더 표시 여부(기본 <c>true</c> = 표시, 해제 시 감춤).</summary>
     public bool ShowDotFiles { get; set; } = true;
+
+    /// <summary>
+    /// 상위 폴더로 이동 시 방금 떠난 폴더(네비 대상)를 화면 어디에 보일지 — 세로 정렬 비율
+    /// (0=맨 위, 0.5=가운데, 1=맨 아래). 기본 <b>가운데</b>. 나중에 설정 UI에서 선택(TODO, docs/26 §8).
+    /// </summary>
+    public double UpNavTargetAlign { get; set; } = 0.5;
+
+    /// <summary>그리드 상단 헤더 정보란(경로 — N개 항목) 표시 여부(기본 <c>true</c>). 설정 UI 토글 예정(TODO).</summary>
+    public bool ShowHeaderInfo { get; set; } = true;
 }
 
 /// <summary>

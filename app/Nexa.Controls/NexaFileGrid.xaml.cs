@@ -23,13 +23,35 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
 
-    /// <summary>지정 인덱스 행이 실체화돼 있으면 화면에 보이도록 스크롤(키보드 이동용). 미실체화면 무시(초안).</summary>
+    /// <summary>지정 인덱스 행이 실체화돼 있으면 화면에 보이도록 스크롤(키보드 이동용, 최소 스크롤). 미실체화면 무시.</summary>
     public void BringIndexIntoView(int index)
     {
         if (Repeater.TryGetElement(index) is UIElement el)
         {
             el.StartBringIntoView();
         }
+    }
+
+    /// <summary>본문 스크롤을 맨 위로 리셋(폴더 진입 시 첫 항목이 위에 오도록).</summary>
+    public void ScrollToTop() => BodyScroll.ChangeView(null, 0, null, disableAnimation: true);
+
+    /// <summary>
+    /// 지정 인덱스 행을 <b>강제 실체화</b>해 화면에 스크롤(오프스크린도 동작). 네비게이션 대상 표시용.
+    /// <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
+    /// </summary>
+    public void ScrollIndexIntoView(int index, double verticalAlignmentRatio)
+    {
+        if (index < 0)
+        {
+            return;
+        }
+        var el = Repeater.GetOrCreateElement(index);   // 오프스크린이어도 실체화
+        Repeater.UpdateLayout();                        // 배치 확정 후라야 스크롤이 정확
+        el.StartBringIntoView(new BringIntoViewOptions
+        {
+            VerticalAlignmentRatio = verticalAlignmentRatio,
+            AnimationDesired = false,
+        });
     }
 
     // ── 컬럼 리사이즈 (헤더 우측 핸들 드래그, PointerMove + 포인터 캡처) ──
