@@ -25,7 +25,7 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=3, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).
@@ -404,7 +404,16 @@
 - **확장(슬라이스 3b-2 착수)**: `nexa_tree_*` 함수 P/Invoke + **마샬 은닉 관리형 API**(`TreeOpen/TreeGetRow/TreeExpand/…` + 관리형 `TreeRow`/`TreeRange` record) 추가 — 호출측은 포인터/마샬을 몰라도 됨.
 - **후속(슬라이스 3b-2 완료/3)**: `MainWindow`가 가상화 컬렉션으로 코어 `VisibleRow` 소비(전면 가상화) + 펼침/선택을 코어로 위임, C# 트리/정렬 제거.
 - **커밋**: `(이 단위)`.
-- **검증(Windows)**: 앱 실행 → `인터롭 OK — abi=3, …`(검사 통과). dll을 구버전으로 바꾸면 `인터롭 실패: 코어 ABI 불일치…`. **WinUI라 맥 빌드 불가 → PR/CI(app job)로 검증.**
+- **검증(Windows)**: 앱 실행 → `인터롭 OK — abi=4, …`(검사 통과). dll을 구버전으로 바꾸면 `인터롭 실패: 코어 ABI 불일치…`. **WinUI라 맥 빌드 불가 → PR/CI(app job)로 검증.**
+
+---
+
+### F29. 성능 슬라이스 4 — AC5 벤치 · 탭 핸들 캐시 · id 인덱스 조회 (C1 슬라이스 4)
+
+- **4-1 AC5 코어 벤치**: 합성 10만 노드에서 트리 연산 측정 — expand 100k행 **5.7ms**·row()×100k **0.8ms**·select_all **5.6ms**·collapse **1.9ms**(전부 16ms 프레임 예산 안). `visible_index`는 O(n)이나 단일 동작당 1회≈20µs → **O(log n) 매핑 불채택**. [nexa-tree](../core/crates/nexa-tree/src/lib.rs) `bench_100k_visible`(#[ignore])·상시 `large_tree_scale_ops_complete`.
+- **4-2 탭별 트리 핸들 캐시**: 각 [PanelTab](../app/Nexa.App/PanelTab.cs)이 자체 `VirtualTreeCollection`(코어 핸들) 보유 → 탭 전환 시 **재-Open(재열거·재펼침) 제거**([MainWindow](../app/Nexa.App/MainWindow.xaml.cs) `ShowTab`). QA #4(탭 전환 지연).
+- **4-3 id→가시 인덱스 조회 + ABI v4**: 클릭 시 `IndexOf`가 **행마다 `this[i]`(P/Invoke·아이콘 로드)로 O(n) 실체화**하던 것을 코어 `nexa_tree_index_of`(단일 호출)로 대체. `IndexOfPath`도 `TreeRowPath`만 조회(실체화 회피). ABI **v3→v4**([interop](../core/crates/nexa-interop/src/lib.rs) `nexa_tree_index_of`, [NativeInterop](../app/Nexa.App/NativeInterop.cs) `ExpectedAbi=4`). QA #3/#4(대용량 폴더 클릭 지연)의 실제 병목 제거.
+- **검증**: 코어 4-1/4-3은 맥 `cargo test` green(interop `nexa_tree_index_of` 라운드트립 포함). 4-2/4-3 앱부는 **PR/CI(app) + 실기 QA**.
 
 ---
 

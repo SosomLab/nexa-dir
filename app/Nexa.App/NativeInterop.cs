@@ -218,7 +218,7 @@ internal static class NativeInterop
     private const string Dll = "nexa_interop";
 
     /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
-    public const uint ExpectedAbi = 3;
+    public const uint ExpectedAbi = 4;
 
     /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -405,6 +405,9 @@ internal static class NativeInterop
     private static extern int nexa_tree_row(IntPtr handle, ulong index, ref NexaRow row);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern long nexa_tree_index_of(IntPtr handle, ulong id);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr nexa_tree_row_path(IntPtr handle, ulong index);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -445,6 +448,9 @@ internal static class NativeInterop
 
     /// <summary>가시 행 수.</summary>
     internal static int TreeVisibleLen(IntPtr handle) => (int)nexa_tree_visible_len(handle);
+
+    /// <summary>노드 <paramref name="id"/>의 가시 인덱스(없으면 -1). 행 재실체화 없이 단일 호출로 조회.</summary>
+    internal static int TreeIndexOf(IntPtr handle, ulong id) => (int)nexa_tree_index_of(handle, id);
 
     /// <summary>가시 인덱스의 행(범위 밖이면 <c>false</c>). <c>Name</c>은 즉시 관리형 문자열로 복사.</summary>
     internal static bool TreeGetRow(IntPtr handle, int index, out TreeRow row)

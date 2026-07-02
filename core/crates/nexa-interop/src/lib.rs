@@ -23,9 +23,10 @@ fn kind_code(kind: FileKind) -> u32 {
 
 /// 인터롭 ABI 버전. C# 측과 호환성 점검용(호스트가 로드 시 일치 확인 — 슬라이스 3).
 /// v2: `NexaEntry.attrs`. v3: 코어 트리/선택 표면(`nexa_tree_*`, `NexaRow`/`NexaRange`).
+/// v4: `nexa_tree_index_of`(행 재실체화 없는 id→가시 인덱스 조회, 슬라이스 4-3).
 #[no_mangle]
 pub extern "C" fn nexa_abi_version() -> c_uint {
-    3
+    4
 }
 
 /// `NexaEntry`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용(감사 A2 — 구조체 드리프트 가드).
@@ -225,6 +226,22 @@ pub unsafe extern "C" fn nexa_tree_visible_len(handle: *mut TreeHandle) -> u64 {
         return 0;
     }
     (*handle).tree.visible_len() as u64
+}
+
+/// 가시 목록에서 노드 `id`의 인덱스. 없거나 널이면 `-1`.
+/// 호스트가 클릭/선택 시 행을 하나씩 재실체화(P/Invoke·아이콘 로드)하지 않고 곧바로 조회하도록 제공.
+///
+/// # Safety
+/// `handle`은 유효한 트리 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_index_of(handle: *mut TreeHandle, id: u64) -> i64 {
+    if handle.is_null() {
+        return -1;
+    }
+    match (*handle).tree.index_of(id) {
+        Some(i) => i as i64,
+        None => -1,
+    }
 }
 
 /// 가시 인덱스의 행을 `out`에 채운다. 반환: `1`=행, `0`=범위 밖, `-1`=널 인자.
@@ -436,8 +453,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_three() {
-        assert_eq!(nexa_abi_version(), 3);
+    fn abi_version_is_four() {
+        assert_eq!(nexa_abi_version(), 4);
     }
 
     #[test]
@@ -545,6 +562,13 @@ mod tests {
             assert_eq!(nexa_tree_row(h, 2, &mut row), 1); // top.txt
             let top_id = row.id;
 
+            // 인덱스 조회(4-3): id→가시 인덱스, 없는 id·널은 -1
+            assert_eq!(nexa_tree_index_of(h, sub_id), 0);
+            assert_eq!(nexa_tree_index_of(h, child_id), 1);
+            assert_eq!(nexa_tree_index_of(h, top_id), 2);
+            assert_eq!(nexa_tree_index_of(h, 9999), -1);
+            assert_eq!(nexa_tree_index_of(ptr::null_mut(), sub_id), -1);
+
             // 교차 선택(다른 부모): child(single) + top(toggle)
             nexa_tree_select(h, child_id, 0);
             nexa_tree_select(h, top_id, 1);
@@ -557,6 +581,7 @@ mod tests {
             assert_eq!(nexa_tree_collapse(h, sub_id, &mut rng), 1);
             assert_eq!((rng.start, rng.removed, rng.inserted), (1, 1, 0));
             assert_eq!(nexa_tree_visible_len(h), 2);
+            assert_eq!(nexa_tree_index_of(h, child_id), -1); // 접힌 뒤 가시 아님
 
             // 경계/널 방어
             assert_eq!(nexa_tree_row(h, 99, &mut row), 0);

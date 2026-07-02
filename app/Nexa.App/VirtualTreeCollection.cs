@@ -84,14 +84,23 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         }
     }
 
-    /// <summary>경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자 무시·대소문자 무시.</summary>
+    /// <summary>
+    /// 경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자 무시·대소문자 무시.
+    /// 경로만 필요하므로 <see cref="DirItem"/>를 실체화하지 않고 코어 <c>TreeRowPath</c>만 조회
+    /// (아이콘 로드·행 캐시 오염 회피, 성능 슬라이스 4-3).
+    /// </summary>
     public int IndexOfPath(string fullPath)
     {
+        if (_handle == IntPtr.Zero)
+        {
+            return -1;
+        }
         string target = fullPath.TrimEnd('\\', '/');
         int n = Count;
         for (int i = 0; i < n; i++)
         {
-            if (string.Equals(this[i].FullPath.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
+            string p = NativeInterop.TreeRowPath(_handle, i) ?? string.Empty;
+            if (string.Equals(p.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }
@@ -295,19 +304,12 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 
     // ── 조회 (읽기 전용; 대량이면 Count만큼 순회 — 선택은 코어로 이관 권장) ─────
 
-    /// <summary>Id로 가시 인덱스를 찾는다(없으면 -1).</summary>
-    public int IndexOf(DirItem item)
-    {
-        int n = Count;
-        for (int i = 0; i < n; i++)
-        {
-            if (this[i].Id == item.Id)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
+    /// <summary>
+    /// Id로 가시 인덱스를 찾는다(없으면 -1). 코어에 위임(단일 호출) — 큰 폴더에서 클릭마다
+    /// 모든 행을 재실체화(P/Invoke·아이콘 로드)하던 선형 탐색을 제거(성능 슬라이스 4-3).
+    /// </summary>
+    public int IndexOf(DirItem item) =>
+        _handle == IntPtr.Zero ? -1 : NativeInterop.TreeIndexOf(_handle, item.Id);
 
     public bool Contains(DirItem item) => IndexOf(item) >= 0;
 

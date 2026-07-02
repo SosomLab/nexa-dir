@@ -245,10 +245,22 @@ refactor/001-audit  (분기: 6e81734)
 - **효과**: 이미 연 탭으로의 전환이 **O(가시행 재실체화)만** — 디스크 재열거·펼침 재적용 제거. 선택·캐럿·펼침 상태도 탭에 그대로 보존.
 - **검증(How)**: 맥 빌드 불가(WinUI) → **PR #1 CI `app` job green 필수**. 실기 QA: 파일 많은 폴더 여러 개를 탭으로 열고 전환 시 지연 감소 · 전환 후 선택/펼침/스크롤 유지 · 숨김/점 토글이 전 탭 반영 · 탭 닫기 후 크래시 없음.
 
-## 진행 예정 (E16~)
+## E16 · 2026-07-02 · C1 슬라이스 4-3 — id→가시 인덱스 조회(행 재실체화 제거) + ABI v4 → `(이 커밋)` ★실기 QA
 
-- **E16 · 4-3 펼침/접힘 범위 diff 통지**: `ToggleExpand`가 `TreeRange`(start/removed/inserted)로 `Add`/`Remove` 통지(#3 스크롤 보존). 캐시 인덱스·캐럿 시프트 처리.
+- **왜(진짜 병목 발견)**: QA #3/#4의 "대용량 폴더 클릭 지연"의 실제 원인은 [MainWindow:463](../../app/Nexa.App/MainWindow.xaml.cs)의 클릭 핸들러가 `items.IndexOf(item)`를 부르고, `VirtualTreeCollection.IndexOf`가 **일치할 때까지 `this[i]`를 호출**한 것. `this[i]`는 `TreeGetRow`+`TreeRowPath` P/Invoke + `RowBuilt`(아이콘 비동기 로드)를 유발 → 4880개 폴더에서 끝쪽 클릭 시 **수천 행을 실체화·아이콘 큐잉**. (당초 4-3 계획인 "Reset→범위 diff"보다 이게 훨씬 큰 비용.)
+- **무엇 · 파일**:
+  - 코어 [nexa-tree](../../core/crates/nexa-tree/src/lib.rs): `visible_index`를 `pub fn index_of`로 노출(단일 Vec 스캔, 10만≈20µs·마샬 없음).
+  - ABI [nexa-interop](../../core/crates/nexa-interop/src/lib.rs): `nexa_tree_index_of(handle,id)->i64`(없음/널=-1). **ABI v3→v4**(가법적 함수 추가라도 호스트 실검사 정책상 범프). 라운드트립 테스트(sub=0/child=1/top=2·없는id/널=-1·접힌 뒤 -1).
+  - 관리형 [NativeInterop](../../app/Nexa.App/NativeInterop.cs): `TreeIndexOf` + `ExpectedAbi=4`(로드 시 v4 검사).
+  - 컬렉션 [VirtualTreeCollection](../../app/Nexa.App/VirtualTreeCollection.cs): `IndexOf`=코어 위임(단일 호출). `IndexOfPath`=`TreeRowPath`만 순회(DirItem 실체화·아이콘 회피).
+- **효과**: 클릭당 O(n) 행 실체화 → **단일 P/Invoke**. 아이콘 로드 폭주 제거. 앱 스모크 출력이 `abi=4`로 바뀜(docs/18·19 갱신).
+- **검증(How)**: 코어 `cargo test` green(interop 5·tree 9+ignored, `index_of` 라운드트립 포함), fmt·clippy(-D warnings). 앱부는 **PR #1 CI(app) + 실기 QA**(큰 폴더 끝쪽 클릭 반응·GoUp 선택 즉시성).
+- **비고**: 원 계획의 "펼침/접힘 Reset→범위 diff 통지(스크롤 보존)"는 별도 후속(E18)으로 분리 — ItemsRepeater의 세밀 통지는 런타임 검증 필요, 이번 병목(클릭 실체화)이 우선.
+
+## 진행 예정 (E17~)
+
 - **E17 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
+- **E18 · 4-4 펼침/접힘 스크롤 보존**: 펼침/접힘 시 스크롤 오프셋 유지(#3 "비자연" 잔여) — Reset 전후 오프셋 복원 또는 범위 diff. 런타임 QA 필요.
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 
 > ⚠️ **남은 MainWindow 재배선은 이 브랜치 최대 단일 변경** — WinUI 런타임 검증 불가(CI는 빌드만) → 실기 QA 필요. 회귀 위험 큰 만큼 위 E9/E10로 분할, 각 push마다 PR #1 CI(`app`) green 확인.

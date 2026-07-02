@@ -239,9 +239,15 @@ impl Tree {
         })
     }
 
-    /// 가시 목록에서 `id`의 인덱스(선형 탐색; 대규모 최적화는 슬라이스 4).
-    fn visible_index(&self, id: NodeId) -> Option<usize> {
+    /// 가시 목록에서 `id`의 인덱스(선형 탐색). 단일 Vec 스캔이라 마샬/실체화 없이 빠름
+    /// (10만 노드 ≈20µs, 슬라이스 4-1 벤치) → 호스트가 행 재실체화 없이 조회하도록 공개.
+    pub fn index_of(&self, id: NodeId) -> Option<usize> {
         self.visible.iter().position(|&x| x == id)
+    }
+
+    /// 내부용 별칭(기존 호출부 유지).
+    fn visible_index(&self, id: NodeId) -> Option<usize> {
+        self.index_of(id)
     }
 
     /// `id`의 펼침 하위(자식과 그 펼친 후손)를 가시 순서(DFS)로 `out`에 모은다.

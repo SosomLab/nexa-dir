@@ -28,7 +28,7 @@
 ```powershell
 # (최초 1회) 환경: scripts/bootstrap.ps1  ·  앱 실행 런타임: Windows App Runtime 1.6 (§6-2)
 dotnet build app/Nexa.App -c Debug     # ①코어(cargo)+②dll 복사+③앱 빌드 (자동, 한 번에)
-dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=3, nexa_poc_add(2, 3)=5"
+dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=4, nexa_poc_add(2, 3)=5"
 ```
 
 - 단계별 상세: 코어 **[§1]** · dll 자동 복사 **[§2-1]** · 앱 빌드 **[§2]** · 실행 **[§6-2]** · dll 잠금 오류 **[§6-3]**.
@@ -180,7 +180,7 @@ cargo test -p nexa-interop      # 특정 크레이트만
 dotnet run --project app/Nexa.App
 ```
 - 창 가운데 상태줄에 **인터롭 왕복 결과**가 표시되면 성공:
-  `인터롭 OK — abi=3, nexa_poc_add(2, 3)=5`
+  `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5`
 - `인터롭 실패: ...` 가 보이면 dll 미복사/미로드 → §2-1(빌드 통합)·`cargo`가 PATH인지 확인.
 - 종료: 창 닫기. (현재는 빈 셸 + PoC 표시 단계 — 후속 단위에서 경로바·트리 추가)
 
