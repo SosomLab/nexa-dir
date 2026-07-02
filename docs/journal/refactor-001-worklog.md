@@ -210,14 +210,15 @@ refactor/001-audit  (분기: 6e81734)
 
 ## 🔀 다른 PC 이어작업 핸드오프 (2026-07-02)
 
-- **브랜치**: `refactor/001-audit` (원격 최신, PR #1 draft, CI green). 클론/pull 후 이어서.
-- **완료(이 브랜치)**: 감사 → C1 코어 트리(nexa-tree)·ABI v3·로드검사 → MainWindow 가상화 배선 → F18 펼침유지 재구현 → 스크롤 위치 수정 → 크래시 로거. 코어 18 tests·app CI green.
-- **실기 QA 통과**: 표시/필터/네비/펼침(F18 진입·위로)/선택/스크롤(진입 top·상위 center, 최상단·먼 인덱스 공백 없음).
-- **남은 일(우선순위)**:
-  1. **성능 슬라이스 4** — 탭 전환 클릭 지연(#4)·대용량 스크롤(#3): 탭별 트리 핸들 캐시 + 펼침/접힘 Reset→범위 diff + 행매핑 O(log n) + 10만 벤치(AC5).
-  2. **E14 정리** — 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 제거.
-  3. **설정 화면** — 헤더 정보란 on/off(`ViewOptions.ShowHeaderInfo`)·상위이동 정렬(`UpNavTargetAlign`)·단축키 편집([26 §8](../26-command-palette.md)).
-  4. **머지 전 점검**: F18/스크롤/선택 회귀 없는지 최종 QA 후 main 머지.
+- **브랜치**: `refactor/001-audit` (원격 최신, PR #1, CI green). **main 머지 준비 완료** — main(`6e81734`) 대비 37커밋.
+- **완료(이 브랜치, E1~E19)**: 감사 → C1 코어 트리(nexa-tree)·**ABI v4**·로드검사 → MainWindow 가상화 배선 → F18 펼침유지 → 스크롤 위치(진입/상위) → 크래시 로거 → **성능 슬라이스 4**(4-1 AC5 10만 벤치 · 4-2 탭 핸들 캐시 · 4-3 id→인덱스 조회로 클릭 실체화 제거 · 4-4 펼침/접힘 스크롤 보존) → **E17 죽은 코드 정리** → **E19 키보드 캐럿 스크롤 견고화**. 코어 19 tests·app CI(4-job) green.
+- **실기 QA 통과**: 표시/필터/네비/펼침(F18)/선택/스크롤(진입·상위·펼침접힘·키보드 캐럿)/탭 캐시. 동작 안정 확인(사용자).
+- **오프셋/스크롤 전 경로 완료**: 진입(top)·상위(center)·펼침접힘(위치보존)·키보드캐럿(최소스크롤 오프스크린 포함)·클릭(무스크롤). 버그 잔여 없음.
+- **머지 결정(2026-07-02)**: 성능·정리 목표 완료 → **main 태그 `0.1.0`(머지 전 베이스라인) 후 refactor/001-audit → main 병합**.
+- **남은 일(다음 라운드, 병합 후)**:
+  1. **감사 잔여**: C1 `PanelView` 통합(`bool left` 소거)·A2 `Nexa.ViewModels` 분리 · B1 FFI 패닉 가드 · B5 `Directory.Build.props`(TFM 중복)·B2 CI P/Invoke 왕복 스모크 · D2 커밋해시 백필.
+  2. **탭별 스크롤 위치 기억**(선택 UX): `PanelTab`에 오프셋 저장 → `ShowTab` 복원(현재는 전환 시 top).
+  3. **설정 화면**: 헤더 정보란 on/off(`ViewOptions.ShowHeaderInfo`)·상위이동 정렬(`UpNavTargetAlign`)·단축키 편집([26 §8](../26-command-palette.md)).
 - **실행 주의**: IDE 내장 터미널에서 `dotnet run`은 즉시 종료(터미널 환경 이슈) → **pwsh 또는 빌드 exe** 사용. 미처리 예외는 `%LOCALAPPDATA%\NexaDir\crash.log`.
 
 ## E14 · 2026-07-02 · C1 슬라이스 4-1 — AC5 10만 노드 코어 벤치 → `(이 커밋)`
