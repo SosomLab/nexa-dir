@@ -38,6 +38,8 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>
     /// 지정 인덱스 행을 <b>강제 실체화</b>해 화면에 스크롤(오프스크린도 동작). 네비게이션 대상 표시용.
     /// <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
+    /// <para>Reset(폴더 재로드) 직후 동기 호출하면 ItemsRepeater가 뷰포트를 아직 실체화하지 못해
+    /// 빈 화면/깜빡임이 생긴다 → **Reset 레이아웃 패스 이후로 지연**(DispatcherQueue) 실행한다.</para>
     /// </summary>
     public void ScrollIndexIntoView(int index, double verticalAlignmentRatio)
     {
@@ -45,12 +47,19 @@ public sealed partial class NexaFileGrid : UserControl
         {
             return;
         }
-        var el = Repeater.GetOrCreateElement(index);   // 오프스크린이어도 실체화
-        Repeater.UpdateLayout();                        // 배치 확정 후라야 스크롤이 정확
-        el.StartBringIntoView(new BringIntoViewOptions
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
-            VerticalAlignmentRatio = verticalAlignmentRatio,
-            AnimationDesired = false,
+            if (Repeater.ItemsSourceView is null || index >= Repeater.ItemsSourceView.Count)
+            {
+                return;   // 그새 목록이 바뀌었으면 무시
+            }
+            var el = Repeater.GetOrCreateElement(index);   // 오프스크린이어도 실체화
+            Repeater.UpdateLayout();                        // 배치 확정 후라야 스크롤이 정확
+            el.StartBringIntoView(new BringIntoViewOptions
+            {
+                VerticalAlignmentRatio = verticalAlignmentRatio,
+                AnimationDesired = false,
+            });
         });
     }
 

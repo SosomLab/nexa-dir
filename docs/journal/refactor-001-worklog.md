@@ -201,6 +201,12 @@ refactor/001-audit  (분기: 6e81734)
 - **설정 TODO**: 대상 정렬(가운데/맨앞/맨뒤) + 헤더 정보란 on/off → [26 §8](../26-command-palette.md). 기본값은 구현됨, 선택 UI만 TODO.
 - **검증**: app build 0 warn/err. ★실기 QA: (a) 폴더 진입 시 첫 항목 맨 위 / (b) 스크롤 내린 뒤 상위 이동 → 떠난 폴더가 **가운데** 선택 표시.
 
+### E13-fix · 상위 이동 대상이 최상단일 때 빈 화면(QA #7)
+
+- **증상**: 최상단(index 0, 예: addins) 폴더 진입 후 위로 → 화면 깜빡·**아무것도 안 보임**, 스크롤해야 보임(addins는 선택됨).
+- **원인**: `ScrollIndexIntoView`가 `Reset` **직후 동기** 실행 → ItemsRepeater가 뷰포트 미실체화 상태에서 단일 요소만 강제 실체화+가운데 정렬 → 뷰포트 공백(+index 0 가운데 정렬은 위쪽 공백까지).
+- **수정**: [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs) `ScrollIndexIntoView`를 **`DispatcherQueue`(Low)로 지연** — Reset 레이아웃 패스 완료 후 실행. index 0 가운데 정렬은 오프셋 0으로 클램프되어 최상단 표시. app build 0 warn/err. ★재QA.
+
 ## 진행 예정 (E14~)
 
 - **E14 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
