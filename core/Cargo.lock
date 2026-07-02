@@ -11,6 +11,15 @@ name = "nexa-interop"
 version = "0.0.0"
 dependencies = [
  "nexa-core",
+ "nexa-tree",
+ "nexa-vfs",
+]
+
+[[package]]
+name = "nexa-tree"
+version = "0.0.0"
+dependencies = [
+ "nexa-core",
  "nexa-vfs",
 ]
 

@@ -85,7 +85,7 @@ nexa-dir/
 | `Nexa.App.csproj` | WinUI3 앱. `net8.0-windows10.0.22621.0`, `WindowsPackageType=None`(포터블 친화), x64/arm64. **인터롭 타겟**: `BuildNexaInterop`(cargo build) → `CopyNexaInterop`(nexa_interop.dll→출력) |
 | `App.xaml(.cs)` | 애플리케이션 객체·Fluent 리소스, 메인 윈도우 생성 |
 | `MainWindow.xaml(.cs)` | 메인 윈도우. `ShowInteropRoundTrip()`(왕복) + `LoadDirectory()`(코어 열거 → **ItemsRepeater 가상화** 목록). 후속: 인라인 트리·경로바·듀얼패널 |
-| `NativeInterop.cs` | 코어 cdylib P/Invoke 바인딩(`nexa_abi_version`/`nexa_poc_add` + 디렉터리 열거 `nexa_dir_*`, `ReadDir`/`DirItem`). 런타임에 `nexa_interop.dll` 로드 |
+| `NativeInterop.cs` | 코어 cdylib P/Invoke 바인딩(`nexa_abi_version`/`nexa_poc_add` + 코어 트리 `nexa_tree_*`, 마샬 은닉 `Tree*` API, `DirItem`). ABI 레이아웃 가드(`VerifyAbi`)·`NexaEntry` 미러. 런타임에 `nexa_interop.dll` 로드 (구 C# 디렉터리 열거 `nexa_dir_*`/`ReadDir`는 C1에서 코어 트리로 대체·제거, E17) |
 | `app.manifest` | PerMonitorV2 고DPI, 지원 OS(Win10/11) |
 
 > 맥에서는 **빌드 불가**(WinUI XAML 컴파일러가 Windows 전용) — 상세 [11 §개발OS](11-dev-environment.md).

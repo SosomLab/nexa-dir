@@ -5,6 +5,7 @@ resolver = "2"
 members = [
   "crates/nexa-core",
   "crates/nexa-vfs",
+  "crates/nexa-tree",
   "crates/nexa-interop",
 ]
 
@@ -19,6 +20,7 @@ homepage = "https://sosomlab.com"
 [workspace.dependencies]
 nexa-core = { path = "crates/nexa-core" }
 nexa-vfs = { path = "crates/nexa-vfs" }
+nexa-tree = { path = "crates/nexa-tree" }
 
 # 릴리스 최적화 (성능 최우선)
 [profile.release]

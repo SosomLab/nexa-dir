@@ -29,6 +29,9 @@ allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
 [[licenses.exceptions]]
 name = "nexa-interop"
 allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
+[[licenses.exceptions]]
+name = "nexa-tree"
+allow = ["LicenseRef-PolyForm-Noncommercial-1.0.0"]
 
 [advisories]
 version = 2

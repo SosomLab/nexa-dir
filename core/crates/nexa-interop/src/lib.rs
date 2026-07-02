@@ -9,13 +9,42 @@ use std::ptr;
 use std::time::UNIX_EPOCH;
 
 use nexa_core::FileKind;
+use nexa_tree::{SelectMode, Tree};
 use nexa_vfs::{read_dir_entries, Entry};
 
-/// 인터롭 ABI 버전. C# 측과 호환성 점검용(불일치 시 로드 거부 가능).
-/// v2: `NexaEntry`에 `attrs`(Windows 파일 속성) 필드 추가.
+/// `FileKind` → C ABI 정수(0=file, 1=dir, 2=symlink). 열거·트리 표면 공용.
+fn kind_code(kind: FileKind) -> u32 {
+    match kind {
+        FileKind::File => 0,
+        FileKind::Dir => 1,
+        FileKind::Symlink => 2,
+    }
+}
+
+/// 인터롭 ABI 버전. C# 측과 호환성 점검용(호스트가 로드 시 일치 확인 — 슬라이스 3).
+/// v2: `NexaEntry.attrs`. v3: 코어 트리/선택 표면(`nexa_tree_*`, `NexaRow`/`NexaRange`).
+/// v4: `nexa_tree_index_of`(행 재실체화 없는 id→가시 인덱스 조회, 슬라이스 4-3).
 #[no_mangle]
 pub extern "C" fn nexa_abi_version() -> c_uint {
-    2
+    4
+}
+
+/// `NexaEntry`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용(감사 A2 — 구조체 드리프트 가드).
+#[no_mangle]
+pub extern "C" fn nexa_entry_size() -> u64 {
+    std::mem::size_of::<NexaEntry>() as u64
+}
+
+/// `NexaRow`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용.
+#[no_mangle]
+pub extern "C" fn nexa_row_size() -> u64 {
+    std::mem::size_of::<NexaRow>() as u64
+}
+
+/// `NexaRange`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용.
+#[no_mangle]
+pub extern "C" fn nexa_range_size() -> u64 {
+    std::mem::size_of::<NexaRange>() as u64
 }
 
 /// 왕복(round-trip) PoC: C# 호스트가 보낸 두 정수의 합을 반환한다.
@@ -84,11 +113,7 @@ pub unsafe extern "C" fn nexa_dir_next(handle: *mut DirHandle, out: *mut NexaEnt
     let h = &mut *handle;
     for item in h.iter.by_ref() {
         let Ok(entry) = item else { continue };
-        let kind = match entry.kind {
-            FileKind::File => 0,
-            FileKind::Dir => 1,
-            FileKind::Symlink => 2,
-        };
+        let kind = kind_code(entry.kind);
         let modified = entry
             .modified
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
@@ -116,13 +141,320 @@ pub unsafe extern "C" fn nexa_dir_close(handle: *mut DirHandle) {
     }
 }
 
+// ── 코어 트리/선택 표면 (C1 슬라이스 2, ABI v3) ──────────────────────────────
+
+/// 트리 열거/선택 핸들(불투명). `nexa_tree_open`이 생성, `nexa_tree_close`로 해제.
+/// 반환 문자열(`NexaRow.name`·선택 경로)의 수명 보장을 위해 최근 문자열을 보관한다.
+pub struct TreeHandle {
+    tree: Tree,
+    row_name: Option<CString>,
+    row_path: Option<CString>,
+    sel_path: Option<CString>,
+}
+
+/// C ABI 가시 행(코어 `VisibleRow` 미러). 8→4→1바이트 순 배치(패딩 최소·C# 미러 용이).
+/// `name`은 다음 `nexa_tree_row`/`nexa_tree_close` 호출 전까지만 유효(핸들 소유).
+#[repr(C)]
+pub struct NexaRow {
+    pub id: u64,
+    pub size: u64,
+    pub modified_unix_ms: i64,
+    pub name: *const c_char,
+    pub depth: u32,
+    pub kind: u32, // 0=file, 1=dir, 2=symlink
+    pub attrs: u32,
+    pub expanded: u8,     // 0/1
+    pub has_children: u8, // 0/1
+}
+
+/// C ABI 가시 목록 변경 구간(코어 `RangeChange` 미러).
+#[repr(C)]
+pub struct NexaRange {
+    pub start: u64,
+    pub removed: u64,
+    pub inserted: u64,
+}
+
+/// 경로로 트리를 연다(최상위 열거, 펼침 없음). 실패(널/경로오류/IO) 시 널.
+/// `show_hidden`/`show_dotfiles`(0/1)로 가시성 필터 적용(앱 ViewOptions와 동일).
+///
+/// # Safety
+/// `path`는 유효한 NUL 종단 UTF-8 C 문자열이거나 널이어야 한다.
+/// 반환된 핸들은 `nexa_tree_close`로 정확히 한 번 해제해야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_open(
+    path: *const c_char,
+    show_hidden: u8,
+    show_dotfiles: u8,
+) -> *mut TreeHandle {
+    if path.is_null() {
+        return ptr::null_mut();
+    }
+    let path = match CStr::from_ptr(path).to_str() {
+        Ok(s) => PathBuf::from(s),
+        Err(_) => return ptr::null_mut(),
+    };
+    match Tree::open_filtered(path, show_hidden != 0, show_dotfiles != 0) {
+        Ok(tree) => Box::into_raw(Box::new(TreeHandle {
+            tree,
+            row_name: None,
+            row_path: None,
+            sel_path: None,
+        })),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// 트리 핸들을 해제한다. 널은 무시.
+///
+/// # Safety
+/// `handle`은 `nexa_tree_open`이 반환한 핸들이며 이전에 해제되지 않았어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_close(handle: *mut TreeHandle) {
+    if !handle.is_null() {
+        drop(Box::from_raw(handle));
+    }
+}
+
+/// 현재 가시 행 수. 널이면 0.
+///
+/// # Safety
+/// `handle`은 유효한 트리 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_visible_len(handle: *mut TreeHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).tree.visible_len() as u64
+}
+
+/// 가시 목록에서 노드 `id`의 인덱스. 없거나 널이면 `-1`.
+/// 호스트가 클릭/선택 시 행을 하나씩 재실체화(P/Invoke·아이콘 로드)하지 않고 곧바로 조회하도록 제공.
+///
+/// # Safety
+/// `handle`은 유효한 트리 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_index_of(handle: *mut TreeHandle, id: u64) -> i64 {
+    if handle.is_null() {
+        return -1;
+    }
+    match (*handle).tree.index_of(id) {
+        Some(i) => i as i64,
+        None => -1,
+    }
+}
+
+/// 가시 인덱스의 행을 `out`에 채운다. 반환: `1`=행, `0`=범위 밖, `-1`=널 인자.
+/// `out.name`은 다음 `nexa_tree_row`/`nexa_tree_close` 호출 전까지만 유효.
+///
+/// # Safety
+/// `handle`은 유효 핸들, `out`은 쓰기 가능한 `NexaRow`여야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_row(
+    handle: *mut TreeHandle,
+    index: u64,
+    out: *mut NexaRow,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return -1;
+    }
+    let h = &mut *handle;
+    let Some(row) = h.tree.row(index as usize) else {
+        return 0;
+    };
+    h.row_name = Some(CString::new(row.name).unwrap_or_default());
+    let out = &mut *out;
+    out.id = row.id;
+    out.size = row.size;
+    out.modified_unix_ms = row.modified_unix_ms;
+    out.name = h.row_name.as_ref().map_or(ptr::null(), |c| c.as_ptr());
+    out.depth = row.depth;
+    out.kind = kind_code(row.kind);
+    out.attrs = row.attrs;
+    out.expanded = row.expanded as u8;
+    out.has_children = row.has_children as u8;
+    1
+}
+
+/// 가시 인덱스 행의 절대 경로(범위 밖/널이면 널). 아이콘 로딩·네비게이션용.
+/// 반환 포인터는 다음 `nexa_tree_row_path`/`nexa_tree_close` 호출 전까지만 유효.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_row_path(handle: *mut TreeHandle, index: u64) -> *const c_char {
+    if handle.is_null() {
+        return ptr::null();
+    }
+    let h = &mut *handle;
+    let Some(row) = h.tree.row(index as usize) else {
+        return ptr::null();
+    };
+    let Some(p) = h.tree.node_path(row.id) else {
+        return ptr::null();
+    };
+    h.row_path = Some(CString::new(p.to_string_lossy().as_ref()).unwrap_or_default());
+    h.row_path.as_ref().map_or(ptr::null(), |c| c.as_ptr())
+}
+
+/// `id`(디렉터리)를 펼치고 변경 구간을 `out`에 채운다.
+/// 반환: `1`=성공, `0`=IO 오류(무변경), `-1`=널 인자.
+///
+/// # Safety
+/// `handle`은 유효 핸들, `out`은 쓰기 가능한 `NexaRange`여야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_expand(
+    handle: *mut TreeHandle,
+    id: u64,
+    out: *mut NexaRange,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return -1;
+    }
+    match (*handle).tree.expand(id) {
+        Ok(rc) => {
+            write_range(out, rc.start, rc.removed, rc.inserted);
+            1
+        }
+        Err(_) => {
+            write_range(out, 0, 0, 0);
+            0
+        }
+    }
+}
+
+/// `id`를 접고 변경 구간을 `out`에 채운다. 반환: `1`=성공, `-1`=널 인자.
+///
+/// # Safety
+/// `handle`은 유효 핸들, `out`은 쓰기 가능한 `NexaRange`여야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_collapse(
+    handle: *mut TreeHandle,
+    id: u64,
+    out: *mut NexaRange,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return -1;
+    }
+    let rc = (*handle).tree.collapse(id);
+    write_range(out, rc.start, rc.removed, rc.inserted);
+    1
+}
+
+/// `NexaRange`에 값을 쓴다(내부 헬퍼).
+///
+/// # Safety
+/// `out`은 쓰기 가능한 `NexaRange`여야 한다.
+unsafe fn write_range(out: *mut NexaRange, start: usize, removed: usize, inserted: usize) {
+    let out = &mut *out;
+    out.start = start as u64;
+    out.removed = removed as u64;
+    out.inserted = inserted as u64;
+}
+
+/// 선택 갱신: `mode` `0`=단일(기존 해제), `1`=비연속 토글. 그 외는 무시.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_select(handle: *mut TreeHandle, id: u64, mode: u32) {
+    if handle.is_null() {
+        return;
+    }
+    let m = match mode {
+        0 => SelectMode::Single,
+        1 => SelectMode::Toggle,
+        _ => return,
+    };
+    (*handle).tree.select(id, m);
+}
+
+/// anchor~`id`의 가시 범위를 선택한다.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_select_range(handle: *mut TreeHandle, id: u64) {
+    if !handle.is_null() {
+        (*handle).tree.select_range(id);
+    }
+}
+
+/// 현재 가시 노드를 전체 선택한다.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_select_all(handle: *mut TreeHandle) {
+    if !handle.is_null() {
+        (*handle).tree.select_all_visible();
+    }
+}
+
+/// 선택을 모두 해제한다.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_clear_selection(handle: *mut TreeHandle) {
+    if !handle.is_null() {
+        (*handle).tree.clear_selection();
+    }
+}
+
+/// `id` 선택 여부(`1`/`0`). 널이면 0.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_is_selected(handle: *mut TreeHandle, id: u64) -> c_int {
+    if handle.is_null() {
+        return 0;
+    }
+    c_int::from((*handle).tree.is_selected(id))
+}
+
+/// 선택 수. 널이면 0.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_selected_len(handle: *mut TreeHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).tree.selection_count() as u64
+}
+
+/// 선택(삽입 순서) `index`번째 경로. 범위 밖/널이면 널.
+/// 반환 포인터는 다음 `nexa_tree_selected_path`/`nexa_tree_close` 호출 전까지만 유효.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_selected_path(
+    handle: *mut TreeHandle,
+    index: u64,
+) -> *const c_char {
+    if handle.is_null() {
+        return ptr::null();
+    }
+    let h = &mut *handle;
+    let paths = h.tree.selected_paths();
+    let Some(p) = paths.get(index as usize) else {
+        return ptr::null();
+    };
+    h.sel_path = Some(CString::new(p.to_string_lossy().as_ref()).unwrap_or_default());
+    h.sel_path.as_ref().map_or(ptr::null(), |c| c.as_ptr())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_two() {
-        assert_eq!(nexa_abi_version(), 2);
+    fn abi_version_is_four() {
+        assert_eq!(nexa_abi_version(), 4);
     }
 
     #[test]
@@ -175,5 +507,87 @@ mod tests {
         unsafe {
             assert!(nexa_dir_open(cpath.as_ptr()).is_null());
         }
+    }
+
+    fn empty_row() -> NexaRow {
+        NexaRow {
+            id: 0,
+            size: 0,
+            modified_unix_ms: 0,
+            name: ptr::null(),
+            depth: 0,
+            kind: 9,
+            attrs: 0,
+            expanded: 0,
+            has_children: 0,
+        }
+    }
+
+    #[test]
+    fn tree_abi_open_expand_select_collapse() {
+        let base = std::env::temp_dir().join(format!("nexa_interop_tree_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("sub")).unwrap();
+        std::fs::write(base.join("sub/child.txt"), b"c").unwrap();
+        std::fs::write(base.join("top.txt"), b"t").unwrap();
+
+        let cpath = CString::new(base.to_str().unwrap()).unwrap();
+        unsafe {
+            let h = nexa_tree_open(cpath.as_ptr(), 1, 1);
+            assert!(!h.is_null());
+            assert_eq!(nexa_tree_visible_len(h), 2); // sub(dir), top.txt
+
+            let mut row = empty_row();
+            assert_eq!(nexa_tree_row(h, 0, &mut row), 1);
+            assert_eq!(row.kind, 1); // dir
+            assert_eq!(row.has_children, 1);
+            assert_eq!(CStr::from_ptr(row.name).to_string_lossy(), "sub");
+            let sub_id = row.id;
+
+            // 펼침 → child.txt 1개 삽입
+            let mut rng = NexaRange {
+                start: 0,
+                removed: 0,
+                inserted: 0,
+            };
+            assert_eq!(nexa_tree_expand(h, sub_id, &mut rng), 1);
+            assert_eq!((rng.start, rng.removed, rng.inserted), (1, 0, 1));
+            assert_eq!(nexa_tree_visible_len(h), 3);
+
+            assert_eq!(nexa_tree_row(h, 1, &mut row), 1); // child.txt
+            assert_eq!(row.depth, 1);
+            let child_id = row.id;
+            let rp = CStr::from_ptr(nexa_tree_row_path(h, 1)).to_string_lossy();
+            assert!(rp.ends_with("child.txt"), "row_path={rp}");
+            assert_eq!(nexa_tree_row(h, 2, &mut row), 1); // top.txt
+            let top_id = row.id;
+
+            // 인덱스 조회(4-3): id→가시 인덱스, 없는 id·널은 -1
+            assert_eq!(nexa_tree_index_of(h, sub_id), 0);
+            assert_eq!(nexa_tree_index_of(h, child_id), 1);
+            assert_eq!(nexa_tree_index_of(h, top_id), 2);
+            assert_eq!(nexa_tree_index_of(h, 9999), -1);
+            assert_eq!(nexa_tree_index_of(ptr::null_mut(), sub_id), -1);
+
+            // 교차 선택(다른 부모): child(single) + top(toggle)
+            nexa_tree_select(h, child_id, 0);
+            nexa_tree_select(h, top_id, 1);
+            assert_eq!(nexa_tree_selected_len(h), 2);
+            assert_eq!(nexa_tree_is_selected(h, child_id), 1);
+            let p0 = CStr::from_ptr(nexa_tree_selected_path(h, 0)).to_string_lossy();
+            assert!(p0.ends_with("child.txt"), "got {p0}");
+
+            // 접힘 → child.txt 제거
+            assert_eq!(nexa_tree_collapse(h, sub_id, &mut rng), 1);
+            assert_eq!((rng.start, rng.removed, rng.inserted), (1, 1, 0));
+            assert_eq!(nexa_tree_visible_len(h), 2);
+            assert_eq!(nexa_tree_index_of(h, child_id), -1); // 접힌 뒤 가시 아님
+
+            // 경계/널 방어
+            assert_eq!(nexa_tree_row(h, 99, &mut row), 0);
+            nexa_tree_close(h);
+            assert_eq!(nexa_tree_visible_len(ptr::null_mut()), 0);
+        }
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

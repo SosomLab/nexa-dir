@@ -4,7 +4,7 @@
 > ⚠️ **기능을 추가/변경할 때마다 이 문서에 항목을 더한다**(구현 위치·커밋·테스트 절차 포함).
 > 빌드/실행/디버깅 절차 전반은 [18](18-build-and-test.md), 작업 경위는 [journal/](journal/), 구조는 [16](16-project-structure.md).
 
-전체 코어 테스트: `cd core && cargo test --workspace` (현재 **9 tests green**, **맥/Windows 공통**) · 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
+전체 코어 테스트: `cd core && cargo test --workspace` (현재 **17 tests green**, **맥/Windows 공통**) · 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
 
 > ⚠️ **`dotnet build/run app/Nexa.App` 검증은 Windows(또는 Windows VM)에서만.** 맥에서 실행 시 `NETSDK1100`(EnableWindowsTargeting) → 이어 XamlCompiler 실패 — [11 §6-1](11-dev-environment.md)·[11 §4-4 VM](11-dev-environment.md). 맥에서는 `cargo test`로 코어를 검증한다.
 
@@ -25,7 +25,7 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=2, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).
@@ -245,18 +245,19 @@
   - 예: `A`에서 `A2`를 펼쳐 `A21/A22/A23`이 보이고 `A22`를 펼쳐 `A221/A222/A223`이 보이는 상태에서
     **`A2`로 진입** → `A2` 뷰에 `A21/A22(펼침:A221/A222/A223)/A23`가 동일하게 표시.
   - 접힘은 그 폴더만 상태에서 제거(자손 펼침 상태는 보존) → **다시 펼치면 하위까지 유지**.
-- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)
-  - 패널별 `HashSet<string> _leftExpanded/_rightExpanded`(OrdinalIgnoreCase) — 펼친 폴더 경로 상태 보유
-  - `SetExpanded`(상태 추가/제거) → `ExpandInPlace`/`CollapseInPlace`(삽입/제거) + `ApplySavedExpansion`(재귀 적용)
-  - `LoadDirectory`가 로드 후 `ApplySavedExpansion` 호출 → 진입/이동해도 하위 펼침 **유지**(헤더 항목수는 직접 자식 기준)
-- **커밋**: `(이 단위)`
+- **구현 위치(최초, F18)**: `MainWindow` `_leftExpanded/_rightExpanded` + `SetExpanded`/`ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`(C# 목록 조작). → **C1(코어 트리 이관)으로 재구현**.
+- **재구현(C1, refactor-001 E12)**: 펼침 상태의 소유는 코어 트리 핸들(뷰 내)이지만, **진입/이동 간 유지는 탭별 경로셋**으로:
+  - `PanelTab.Expanded`(경로 HashSet, OrdinalIgnoreCase) — 펼친 폴더 경로 보유.
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`(디스클로저·키보드 공용)가 코어 토글 후 경로셋 add/remove.
+  - [VirtualTreeCollection.cs](../app/Nexa.App/VirtualTreeCollection.cs) `ExpandPaths(paths)` — `Open` 후 **얕은→깊은 순 배치 재펼침**(부모 먼저 → 자식 가시화, Reset 1회). `LoadDirectory`가 호출.
+- **커밋**: `(이 단위)`(최초) · `(refactor-001 E12)`(코어 트리 재구현)
 - **테스트(Windows)**:
   | 방법 | 동작 | 기대 |
   | --- | --- | --- |
   | 진입 유지 | 폴더 여러 단계 펼친 뒤 그중 한 폴더 더블클릭 진입 | 진입한 폴더의 하위 펼침 상태가 **동일하게 유지** |
   | 위로 유지 | 위로/뒤로로 상위 복귀 | 이전에 펼쳐둔 하위 상태 그대로 |
   | 접힘 후 재펼침 | 접었다가 다시 펼침 | 접기 전 하위 펼침 상태까지 유지 |
-- **한계/후속**: 세션 종료 후 영속화(JSON)는 미포함(인메모리) · 외부 변경(watcher) 반영 · 코어 `VisibleRow` 스트림(C1) 이관 시 통합.
+- **한계/후속**: 세션 종료 후 영속화(JSON)는 미포함(인메모리) · 외부 변경(watcher) 반영. (코어 `VisibleRow` 스트림 이관은 C1에서 **완료** — 위 재구현.)
 
 ### F19. Alt+↓ 항목 활성화 (폴더 진입 / 파일 실행)
 - **무엇**: 캐럿(현재) 항목에서 **Alt+↓** → **폴더/심볼릭은 진입**(더블클릭과 동일, 네비 기록), **파일은 실행**(확장자 연결 프로그램).
@@ -373,6 +374,46 @@
   | 우 패널 위에서 마우스 앞으로 | 우 패널 커서 | 우 패널이 앞으로 |
   | 빈(항목 0개) 폴더 위에서 마우스 뒤로 | 빈 좌 패널 커서 | 좌 패널이 뒤로(무동작 아님) |
   | 행 위에서 마우스 뒤로 | 행 커서 | 선택 변화 없이 그 패널 뒤로 |
+
+### F26. 코어 트리/선택 모델 `nexa-tree` (C1 슬라이스 1 — 아직 UI 미연결)
+
+- **무엇**: 인라인 트리 + 교차 선택을 **Rust 코어**로 이관하는 첫 슬라이스. 트리를 **가시 노드 평면 스트림**(`VisibleRow`)으로 투영하고, 펼침/접힘을 **행 범위 diff**(`RangeChange`)로, 선택을 **`OrderedSet<NodeId>`**(임의 부모 혼합=교차 선택)로 모델링. 설계 [29 ADR-0004](29-adr-0004-core-tree-model.md)·[07](07-flagship-tree-multiselect.md). 감사 [refactor-001](journal/20260702_130615_refactor-001-audit.md) A1/A2 정정의 착수.
+- **왜**: 기존 인라인 트리/선택은 앱(C#) 코드비하인드에 O(n)로 축적 → NFR(10만/60fps) 위배·맥 테스트 불가. 코어 이관으로 **UI 비종속 순수 로직 → 맥 단위테스트** + 후속 가상화/성능 기반.
+- **구현 위치**: [core/crates/nexa-tree/src/lib.rs](../core/crates/nexa-tree/src/lib.rs) — `Tree::open/expand/collapse/row/visible_len`, `select/select_range/select_all_visible/toggle/clear`, `selected_ids/selected_paths`. 워크스페이스 멤버 추가([core/Cargo.toml](../core/Cargo.toml)).
+- **동작**: `expand`=지연 열거(폴더 우선+이름 정렬) + 접힌 하위의 펼침 상태 복원, `collapse`=후속 `depth>base` 연속 구간 제거(하위 펼침 보존).
+- **가시성 필터(3b-2 전제)**: `Tree::open_filtered(path, show_hidden, show_dotfiles)` — 걸러진 항목은 트리에 아예 생성 안 함(펼침 자식도 동일 필터). F24를 코어로 이관(감사 M2). ABI `nexa_tree_open(path, show_hidden, show_dotfiles)` + 관리형 `TreeOpen(path, showHidden, showDotFiles)`. 코어 테스트 `open_filtered_excludes_dotfiles`(코어 18 tests green).
+- **범위 밖(후속 슬라이스)**: C ABI(슬라이스 2, ABI v3) · 앱 재배선(슬라이스 3) · 성능 벤치/행매핑 O(log n)(슬라이스 4) · watcher/심링크 사이클/폴더선택 흡수(ADR-0004 범위 밖).
+- **커밋**: `(이 단위)`.
+- **테스트**: `cargo test -p nexa-tree` — **7 tests**(open 정렬, expand/collapse 왕복, 중첩 재펼침 복원, 파일/중복 펼침 no-op, 교차폴더 선택 순서, 범위/전체 선택, 없는 경로 오류).
+
+### F27. 코어 트리 C ABI `nexa_tree_*` + ABI v3 (C1 슬라이스 2 — 아직 UI 미연결)
+
+- **무엇**: F26 코어 트리/선택을 C#에서 쓸 **핸들 기반 C ABI**로 노출. ABI 버전 **v2→v3**.
+- **구현 위치**: [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) — `TreeHandle`, `#[repr(C)] NexaRow`(코어 `VisibleRow` 미러, 8→4→1바이트 배치)·`NexaRange`(코어 `RangeChange`), 함수 `nexa_tree_open/close/visible_len/row/expand/collapse/select/select_range/select_all/clear_selection/is_selected/selected_len/selected_path`. `kind_code` 헬퍼로 `nexa_dir_next`와 종류 매핑 통일. `nexa-tree` 의존 추가([Cargo.toml](../core/crates/nexa-interop/Cargo.toml)).
+- **규약**: `NexaRow.name`·`selected_path` 반환 문자열은 “다음 호출/close 전까지 유효”(핸들이 최근 `CString` 보관, 기존 `NexaEntry`와 동일). `expand` 반환 `1`=성공/`0`=IO오류(무변경)/`-1`=널.
+- **후속(슬라이스 3)**: 호스트(C#)가 **로드 시 `nexa_abi_version()==3` 실제 검사**(감사 A3 정정) + `NexaRow` 구조체 크기 가드. 앱 재배선.
+- **커밋**: `(이 단위)`.
+- **테스트**: `cargo test -p nexa-interop` — **5 tests**(`tree_abi_open_expand_select_collapse` 추가: 열기·펼침 diff·교차 선택·선택 경로·접힘·경계/널). 코어 전체 **17 tests green**.
+
+### F28. 호스트 ABI 안전 계층 — 로드 시 버전·레이아웃 검사 (C1 슬라이스 3a)
+
+- **무엇**: C# 호스트가 시작 시 코어 dll의 **ABI 호환성을 실제 검사**한다(감사 A2/A3 정정). 그동안 `nexa_abi_version()`을 **표시만** 하고 미검사였던 것을 실제 게이트로.
+- **구현 위치**: [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) `nexa_entry_size()`(구조체 크기 export) · [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) `ExpectedAbi=3`·`VerifyAbi()`(① 버전==3, ② `Marshal.SizeOf<NexaEntry>()`==코어 크기) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `ShowInteropRoundTrip`이 `VerifyAbi()` 선행 호출.
+- **효과**: 구형/신형 dll이 조용히 로드돼 구조체가 오정렬(→ `attrs`/`size` 오염)되는 것을 **차단**. 불일치 시 `인터롭 실패: …` 상태 메시지(오류 격리, 앱은 계속).
+- **확장(슬라이스 3b-1)**: `NexaRow`/`NexaRange` P/Invoke 미러 struct 추가 + `nexa_row_size`/`nexa_range_size` export로 **세 구조체 모두 크기 가드**(`CheckLayout` 헬퍼). 함수 바인딩·UI 소비는 3b-2/3b-3.
+- **확장(슬라이스 3b-2 착수)**: `nexa_tree_*` 함수 P/Invoke + **마샬 은닉 관리형 API**(`TreeOpen/TreeGetRow/TreeExpand/…` + 관리형 `TreeRow`/`TreeRange` record) 추가 — 호출측은 포인터/마샬을 몰라도 됨.
+- **후속(슬라이스 3b-2 완료/3)**: `MainWindow`가 가상화 컬렉션으로 코어 `VisibleRow` 소비(전면 가상화) + 펼침/선택을 코어로 위임, C# 트리/정렬 제거.
+- **커밋**: `(이 단위)`.
+- **검증(Windows)**: 앱 실행 → `인터롭 OK — abi=4, …`(검사 통과). dll을 구버전으로 바꾸면 `인터롭 실패: 코어 ABI 불일치…`. **WinUI라 맥 빌드 불가 → PR/CI(app job)로 검증.**
+
+---
+
+### F29. 성능 슬라이스 4 — AC5 벤치 · 탭 핸들 캐시 · id 인덱스 조회 (C1 슬라이스 4)
+
+- **4-1 AC5 코어 벤치**: 합성 10만 노드에서 트리 연산 측정 — expand 100k행 **5.7ms**·row()×100k **0.8ms**·select_all **5.6ms**·collapse **1.9ms**(전부 16ms 프레임 예산 안). `visible_index`는 O(n)이나 단일 동작당 1회≈20µs → **O(log n) 매핑 불채택**. [nexa-tree](../core/crates/nexa-tree/src/lib.rs) `bench_100k_visible`(#[ignore])·상시 `large_tree_scale_ops_complete`.
+- **4-2 탭별 트리 핸들 캐시**: 각 [PanelTab](../app/Nexa.App/PanelTab.cs)이 자체 `VirtualTreeCollection`(코어 핸들) 보유 → 탭 전환 시 **재-Open(재열거·재펼침) 제거**([MainWindow](../app/Nexa.App/MainWindow.xaml.cs) `ShowTab`). QA #4(탭 전환 지연).
+- **4-3 id→가시 인덱스 조회 + ABI v4**: 클릭 시 `IndexOf`가 **행마다 `this[i]`(P/Invoke·아이콘 로드)로 O(n) 실체화**하던 것을 코어 `nexa_tree_index_of`(단일 호출)로 대체. `IndexOfPath`도 `TreeRowPath`만 조회(실체화 회피). ABI **v3→v4**([interop](../core/crates/nexa-interop/src/lib.rs) `nexa_tree_index_of`, [NativeInterop](../app/Nexa.App/NativeInterop.cs) `ExpectedAbi=4`). QA #3/#4(대용량 폴더 클릭 지연)의 실제 병목 제거.
+- **검증**: 코어 4-1/4-3은 맥 `cargo test` green(interop `nexa_tree_index_of` 라운드트립 포함). 4-2/4-3 앱부는 **PR/CI(app) + 실기 QA**.
 
 ---
 
