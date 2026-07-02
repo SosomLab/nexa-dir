@@ -26,8 +26,12 @@ refactor/001-audit  (분기: 6e81734)
 │    └ 산출: core/crates/nexa-interop/** · docs/18·19(F27)·STATUS
 ├─ E6 C1 슬라이스 3a (호스트 ABI 안전 계층) ...... 30d8b16  (2026-07-02 14:04:34)
 │    └ 산출: nexa_entry_size + VerifyAbi() · docs/19(F28)·STATUS
+├─ E6.1 CI 픽스: deny.toml에 nexa-tree 예외 ...... 284c479  (2026-07-02 15:03:01)
+│    └ PR #1(draft) 열고 push → CI 4-job green(core×2·deny·app)
 └─ E7~ C1 슬라이스 3b(앱 트리 재배선)·4(성능) .... 예정
 ```
+
+> ✅ **CI 검증 완료(PR #1, draft)**: 슬라이스 1·2·3a가 `refactor/001-audit`에서 core(win/mac)·cargo-deny·**WinUI app** 전 job green. 앱 ABI 검사(F28)까지 CI 통과.
 
 ---
 
