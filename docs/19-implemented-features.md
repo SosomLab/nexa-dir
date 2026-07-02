@@ -380,6 +380,7 @@
 - **왜**: 기존 인라인 트리/선택은 앱(C#) 코드비하인드에 O(n)로 축적 → NFR(10만/60fps) 위배·맥 테스트 불가. 코어 이관으로 **UI 비종속 순수 로직 → 맥 단위테스트** + 후속 가상화/성능 기반.
 - **구현 위치**: [core/crates/nexa-tree/src/lib.rs](../core/crates/nexa-tree/src/lib.rs) — `Tree::open/expand/collapse/row/visible_len`, `select/select_range/select_all_visible/toggle/clear`, `selected_ids/selected_paths`. 워크스페이스 멤버 추가([core/Cargo.toml](../core/Cargo.toml)).
 - **동작**: `expand`=지연 열거(폴더 우선+이름 정렬) + 접힌 하위의 펼침 상태 복원, `collapse`=후속 `depth>base` 연속 구간 제거(하위 펼침 보존).
+- **가시성 필터(3b-2 전제)**: `Tree::open_filtered(path, show_hidden, show_dotfiles)` — 걸러진 항목은 트리에 아예 생성 안 함(펼침 자식도 동일 필터). F24를 코어로 이관(감사 M2). ABI `nexa_tree_open(path, show_hidden, show_dotfiles)` + 관리형 `TreeOpen(path, showHidden, showDotFiles)`. 코어 테스트 `open_filtered_excludes_dotfiles`(코어 18 tests green).
 - **범위 밖(후속 슬라이스)**: C ABI(슬라이스 2, ABI v3) · 앱 재배선(슬라이스 3) · 성능 벤치/행매핑 O(log n)(슬라이스 4) · watcher/심링크 사이클/폴더선택 흡수(ADR-0004 범위 밖).
 - **커밋**: `(이 단위)`.
 - **테스트**: `cargo test -p nexa-tree` — **7 tests**(open 정렬, expand/collapse 왕복, 중첩 재펼침 복원, 파일/중복 펼침 no-op, 교차폴더 선택 순서, 범위/전체 선택, 없는 경로 오류).

@@ -175,12 +175,17 @@ pub struct NexaRange {
 }
 
 /// 경로로 트리를 연다(최상위 열거, 펼침 없음). 실패(널/경로오류/IO) 시 널.
+/// `show_hidden`/`show_dotfiles`(0/1)로 가시성 필터 적용(앱 ViewOptions와 동일).
 ///
 /// # Safety
 /// `path`는 유효한 NUL 종단 UTF-8 C 문자열이거나 널이어야 한다.
 /// 반환된 핸들은 `nexa_tree_close`로 정확히 한 번 해제해야 한다.
 #[no_mangle]
-pub unsafe extern "C" fn nexa_tree_open(path: *const c_char) -> *mut TreeHandle {
+pub unsafe extern "C" fn nexa_tree_open(
+    path: *const c_char,
+    show_hidden: u8,
+    show_dotfiles: u8,
+) -> *mut TreeHandle {
     if path.is_null() {
         return ptr::null_mut();
     }
@@ -188,7 +193,7 @@ pub unsafe extern "C" fn nexa_tree_open(path: *const c_char) -> *mut TreeHandle 
         Ok(s) => PathBuf::from(s),
         Err(_) => return ptr::null_mut(),
     };
-    match Tree::open(path) {
+    match Tree::open_filtered(path, show_hidden != 0, show_dotfiles != 0) {
         Ok(tree) => Box::into_raw(Box::new(TreeHandle {
             tree,
             row_name: None,
@@ -511,7 +516,7 @@ mod tests {
 
         let cpath = CString::new(base.to_str().unwrap()).unwrap();
         unsafe {
-            let h = nexa_tree_open(cpath.as_ptr());
+            let h = nexa_tree_open(cpath.as_ptr(), 1, 1);
             assert!(!h.is_null());
             assert_eq!(nexa_tree_visible_len(h), 2); // sub(dir), top.txt
 

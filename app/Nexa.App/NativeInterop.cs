@@ -388,7 +388,8 @@ internal static class NativeInterop
     }
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-    private static extern IntPtr nexa_tree_open([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    private static extern IntPtr nexa_tree_open(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte showHidden, byte showDotFiles);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern void nexa_tree_close(IntPtr handle);
@@ -431,8 +432,9 @@ internal static class NativeInterop
 
     // ── 마샬 은닉 관리형 API (호출측은 TreeRow/TreeRange만 다룸) ─────────────
 
-    /// <summary>트리를 연다(실패 시 <see cref="IntPtr.Zero"/>). <see cref="TreeClose"/>로 해제.</summary>
-    internal static IntPtr TreeOpen(string path) => nexa_tree_open(path);
+    /// <summary>트리를 연다(가시성 필터 적용, 실패 시 <see cref="IntPtr.Zero"/>). <see cref="TreeClose"/>로 해제.</summary>
+    internal static IntPtr TreeOpen(string path, bool showHidden, bool showDotFiles) =>
+        nexa_tree_open(path, (byte)(showHidden ? 1 : 0), (byte)(showDotFiles ? 1 : 0));
 
     /// <summary>트리 핸들 해제(널 무시).</summary>
     internal static void TreeClose(IntPtr handle) => nexa_tree_close(handle);

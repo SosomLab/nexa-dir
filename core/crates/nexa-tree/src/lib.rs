@@ -82,6 +82,29 @@ pub enum SelectMode {
     Toggle,
 }
 
+/// Windows 숨김 속성 비트(FILE_ATTRIBUTE_HIDDEN).
+const ATTR_HIDDEN: u32 = 0x2;
+
+/// 가시성 필터(숨김 속성·점 파일). 앱 `ViewOptions`와 동일 개념(둘 다 "보기").
+/// 열거 시 적용 — 걸러진 항목은 트리에 아예 생성하지 않는다.
+#[derive(Debug, Clone, Copy)]
+struct Filter {
+    show_hidden: bool,
+    show_dotfiles: bool,
+}
+
+impl Filter {
+    fn allows(&self, name: &str, attrs: u32) -> bool {
+        if !self.show_dotfiles && name.starts_with('.') {
+            return false;
+        }
+        if !self.show_hidden && (attrs & ATTR_HIDDEN) != 0 {
+            return false;
+        }
+        true
+    }
+}
+
 /// 인라인 트리 + 선택 상태. 임의 부모의 노드를 함께 선택할 수 있다(교차 선택).
 #[derive(Debug)]
 pub struct Tree {
@@ -92,11 +115,22 @@ pub struct Tree {
     sel_set: HashSet<NodeId>,
     anchor: Option<NodeId>,
     root_path: PathBuf,
+    filter: Filter,
 }
 
 impl Tree {
-    /// `path`를 열어 최상위(depth 0) 항목을 열거한 트리를 만든다(펼침 없음).
+    /// `path`를 열어 최상위(depth 0) 항목을 열거한 트리를 만든다(펼침 없음, **모두 표시**).
     pub fn open(path: impl AsRef<Path>) -> io::Result<Tree> {
+        Tree::open_filtered(path, true, true)
+    }
+
+    /// 가시성 필터를 적용해 연다. `show_hidden`=Windows 숨김 속성, `show_dotfiles`=점(.) 파일.
+    /// 걸러진 항목은 트리에 생성되지 않으므로 펼침 시 자식도 동일 필터가 적용된다.
+    pub fn open_filtered(
+        path: impl AsRef<Path>,
+        show_hidden: bool,
+        show_dotfiles: bool,
+    ) -> io::Result<Tree> {
         let root_path = path.as_ref().to_path_buf();
         let mut tree = Tree {
             nodes: Vec::new(),
@@ -106,6 +140,10 @@ impl Tree {
             sel_set: HashSet::new(),
             anchor: None,
             root_path: root_path.clone(),
+            filter: Filter {
+                show_hidden,
+                show_dotfiles,
+            },
         };
         let roots = tree.enumerate(&root_path, None, 0)?;
         tree.roots.clone_from(&roots);
@@ -136,6 +174,9 @@ impl Tree {
         let mut ids = Vec::new();
         for entry in read_dir_entries(dir)? {
             let Ok(e) = entry else { continue };
+            if !self.filter.allows(&e.name, e.attrs) {
+                continue; // 숨김/점 파일 필터(트리에 아예 생성 안 함)
+            }
             let id = self.nodes.len() as NodeId;
             let path = dir.join(&e.name);
             self.nodes.push(Node {
@@ -545,6 +586,23 @@ mod tests {
         t.clear_selection();
         assert_eq!(t.selection_count(), 0);
         fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn open_filtered_excludes_dotfiles() {
+        let base = std::env::temp_dir().join(format!("nexa_tree_filter_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join(".hidden"), b"h").unwrap();
+        fs::write(base.join("visible.txt"), b"v").unwrap();
+
+        let all = Tree::open(&base).unwrap();
+        let no_dot = Tree::open_filtered(&base, true, false).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+
+        assert_eq!(all.visible_len(), 2); // 기본 open = 모두 표시
+        assert_eq!(no_dot.visible_len(), 1); // .hidden 제외
+        assert_eq!(no_dot.row(0).unwrap().name, "visible.txt");
     }
 
     #[test]
