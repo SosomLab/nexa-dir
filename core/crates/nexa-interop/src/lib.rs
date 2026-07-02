@@ -43,8 +43,8 @@ pub struct NexaEntry {
     pub name: *const c_char,
     pub kind: u32, // 0=file, 1=dir, 2=symlink
     pub size: u64,
-    pub modified_unix_ms: i64,        // 없으면 -1
-    pub attrs: u32,                   // Windows 파일 속성 비트(FILE_ATTRIBUTE_*), 비Windows=0
+    pub modified_unix_ms: i64, // 없으면 -1
+    pub attrs: u32,            // Windows 파일 속성 비트(FILE_ATTRIBUTE_*), 비Windows=0
 }
 
 /// 디렉터리 열거를 시작한다. 실패(널/경로오류/IO)면 널 반환.
