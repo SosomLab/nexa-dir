@@ -21,8 +21,10 @@ refactor/001-audit  (분기: 6e81734)
 │    └ 산출: docs/29-adr-0004-core-tree-model.md
 ├─ E3 C1 슬라이스 1 구현 (nexa-tree 코어 모델) ... 1964dc8  (2026-07-02 13:31:17)
 │    └ 산출: core/crates/nexa-tree/** · core/Cargo.toml · docs/19(F26)·STATUS
-├─ E4 진행 로그(이 문서) ......................... (이 커밋)
-└─ E5~ C1 슬라이스 2(ABI)·3(앱 재배선)·4(성능) ... 예정
+├─ E4 진행 로그(이 문서) ......................... 89c0690  (2026-07-02 13:34:45)
+├─ E5 C1 슬라이스 2 (트리 C ABI + ABI v3) ........ 00966af  (2026-07-02 13:55:12)
+│    └ 산출: core/crates/nexa-interop/** · docs/18·19(F27)·STATUS
+└─ E6~ C1 슬라이스 3(앱 재배선)·4(성능) .......... 예정
 ```
 
 ---
@@ -71,8 +73,22 @@ refactor/001-audit  (분기: 6e81734)
 - **누가/왜(Who/Why)**: 사용자 요청 — “진행 틈틈이 브랜치 변화를 시간순 6하원칙으로 상세 기록 + 진행↔커밋 계층 정리.”
 - **무엇/어디서(What/Where)**: 이 문서(`docs/journal/refactor-001-worklog.md`) 신설 — 위 매핑·상세 로그. 이후 슬라이스마다 append.
 
-## 진행 예정 (E5~)
+## E5 · 2026-07-02 13:55:12 · C1 슬라이스 2 — 트리 C ABI + ABI v3 → `00966af`
 
-- **E5 · C1 슬라이스 2**: `nexa-interop` C ABI — `nexa_tree_open/close/visible_len/row/expand/collapse/select…` + `NexaRow`/`NexaRange` + **ABI v3(로드 시 실제 검사)** + 라운드트립 테스트.
-- **E6 · C1 슬라이스 3**: 앱 재배선 — `MainWindow`의 C# `ExpandInPlace`/`IsSelected`를 코어 `VisibleRow` 소비로 교체(`ItemsRepeater` 가상화 + diff 반영).
+- **누가(Who)**: Claude 구현.
+- **왜(Why)**: ADR-0004 슬라이스 2 — 코어 트리/선택(F26)을 C# 호스트가 P/Invoke로 쓰도록 C ABI 표면 노출.
+- **목표(Goal)**: 핸들 기반 트리 ABI + ABI 버전 v3 + 라운드트립 테스트(fmt/clippy 통과).
+- **무엇을(What)**: `nexa-interop`에 `nexa_tree_*` 함수군 + `NexaRow`/`NexaRange` 구조체 + ABI v2→v3.
+- **세부 기능 구현 · 파일:줄** (`core/crates/nexa-interop/src/lib.rs`):
+  - `kind_code`(:16, `FileKind`→u32) — `nexa_dir_next`(:97)와 매핑 통일. ABI 버전 `3`(:27).
+  - `TreeHandle`(:129, 트리+최근 CString 보관) · `NexaRow`(:138, `VisibleRow` 미러, 8→4→1바이트) · `NexaRange`(:152).
+  - `nexa_tree_open`(:164)·`_close`(:187)·`_visible_len`(:198)·`_row`(:211, name 수명 보관)·`_expand`(:243)·`_collapse`(:263)·`write_range`(내부).
+  - 선택: `_select`(mode 0/1)·`_select_range`·`_select_all`·`_clear_selection`·`_is_selected`·`_selected_len`·`_selected_path`(경로 수명 보관).
+  - 의존: `nexa-interop/Cargo.toml`에 `nexa-tree` 추가.
+- **어떻게/검증(How)**: `tree_abi_open_expand_select_collapse` 테스트(열기·펼침 diff `(1,0,1)`·교차 선택·선택 경로 `ends_with(child.txt)`·접힘 `(1,1,0)`·경계/널). `nexa-interop` **5 tests**, 코어 전체 **17 green**, fmt·clippy 통과. `abi_version_is_two`→`_three`.
+- **어디서(Where)**: `core/crates/nexa-interop/{src/lib.rs,Cargo.toml}` · `core/Cargo.lock` · `docs/18`·`docs/19`(F27)·`docs/STATUS`(abi 표기 2→3, 테스트 16→17).
+
+## 진행 예정 (E7~)
+
+- **E6 · C1 슬라이스 3**: 앱 재배선 — 호스트(C#)가 **로드 시 `nexa_abi_version()==3` 실제 검사**(감사 A3) + `NexaRow` 구조체 크기 가드, `MainWindow`의 C# `ExpandInPlace`/`IsSelected`를 코어 `VisibleRow` 소비로 교체(`ItemsRepeater` 가상화 + diff 반영).
 - **E7 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
