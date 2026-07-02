@@ -32,8 +32,12 @@ refactor/001-audit  (분기: 6e81734)
 │    └ 산출: NexaRow/NexaRange 미러 + row/range_size + CheckLayout · docs/19(F28)
 ├─ E8 C1 슬라이스 3b-2 착수 (관리형 트리 클라이언트) 2435b5f  (2026-07-02 15:45:30)
 │    └ 산출: nexa_tree_* P/Invoke + TreeOpen/GetRow/Expand/Select… + TreeRow/TreeRange
+├─ E8.1 nexa_tree_row_path + TreeRowPath (배관 완료) . 1e53e6e  (2026-07-02 15:53:20)
+│    └ 산출: 행 경로 ABI(아이콘/네비 전제) · 코어 17 tests green
 └─ E9~ MainWindow 가상화 소비(3b-2 완료)·선택 위임(3b-3)·성능(4) . 예정
 ```
+
+> 📦 **배관 완료 지점**: 코어 모델 → C ABI(v3, row_path 포함) → 로드 검사·레이아웃 가드 → 관리형 클라이언트(`TreeRow`/`TreeRange`/`TreeRowPath`)까지 전부 CI-green. 남은 것은 **MainWindow 소비 배선**(가상화 컬렉션 + 펼침/선택 위임)뿐 — WinUI 런타임 검증 필요.
 
 > ✅ **CI 검증 완료(PR #1, draft)**: 슬라이스 1·2·3a가 `refactor/001-audit`에서 core(win/mac)·cargo-deny·**WinUI app** 전 job green. 앱 ABI 검사(F28)까지 CI 통과.
 
