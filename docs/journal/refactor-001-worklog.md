@@ -34,7 +34,11 @@ refactor/001-audit  (분기: 6e81734)
 │    └ 산출: nexa_tree_* P/Invoke + TreeOpen/GetRow/Expand/Select… + TreeRow/TreeRange
 ├─ E8.1 nexa_tree_row_path + TreeRowPath (배관 완료) . 1e53e6e  (2026-07-02 15:53:20)
 │    └ 산출: 행 경로 ABI(아이콘/네비 전제) · 코어 17 tests green
-└─ E9~ MainWindow 가상화 소비(3b-2 완료)·선택 위임(3b-3)·성능(4) . 예정
+├─ E9 코어 가시성 필터(F24 이관) ................. cbccea7  (2026-07-02 16:03:48)
+│    └ nexa-tree open_filtered + ABI open(filter) · 코어 18 tests
+├─ E10 VirtualTreeCollection 컴포넌트(미배선) ..... b191c69  (2026-07-02 16:17:50)
+│    └ 가상화 소비 컬렉션 + DirItem.Id · build only
+└─ E11~ MainWindow 배선(3b-2 배선)·선택(3b-3)·성능(4) . 예정 (WinUI 실기 QA)
 ```
 
 > 📦 **배관 완료 지점**: 코어 모델 → C ABI(v3, row_path 포함) → 로드 검사·레이아웃 가드 → 관리형 클라이언트(`TreeRow`/`TreeRange`/`TreeRowPath`)까지 전부 CI-green. 남은 것은 **MainWindow 소비 배선**(가상화 컬렉션 + 펼침/선택 위임)뿐 — WinUI 런타임 검증 필요.
@@ -128,7 +132,21 @@ refactor/001-audit  (분기: 6e81734)
   - 관리형 record `TreeRow`(VisibleRow)·`TreeRange`(RangeChange). `NexaRow.Name`은 즉시 `PtrToStringUTF8` 복사.
 - **검증(How)**: 앱 로컬 build 0 warning/0 err. PR CI로.
 
-## 진행 예정 (E9~)
+## E9 · 2026-07-02 16:03:48 · 코어 가시성 필터(F24 이관) → `cbccea7`
+
+- **왜**: 코어 트리가 `ReadDir`을 대체할 때 F24(숨김/점 파일) 회귀 방지 — 필터를 코어로(감사 M2).
+- **무엇**: `nexa-tree` `Filter{show_hidden,show_dotfiles}` + `Tree::open_filtered`(enumerate에서 걸러진 항목 미생성) · ABI `nexa_tree_open(path,show_hidden,show_dotfiles)` · 관리형 `TreeOpen(path,showHidden,showDotFiles)`. 테스트 `open_filtered_excludes_dotfiles`(코어 18 green). **QA 불필요(코어 테스트).**
+
+## E10 · 2026-07-02 16:17:50 · VirtualTreeCollection 컴포넌트(미배선) → `b191c69`
+
+- **왜**: MainWindow 배선의 핵심 컴포넌트를 먼저 독립 구현·리뷰(미배선=런타임 무영향).
+- **무엇 · 파일** ([VirtualTreeCollection.cs](../../app/Nexa.App/VirtualTreeCollection.cs)): 가시 인덱스만 지연 생성·캐시, 펼침/접힘/선택을 코어 위임. `IList+IReadOnlyList<DirItem>+INotifyCollectionChanged+IDisposable`. `Open/this[i]/ToggleExpand/Select/SelectRange/SelectAll/ClearSelection/SelectedPaths`. 구조변경=Reset 통지. `DirItem.Id`(NodeId) 추가. **QA 불필요(미배선, build only).**
+
+## 진행 예정 (E11~) — ★여기부터 WinUI 실기 QA 필요
+
+- **E11 · 3b-2 배선**: `MainWindow`의 `_leftItems`/`_rightItems`(ObservableCollection)를 `VirtualTreeCollection`로 교체, `LoadDirectory`→`Open`, `OnToggleExpand`→`ToggleExpand`, 선택 핸들러→코어 위임, C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거. **최대 단일 변경.**
+- **E12 · 3b-3**: 키보드 네비/범위/캐럿을 코어 선택으로 정리, 잔여 C# 트리 코드 제거.
+- **E13 · 4**: 10만 노드 벤치(AC5) + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n).
 
 - **E9 · C1 슬라이스 3b-2 완료**: `VirtualTreeCollection`(IList+INotifyCollectionChanged, 인덱스별 `TreeGetRow` 지연 생성·캐시) → 패널당 `NexaTree` 보유, `LoadDirectory`를 `TreeOpen`+가상화 소비로 전환(현 `ReadDir`/`DirItem` 전량 채움 대체). **전면 가상화 = 보이는 행만 구체화.**
 - **E10 · C1 슬라이스 3b-3**: 펼침/접힘(`TreeExpand/Collapse` + `TreeRange` → 컬렉션 diff 이벤트) + 선택(`TreeSelect*`, `IsSelected`=코어) 위임. C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거.
