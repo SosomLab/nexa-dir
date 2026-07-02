@@ -52,7 +52,7 @@ Gesture (택1)
 - **표기(문자열 직렬화)**: 키보드 = `ctrl+shift+p`, 마우스 = `mouse:<button>`(`xbutton1`=뒤로, `xbutton2`=앞으로, `middle`, `right`…), 조합 = `ctrl+mouse:middle`, 더블 = `mouse:double:left`.
 - **다중 바인딩**: 같은 `command`에 여러 `Binding`을 매핑(예: `nav.back` = `Alt+←` **그리고** `mouse:xbutton1`). `keybindings.json`은 명령당 여러 줄로 표현(§5-1).
 - **입력 소스 통합**: `KeymapService`가 키 이벤트(`OnGridKeyDown`)와 포인터 이벤트(`OnRootPointerPressed`)를 **같은 제스처 해석 경로**로 보낸다 → (Gesture + When) → 명령.
-- **마우스 뒤로/앞으로는 이미 기본 바인딩으로 구현**(F25): `XButton1→nav.back`, `XButton2→nav.forward`(활성 패널). 레지스트리 이관 전까지는 하드코딩 기본값이며, 이관 시 위 모델의 `DefaultBindings`로 흡수된다.
+- **마우스 뒤로/앞으로는 이미 기본 바인딩으로 구현**(F25): `XButton1→nav.back`, `XButton2→nav.forward`(**포인터가 놓인 패널** 기준 — 빈 폴더 포함). 레지스트리 이관 전까지는 하드코딩 기본값이며, 이관 시 위 모델의 `DefaultBindings`로 흡수된다.
 
 ## 3. 팔레트 UX
 

@@ -357,6 +357,23 @@
   | 독립성 | 두 토글 조합 | 각각 독립 적용(둘 다 ON=모두 표시가 기본) |
 - **후속**: System(0x4) 속성·설정 JSON 영속화(docs/19 설정 시스템) · 토글 상태 초기 동기화(현재 XAML `IsChecked="True"`가 설정 기본값과 일치).
 
+### F25. 마우스 뒤로/앞으로 버튼 → 패널 네비게이션
+
+- **무엇**: 마우스 `XButton1`(뒤로)/`XButton2`(앞으로)로 파일 패널의 뒤로/앞으로 이동(네비 바 버튼과 동일). 단축키 시스템(FR-I2, [26 §2-1](26-command-palette.md))의 **기본 마우스 바인딩**.
+- **대상 패널 = 포인터가 놓인 패널**: `RootGrid` `PointerPressed`(handledEventsToo)에서 `e.OriginalSource`를 시각 트리로 거슬러 `LeftPaneRoot`/`RightPanel` 판정(`PanelUnderPointer`). **빈(항목 0개) 폴더에서도 동작** — 행 클릭에 의존하던 활성 패널 판정의 사각지대를 제거.
+- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnRootPointerPressed`·`PanelUnderPointer`, 생성자에서 `RootGrid.AddHandler(PointerPressedEvent, …, handledEventsToo:true)`.
+- **버그 수정(2건, 최초 구현 직후)**:
+  - ① *다른 패널이 이동*: XButton press가 커서 아래 행의 `OnRowPointerPressed`를 먼저 태워 활성 패널을 뒤집던 문제 → **포인터 위치로 대상 패널 판정**(+ `OnRowPointerPressed`는 XButton press를 무시=선택/활성 변경 안 함).
+  - ② *빈 폴더에서 무동작*: 빈 패널은 행 클릭으로 활성화 불가 → 활성 패널이 stale → 이제 위치 기준이라 해결(F21-1과 동류의 이벤트-순서/빈목록 사각지대).
+- **커밋**: `78fa9cc`(초안) · `(이 단위)`(포인터 위치 판정 수정).
+- **테스트(Windows)**:
+  | 방법 | 동작 | 기대 |
+  | --- | --- | --- |
+  | 좌 패널 위에서 마우스 뒤로 | 좌 패널 커서 | 좌 패널이 뒤로 |
+  | 우 패널 위에서 마우스 앞으로 | 우 패널 커서 | 우 패널이 앞으로 |
+  | 빈(항목 0개) 폴더 위에서 마우스 뒤로 | 빈 좌 패널 커서 | 좌 패널이 뒤로(무동작 아님) |
+  | 행 위에서 마우스 뒤로 | 행 커서 | 선택 변화 없이 그 패널 뒤로 |
+
 ---
 
 ## 구현 순서 (다음 단계 로드맵)

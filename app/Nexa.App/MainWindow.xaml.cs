@@ -271,8 +271,10 @@ public sealed partial class MainWindow : Window
     private void OnNavUp(object sender, RoutedEventArgs e) => GoUp(IsLeftPanel(sender));
 
     /// <summary>
-    /// 마우스 뒤로/앞으로 버튼(XButton1=뒤로, XButton2=앞으로) → <b>활성(포커스) 패널</b>의
-    /// 뒤로/앞으로. 네비 바 버튼과 동일 동작(<see cref="GoBack"/>/<see cref="GoForward"/>)에 연결한다.
+    /// 마우스 뒤로/앞으로 버튼(XButton1=뒤로, XButton2=앞으로) → <b>포인터가 위치한 패널</b>의
+    /// 뒤로/앞으로. 그 패널을 활성으로 만든 뒤 네비 바 버튼과 동일 동작
+    /// (<see cref="GoBack"/>/<see cref="GoForward"/>)을 수행한다. 포인터 위치 기준이므로
+    /// <b>빈(항목 0개) 폴더에서도 동작</b>한다(행 클릭에 의존하던 활성 패널 판정의 사각지대 제거).
     /// 이 마우스 바인딩은 단축키 시스템(FR-I2, docs/26 §5-4)의 기본 바인딩 — 설정에서 재정의 예정.
     /// </summary>
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -282,16 +284,41 @@ public sealed partial class MainWindow : Window
             return;
         }
         var props = e.GetCurrentPoint((UIElement)sender).Properties;
+        if (!props.IsXButton1Pressed && !props.IsXButton2Pressed)
+        {
+            return;
+        }
+        // 포인터가 놓인 패널을 대상으로(빈 목록이어도 판정 가능) → 활성화 후 이동.
+        // 어느 패널도 아니면(툴바/메뉴 위 등) 마지막 활성 패널로 폴백.
+        bool left = PanelUnderPointer(e.OriginalSource as DependencyObject) ?? _activeLeft;
+        SetActivePanel(left);
         if (props.IsXButton1Pressed)
         {
-            GoBack(_activeLeft);
-            e.Handled = true;
+            GoBack(left);
         }
-        else if (props.IsXButton2Pressed)
+        else
         {
-            GoForward(_activeLeft);
-            e.Handled = true;
+            GoForward(left);
         }
+        e.Handled = true;
+    }
+
+    /// <summary>포인터 원본 요소가 좌(<c>LeftPaneRoot</c>)/우(<c>RightPanel</c>) 어느 패널 안인지. 둘 다 아니면 null.</summary>
+    private bool? PanelUnderPointer(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (ReferenceEquals(node, LeftPaneRoot))
+            {
+                return true;
+            }
+            if (ReferenceEquals(node, RightPanel))
+            {
+                return false;
+            }
+            node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+        }
+        return null;
     }
 
     /// <summary>
@@ -459,6 +486,12 @@ public sealed partial class MainWindow : Window
 
     private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // 마우스 뒤로/앞으로(XButton1/2)는 네비게이션 전용 → 행 선택·활성 패널 변경 금지(RootGrid가 처리).
+        var pp = e.GetCurrentPoint((UIElement)sender).Properties;
+        if (pp.IsXButton1Pressed || pp.IsXButton2Pressed)
+        {
+            return;
+        }
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
