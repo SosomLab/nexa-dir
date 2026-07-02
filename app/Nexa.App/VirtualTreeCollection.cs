@@ -18,6 +18,8 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 {
     private IntPtr _handle = IntPtr.Zero;
     private readonly Dictionary<int, DirItem> _cache = new();
+    private int _caretIndex = -1;   // 키보드 캐럿(현재 위치) 가시 인덱스, 없으면 -1
+    private bool _panelFocused = true; // 이 패널이 활성인가(선택색 파랑/회색)
 
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
@@ -33,8 +35,64 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         Close();
         _handle = NativeInterop.TreeOpen(path, showHidden, showDotFiles);
         RootPath = path;
+        _caretIndex = -1;
         RaiseReset();
         return _handle != IntPtr.Zero;
+    }
+
+    // ── 캐럿 / 패널 포커스 (전이 행에 얹는 UI 상태) ───────────────────
+
+    /// <summary>키보드 캐럿의 현재 가시 인덱스(없으면 -1).</summary>
+    public int CaretIndex => _caretIndex;
+
+    /// <summary>캐럿 위치의 행(범위 밖이면 null).</summary>
+    public DirItem? CaretItem => _caretIndex >= 0 && _caretIndex < Count ? this[_caretIndex] : null;
+
+    /// <summary>캐럿을 <paramref name="index"/>로 옮긴다(이전/새 캐럿 행의 표시 갱신).</summary>
+    public void SetCaret(int index)
+    {
+        if (index == _caretIndex)
+        {
+            return;
+        }
+        if (_caretIndex >= 0 && _cache.TryGetValue(_caretIndex, out var old))
+        {
+            old.IsCaret = false;
+        }
+        _caretIndex = index;
+        if (index >= 0 && _cache.TryGetValue(index, out var cur))
+        {
+            cur.IsCaret = true;
+        }
+    }
+
+    /// <summary>이 패널의 활성(포커스) 여부 설정 → 실체화된 행의 선택색(파랑/회색) 갱신.</summary>
+    public void SetPanelFocused(bool focused)
+    {
+        if (_panelFocused == focused)
+        {
+            return;
+        }
+        _panelFocused = focused;
+        foreach (var item in _cache.Values)
+        {
+            item.PanelFocused = focused;
+        }
+    }
+
+    /// <summary>경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자 무시·대소문자 무시.</summary>
+    public int IndexOfPath(string fullPath)
+    {
+        string target = fullPath.TrimEnd('\\', '/');
+        int n = Count;
+        for (int i = 0; i < n; i++)
+        {
+            if (string.Equals(this[i].FullPath.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /// <summary>현재 가시 행 수(코어 질의).</summary>
@@ -64,6 +122,8 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
             {
                 IsExpanded = r.Expanded,
                 IsSelected = NativeInterop.TreeIsSelected(_handle, r.Id),
+                IsCaret = index == _caretIndex,
+                PanelFocused = _panelFocused,
             };
         }
         // 방어: 범위 밖(레이아웃 지연 등) — 빈 행.
