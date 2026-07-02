@@ -25,7 +25,7 @@ internal enum NexaFileKind : uint
 /// </summary>
 internal sealed class DirItem : INotifyPropertyChanged
 {
-    public DirItem(string name, NexaFileKind kind, ulong size, long modifiedUnixMs, string fullPath, int depth, uint attrs = 0)
+    public DirItem(string name, NexaFileKind kind, ulong size, long modifiedUnixMs, string fullPath, int depth, uint attrs = 0, ulong id = 0)
     {
         Name = name;
         Kind = kind;
@@ -34,12 +34,16 @@ internal sealed class DirItem : INotifyPropertyChanged
         FullPath = fullPath;
         Depth = depth;
         Attrs = attrs;
+        Id = id;
     }
 
     public string Name { get; }
     public NexaFileKind Kind { get; }
     public ulong Size { get; }
     public long ModifiedUnixMs { get; }
+
+    /// <summary>코어 트리 노드 식별자(NodeId). 코어 트리에서 온 행만 의미(그 외 0). 펼침/선택 코어 호출에 사용.</summary>
+    public ulong Id { get; }
 
     /// <summary>Windows 파일 속성 비트(코어가 열거 시 채움). 비Windows/미조회는 0.</summary>
     public uint Attrs { get; }
