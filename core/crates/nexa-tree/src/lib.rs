@@ -737,8 +737,9 @@ mod tests {
             names(&t),
             vec!["dirA", "dirB", "x.txt", "y.txt", "file1.txt"]
         );
+        // 플랫폼 구분자로 조립(Windows에서 내부 '/'는 노드 경로 '\\'와 불일치하므로 join 중첩)
         assert_eq!(
-            t.index_of_path(&base.join("dirA/dirB").to_string_lossy()),
+            t.index_of_path(&base.join("dirA").join("dirB").to_string_lossy()),
             Some(1)
         );
         // 이미 펼침 → NONE, 없는 경로 → NONE
