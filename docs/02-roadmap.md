@@ -9,14 +9,14 @@
 
 > 목표: 빈 화면이라도 코어↔UI가 연결되어 폴더를 연다.
 
-- [ ] 리포 구조 확정 (`core/` Rust 워크스페이스, `app/` WinUI 3 솔루션)
-- [ ] Windows 빌드 환경 + GitHub Actions CI (`windows-latest`)
-- [ ] Rust 코어 ↔ C# 인터롭 PoC (`csbindgen`로 함수 1개 왕복)
-- [ ] `nexa-vfs` 로컬 provider: 디렉터리 **스트리밍 열거** API
-- [ ] WinUI 셸: 단일 창 + `ItemsRepeater` 가상화 리스트로 로컬 폴더 렌더
-- [ ] 기본 네비게이션(더블클릭 진입, 뒤로/앞으로/위로, 주소줄)
+- [x] 리포 구조 확정 (`core/` Rust 워크스페이스, `app/` WinUI 3 솔루션)
+- [x] Windows 빌드 환경 + GitHub Actions CI (`windows-latest`)
+- [x] Rust 코어 ↔ C# 인터롭 PoC (함수 1개 왕복 — **수동 P/Invoke 미러**로 구현. `csbindgen` 도입은 표면 확대 전 M2/M3 전으로 이월, 2차 감사 C5)
+- [x] `nexa-vfs` 로컬 provider: 디렉터리 **스트리밍 열거** API
+- [x] WinUI 셸: 단일 창 + `ItemsRepeater` 가상화 리스트로 로컬 폴더 렌더
+- [x] 기본 네비게이션(더블클릭 진입, 뒤로/앞으로/위로, 주소줄)
 
-**완료 기준**: 임의의 로컬 폴더를 열어 항목을 가상화 렌더하고 탐색할 수 있다.
+**완료 기준**: 임의의 로컬 폴더를 열어 항목을 가상화 렌더하고 탐색할 수 있다. → ✅ **달성**(M1 진행 중, `0.1.0` 태그·main 병합). 플래그십 트리/선택은 코어(`nexa-tree`)로 이관 완료(C1/ADR-0004).
 
 ---
 
