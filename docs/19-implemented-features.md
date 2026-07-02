@@ -398,7 +398,8 @@
 - **무엇**: C# 호스트가 시작 시 코어 dll의 **ABI 호환성을 실제 검사**한다(감사 A2/A3 정정). 그동안 `nexa_abi_version()`을 **표시만** 하고 미검사였던 것을 실제 게이트로.
 - **구현 위치**: [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) `nexa_entry_size()`(구조체 크기 export) · [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) `ExpectedAbi=3`·`VerifyAbi()`(① 버전==3, ② `Marshal.SizeOf<NexaEntry>()`==코어 크기) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `ShowInteropRoundTrip`이 `VerifyAbi()` 선행 호출.
 - **효과**: 구형/신형 dll이 조용히 로드돼 구조체가 오정렬(→ `attrs`/`size` 오염)되는 것을 **차단**. 불일치 시 `인터롭 실패: …` 상태 메시지(오류 격리, 앱은 계속).
-- **후속(슬라이스 3b)**: `NexaRow`/`NexaRange` P/Invoke 미러 + 크기 가드 추가 + `MainWindow` 인라인 트리/선택을 코어 `VisibleRow` 소비로 교체.
+- **확장(슬라이스 3b-1)**: `NexaRow`/`NexaRange` P/Invoke 미러 struct 추가 + `nexa_row_size`/`nexa_range_size` export로 **세 구조체 모두 크기 가드**(`CheckLayout` 헬퍼). 함수 바인딩·UI 소비는 3b-2/3b-3.
+- **후속(슬라이스 3b-2/3)**: `nexa_tree_*` 함수 P/Invoke + `MainWindow` 인라인 트리/선택을 코어 `VisibleRow` 소비로 교체.
 - **커밋**: `(이 단위)`.
 - **검증(Windows)**: 앱 실행 → `인터롭 OK — abi=3, …`(검사 통과). dll을 구버전으로 바꾸면 `인터롭 실패: 코어 ABI 불일치…`. **WinUI라 맥 빌드 불가 → PR/CI(app job)로 검증.**
 

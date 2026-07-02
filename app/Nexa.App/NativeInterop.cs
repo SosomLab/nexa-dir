@@ -224,10 +224,18 @@ internal static class NativeInterop
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     public static extern ulong nexa_entry_size();
 
+    /// <summary>코어의 <c>NexaRow</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ulong nexa_row_size();
+
+    /// <summary>코어의 <c>NexaRange</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ulong nexa_range_size();
+
     /// <summary>
     /// 로드된 네이티브 dll의 <b>ABI 호환성</b>을 검사한다(감사 A2/A3 정정):
-    /// ① 버전이 <see cref="ExpectedAbi"/>와 일치, ② 마샬 구조체(<c>NexaEntry</c>) 크기가 코어와 일치.
-    /// 불일치 시 <see cref="InvalidOperationException"/> — 호출측이 네이티브 경로를 비활성/경고한다.
+    /// ① 버전이 <see cref="ExpectedAbi"/>와 일치, ② 마샬 구조체(<c>NexaEntry</c>/<c>NexaRow</c>/<c>NexaRange</c>)
+    /// 크기가 코어와 일치. 불일치 시 <see cref="InvalidOperationException"/> — 호출측이 네이티브 경로를 비활성/경고한다.
     /// 구형/신형 dll이 조용히 로드돼 구조체가 오정렬되는 것을 차단한다.
     /// </summary>
     public static void VerifyAbi()
@@ -238,12 +246,18 @@ internal static class NativeInterop
             throw new InvalidOperationException(
                 $"코어 ABI 불일치: dll={abi}, 기대={ExpectedAbi} — nexa_interop.dll이 구형/신형입니다(재빌드 필요).");
         }
-        ulong marshalSize = (ulong)Marshal.SizeOf<NexaEntry>();
-        ulong nativeSize = nexa_entry_size();
-        if (marshalSize != nativeSize)
+        CheckLayout("NexaEntry", Marshal.SizeOf<NexaEntry>(), nexa_entry_size());
+        CheckLayout("NexaRow", Marshal.SizeOf<NexaRow>(), nexa_row_size());
+        CheckLayout("NexaRange", Marshal.SizeOf<NexaRange>(), nexa_range_size());
+    }
+
+    /// <summary>C# 마샬 크기와 코어 크기를 대조(불일치 시 예외). <see cref="VerifyAbi"/> 내부용.</summary>
+    private static void CheckLayout(string name, int marshalSize, ulong nativeSize)
+    {
+        if ((ulong)marshalSize != nativeSize)
         {
             throw new InvalidOperationException(
-                $"NexaEntry 레이아웃 불일치: C#={marshalSize}B, 코어={nativeSize}B — P/Invoke 미러가 어긋났습니다.");
+                $"{name} 레이아웃 불일치: C#={marshalSize}B, 코어={nativeSize}B — P/Invoke 미러가 어긋났습니다.");
         }
     }
 
@@ -343,5 +357,33 @@ internal static class NativeInterop
             sort.FoldersFirst && a.IsDir != b.IsDir
                 ? (a.IsDir ? -1 : 1)
                 : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ── 코어 트리/선택 (C1, ABI v3) — 구조체 미러 ────────────────────────────
+    // 함수 바인딩(nexa_tree_*)과 UI 소비는 후속 슬라이스(3b-2/3b-3). 여기서는 레이아웃 가드용 미러만.
+
+    /// <summary>C ABI <c>NexaRow</c> 미러(코어 <c>VisibleRow</c>). 8→4→1바이트 배치와 일치.
+    /// <c>Name</c>은 다음 row/close 전까지만 유효한 네이티브 포인터.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NexaRow
+    {
+        public ulong Id;
+        public ulong Size;
+        public long ModifiedUnixMs;
+        public IntPtr Name;
+        public uint Depth;
+        public uint Kind;
+        public uint Attrs;
+        public byte Expanded;     // 0/1
+        public byte HasChildren;  // 0/1
+    }
+
+    /// <summary>C ABI <c>NexaRange</c> 미러(코어 <c>RangeChange</c>) — 펼침/접힘 diff 구간.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NexaRange
+    {
+        public ulong Start;
+        public ulong Removed;
+        public ulong Inserted;
     }
 }
