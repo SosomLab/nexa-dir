@@ -38,7 +38,10 @@ refactor/001-audit  (분기: 6e81734)
 │    └ nexa-tree open_filtered + ABI open(filter) · 코어 18 tests
 ├─ E10 VirtualTreeCollection 컴포넌트(미배선) ..... b191c69  (2026-07-02 16:17:50)
 │    └ 가상화 소비 컬렉션 + DirItem.Id · build only
-└─ E11~ MainWindow 배선(3b-2 배선)·선택(3b-3)·성능(4) . 예정 (WinUI 실기 QA)
+├─ (docs) 용어집(30) ............................. (인터롭/배관 한영)
+├─ E11a VirtualTreeCollection 캐럿·포커스·경로조회 . 86e3ab1  (2026-07-02 16:49:07)
+├─ E11b MainWindow 코어 트리 가상화 배선(−250줄) .. d818675  (2026-07-02 17:14:35)  ★실기 QA 필요
+└─ E12~ 잔여 C# 정리(3b-3)·성능(4) ............... 예정
 ```
 
 > 📦 **배관 완료 지점**: 코어 모델 → C ABI(v3, row_path 포함) → 로드 검사·레이아웃 가드 → 관리형 클라이언트(`TreeRow`/`TreeRange`/`TreeRowPath`)까지 전부 CI-green. 남은 것은 **MainWindow 소비 배선**(가상화 컬렉션 + 펼침/선택 위임)뿐 — WinUI 런타임 검증 필요.
@@ -142,11 +145,28 @@ refactor/001-audit  (분기: 6e81734)
 - **왜**: MainWindow 배선의 핵심 컴포넌트를 먼저 독립 구현·리뷰(미배선=런타임 무영향).
 - **무엇 · 파일** ([VirtualTreeCollection.cs](../../app/Nexa.App/VirtualTreeCollection.cs)): 가시 인덱스만 지연 생성·캐시, 펼침/접힘/선택을 코어 위임. `IList+IReadOnlyList<DirItem>+INotifyCollectionChanged+IDisposable`. `Open/this[i]/ToggleExpand/Select/SelectRange/SelectAll/ClearSelection/SelectedPaths`. 구조변경=Reset 통지. `DirItem.Id`(NodeId) 추가. **QA 불필요(미배선, build only).**
 
-## 진행 예정 (E11~) — ★여기부터 WinUI 실기 QA 필요
+## E11 · C1 3b-2 배선 (E11a 컴포넌트 강화 → E11b MainWindow 교체)
 
-- **E11 · 3b-2 배선**: `MainWindow`의 `_leftItems`/`_rightItems`(ObservableCollection)를 `VirtualTreeCollection`로 교체, `LoadDirectory`→`Open`, `OnToggleExpand`→`ToggleExpand`, 선택 핸들러→코어 위임, C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거. **최대 단일 변경.**
-- **E12 · 3b-3**: 키보드 네비/범위/캐럿을 코어 선택으로 정리, 잔여 C# 트리 코드 제거.
-- **E13 · 4**: 10만 노드 벤치(AC5) + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n).
+- **E11a `86e3ab1`**: `VirtualTreeCollection`에 캐럿(`SetCaret`/`CaretIndex`/`CaretItem`)·패널포커스(`SetPanelFocused`)·경로조회(`IndexOfPath`)·`RowBuilt` 콜백 추가(전이 행에 얹는 UI 상태). 미배선.
+- **E11b `d818675` (★실기 QA 필요)**: `MainWindow` 배선 — 목록 필드를 `VirtualTreeCollection`로 교체, `LoadDirectory`→`Open`(필터 코어), `OnToggleExpand`→`ToggleExpand`, 클릭/키보드 선택→`Select/SelectRange`(코어 OrderedSet), 캐럿→`SetCaret`, 포커스색→`SetPanelFocused`, 아이콘→`RowBuilt`. **제거**: `SetExpanded`/`ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`ExpandedSet`/`NormPath`/`MoveCaret`/구 `ParentIndex` + anchor/caret 필드 → **−250줄**. app build 0 warn/err(빌드만).
+
+### ★ E11b 실기 QA 체크리스트 (앱 실행 후 확인)
+
+1. 표시: 폴더 목록 정상(이름/폴더우선/날짜/크기/**아이콘 지연 로드**).
+2. 필터: 표시(S) "숨김 파일 보기"·"점(.) 파일 보기" 해제 시 각각 사라짐(F24).
+3. 네비: 더블클릭 진입 / 상위 / 뒤로·앞으로(버튼·마우스 XButton) / 경로바 / **←로 부모 이동**.
+4. 인라인 펼침: ▶ 클릭·→키 펼침, ▼·←키 접힘, 중첩 펼침 후 접었다 펴기 복원.
+5. 선택: 단일 / Ctrl 비연속 / Shift 범위 / **교차 폴더** / (키보드 Space·Shift+↑↓·Ctrl+↑↓).
+6. 키보드: ↑↓ 이동 · 캐럿 외곽선 표시 · Alt+↓ 진입.
+7. 탭·듀얼: 좌/우 독립 · 활성 패널 선택색(파랑) vs 비활성(회색) · 탭 전환 유지.
+8. 안정성: 큰 폴더·빠른 펼침/접힘 반복 시 크래시·멈춤 없음.
+
+> ⚠️ 알려진 러프 엣지(발견 시 알려주세요 → 후속 수정): 펼침/접힘은 현재 **Reset 통지**라 스크롤 위치·미세 깜빡임 가능(성능 슬라이스4에서 범위 diff로 개선). 펼침 후 캐럿/스크롤 유지 정도.
+
+## 진행 예정 (E12~)
+
+- **E12 · 3b-3 정리**: 사용 안 하는 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리, F18(네비 간 펼침 유지) 코어화 검토.
+- **E13 · 4 성능**: 10만 노드 벤치(AC5) + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n).
 
 - **E9 · C1 슬라이스 3b-2 완료**: `VirtualTreeCollection`(IList+INotifyCollectionChanged, 인덱스별 `TreeGetRow` 지연 생성·캐시) → 패널당 `NexaTree` 보유, `LoadDirectory`를 `TreeOpen`+가상화 소비로 전환(현 `ReadDir`/`DirItem` 전량 채움 대체). **전면 가상화 = 보이는 행만 구체화.**
 - **E10 · C1 슬라이스 3b-3**: 펼침/접힘(`TreeExpand/Collapse` + `TreeRange` → 컬렉션 diff 이벤트) + 선택(`TreeSelect*`, `IsSelected`=코어) 위임. C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거.
