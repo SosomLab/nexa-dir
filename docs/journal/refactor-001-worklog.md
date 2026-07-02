@@ -163,10 +163,30 @@ refactor/001-audit  (분기: 6e81734)
 
 > ⚠️ 알려진 러프 엣지(발견 시 알려주세요 → 후속 수정): 펼침/접힘은 현재 **Reset 통지**라 스크롤 위치·미세 깜빡임 가능(성능 슬라이스4에서 범위 diff로 개선). 펼침 후 캐럿/스크롤 유지 정도.
 
+## ★ E11b 실기 QA 결과 (2026-07-02) — 회귀/개선 TODO
+
+사용자 실기 확인. 3건 접수:
+
+1. **[회귀 · 머지 전 복원 필요] F18 펼침 상태 유지(진입/이동)**
+   - 증상: 폴더를 펼쳐둔 뒤 **다른 폴더로 이동/진입하면 이전 펼침이 사라지고 평면 목록만** 표시. (한 뷰 내 펼침/접힘·재펼침 복원은 정상.)
+   - 원인: E11b가 `_leftExpanded/_rightExpanded`(경로셋) + `ApplySavedExpansion` 제거. 트리 핸들이 `Open`마다 새로 생성돼 펼침 상태 유실.
+   - 기록 대조: **[F18](../19-implemented-features.md) "한계\후속"에 "C1 이관 시 통합"으로 이미 예고된 항목** — 예견된 회귀.
+   - **결정: TODO(이 브랜치 main 머지 전 복원)**. 깔끔한 복원안 = `PanelTab.Expanded`(경로셋) 유지 + `Open` 후 **얕은→깊은 순 재펼침**(컬렉션 `ExpandPaths` 배치 API로 Reset 1회) 또는 코어 `nexa_tree_*`에 경로 펼침 지원 추가. → **E12에서 별도 슬라이스로**.
+2. **[신규 · 설정] 헤더 정보란 토글**
+   - 요청: 그리드 상단 `현재경로 — N개 항목`(`DirHeader`) 표시를 **설정에서 on/off**.
+   - → **설정 화면 백로그**([26 §8](../26-command-palette.md)) + `ViewOptions.ShowHeaderInfo`(예정). 지금은 문서화만.
+3. **[성능 · 개선 필요]** 대용량 폴더(예: `C:\Windows\System32` 4880개) **느림·스크롤 비자연**.
+   - 원인 추정: 펼침/접힘 **Reset 통지**(전체 재실체화) + `visible_index`/`IndexOf` **선형 O(n)** + `row`/`row_path` 매 호출 마샬.
+   - → **슬라이스 4(성능)**: 범위 diff 통지(Reset→Insert/Remove) · 행 인덱스↔노드 **O(log n)**(부모별 자식수 캐시) · 행 캐시/일괄 조회. (AC5 벤치와 함께)
+4. **[성능 · 개선 필요]** 파일 많은 디렉터리 여러 개를 탭으로 열고 **탭 전환 시 클릭 반응이 살짝 지연**되는 느낌.
+   - 원인 추정: 탭 전환=`SwitchToTab`→`Navigate`→`LoadDirectory`→`Open`(새 트리 핸들) + **Reset** → `ItemsRepeater` 전체 재실체화가 **UI 스레드 동기** 처리. 각 행 실체화가 `row`+`row_path` 2회 P/Invoke + 아이콘 로드 유발.
+   - → **슬라이스 4**: 탭별 트리 핸들 **캐시/보존**(전환 시 재-Open 회피) · 초기 창만 실체화 · 행 조회 일괄화 · 아이콘 로드 스로틀. (#3과 동일 성능 트랙)
+
 ## 진행 예정 (E12~)
 
-- **E12 · 3b-3 정리**: 사용 안 하는 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리, F18(네비 간 펼침 유지) 코어화 검토.
-- **E13 · 4 성능**: 10만 노드 벤치(AC5) + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n).
+- **E12 · 3b-3 정리 + F18 복원**: 위 QA #1(F18 펼침 유지 복원) + 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
+- **E13 · 4 성능**: QA #3(대용량 스크롤)·**#4(탭 전환 클릭 지연)** — 탭별 트리 핸들 캐시 + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n) + 10만 노드 벤치(AC5).
+- **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 
 - **E9 · C1 슬라이스 3b-2 완료**: `VirtualTreeCollection`(IList+INotifyCollectionChanged, 인덱스별 `TreeGetRow` 지연 생성·캐시) → 패널당 `NexaTree` 보유, `LoadDirectory`를 `TreeOpen`+가상화 소비로 전환(현 `ReadDir`/`DirItem` 전량 채움 대체). **전면 가상화 = 보이는 행만 구체화.**
 - **E10 · C1 슬라이스 3b-3**: 펼침/접힘(`TreeExpand/Collapse` + `TreeRange` → 컬렉션 diff 이벤트) + 선택(`TreeSelect*`, `IsSelected`=코어) 위임. C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거.

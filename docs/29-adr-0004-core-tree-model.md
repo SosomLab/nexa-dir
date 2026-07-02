@@ -62,3 +62,49 @@ nexa_tree_selected_len / nexa_tree_selected_path(index) -> *const c_char
 ## 대안 (기각)
 - **C# 유지+최적화**: NFR 미달·맥 테스트 불가·설계 배치(감사 A1/A2). 기각.
 - **nexa-vfs에 트리 병합**: vfs는 열거/Provider 책임에 집중, 트리 상태는 별 크레이트가 응집도↑. 기각.
+
+---
+
+## 구현 결과 — Rust 코어 ↔ UI 연계 변경 (before/after)
+
+> C1(슬라이스 1~3b-2, 커밋 `1964dc8`→`d818675`)로 **트리/선택/정렬/필터의 소유권이 앱(C#)에서 코어(Rust)로 이동**했다. 데이터가 흐르는 경계가 어떻게 바뀌었는지 기록한다. 용어: [30 용어집](30-glossary.md).
+
+### 데이터 흐름 (한눈에)
+
+```
+[Before]  디렉터리 → C# NativeInterop.ReadDir(→ nexa_dir_open/next/close: 평면 열거만)
+                     → C#이 DirItem 전량 생성 → ObservableCollection
+                     → 정렬·필터·펼침·선택 전부 C#(MainWindow)              ← "핫패스가 UI에"
+
+[After]   디렉터리 → 코어 nexa-tree(Tree): 노드 arena·펼침·선택(OrderedSet)·정렬·필터 소유
+                     → 가시 노드 평면 스트림(VisibleRow)
+                     → C ABI v3 nexa_tree_*(open/row/row_path/expand/collapse/select…) + NexaRow/NexaRange
+                     → C# VirtualTreeCollection: 보이는 인덱스만 지연 소비(가상화)
+                     → MainWindow는 위임만                                    ← "핫패스가 코어에"(DR-1)
+```
+
+### 관심사별 연계 지점 (파일/함수 매핑)
+
+| 관심사 | Before (C#가 소유) | After (코어가 소유 · 경계) |
+| --- | --- | --- |
+| 열거 | `NativeInterop.ReadDir` → `nexa_dir_open/next/close` | `nexa-tree Tree::open_filtered` → **`nexa_tree_open(path,show_hidden,show_dotfiles)`** |
+| 행 조회 | `DirItem` 전량 생성 → `ObservableCollection` | **`nexa_tree_row`/`nexa_tree_row_path`** → `VirtualTreeCollection[i]`(지연·캐시) |
+| 펼침/접힘 | `ExpandInPlace`/`CollapseInPlace`(C# 목록 삽입/제거) + `HashSet<string>` 상태 | **`nexa_tree_expand`/`collapse` → `RangeChange`(diff)**, 상태는 코어 노드 |
+| 선택 | `DirItem.IsSelected` bool + anchor/caret **C# 필드** + foreach 루프 | **`nexa_tree_select`/`select_range`/`select_all`/`clear`/`is_selected`/`selected_path`**(코어 `OrderedSet<NodeId>`) |
+| 정렬 | `NativeInterop.SortItems`(C#) | 코어 `sort_ids`(폴더 우선+이름) |
+| 가시성 필터(F24) | `NativeInterop.IsVisible`(C#) | 코어 `Filter`(`open_filtered`) — 걸러진 노드 미생성 |
+| 캐럿/패널 포커스 | `MainWindow` `_leftCaret`/`MoveCaret`/`RefreshSelectionFocus` | `VirtualTreeCollection` `SetCaret`/`SetPanelFocused`(전이 행에 얹음) |
+| 아이콘 | `LoadDirectory` 루프에서 전량 | `VirtualTreeCollection.RowBuilt` 콜백(행 실체화 시 지연) |
+| 경계 안전 | `nexa_abi_version` **표시만** | **`VerifyAbi`**(버전==3 + `CheckLayout`로 `NexaEntry/Row/Range` 크기 대조) |
+
+### 경계 계약(ABI v3) 요약
+- 핸들: `TreeHandle`(불투명) — `nexa_tree_open`가 생성, `nexa_tree_close`로 해제(C# `VirtualTreeCollection: IDisposable`).
+- 구조체 미러: `#[repr(C)] NexaRow`(코어 `VisibleRow`)·`NexaRange`(코어 `RangeChange`) ↔ C# `[StructLayout(Sequential)]` 동일 배치(8→4→1바이트). 크기 export(`nexa_row_size` 등)로 런타임 대조.
+- 문자열 수명: `NexaRow.name`·`nexa_tree_row_path`/`nexa_tree_selected_path` 반환 포인터는 **다음 호출/close 전까지 유효** → 호스트가 즉시 `PtrToStringUTF8` 복사.
+
+### 코드 규모 영향
+- `MainWindow.xaml.cs`: 트리/선택/정렬 C# 로직 제거로 **약 −250줄**(`d818675`). 트리 상태의 단일 진실원천이 코어로 이동.
+
+### 남은 연계 과제(이 개선의 한계)
+- **F18(진입/이동 간 펼침 유지)**: `Open`마다 새 핸들 → 펼침 유실. 경로셋 재펼침 또는 코어 경로-펼침 지원 필요(머지 전 복원, 워크로그 QA #1).
+- **성능**: 펼침/접힘 `RangeChange`를 아직 **Reset**으로 통지 + 행 인덱스↔노드 선형(O(n)) → 대용량 폴더 스크롤 개선 필요(슬라이스 4: 범위 diff·O(log n)).
