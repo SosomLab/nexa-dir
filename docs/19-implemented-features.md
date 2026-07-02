@@ -245,18 +245,19 @@
   - 예: `A`에서 `A2`를 펼쳐 `A21/A22/A23`이 보이고 `A22`를 펼쳐 `A221/A222/A223`이 보이는 상태에서
     **`A2`로 진입** → `A2` 뷰에 `A21/A22(펼침:A221/A222/A223)/A23`가 동일하게 표시.
   - 접힘은 그 폴더만 상태에서 제거(자손 펼침 상태는 보존) → **다시 펼치면 하위까지 유지**.
-- **구현 위치**: [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs)
-  - 패널별 `HashSet<string> _leftExpanded/_rightExpanded`(OrdinalIgnoreCase) — 펼친 폴더 경로 상태 보유
-  - `SetExpanded`(상태 추가/제거) → `ExpandInPlace`/`CollapseInPlace`(삽입/제거) + `ApplySavedExpansion`(재귀 적용)
-  - `LoadDirectory`가 로드 후 `ApplySavedExpansion` 호출 → 진입/이동해도 하위 펼침 **유지**(헤더 항목수는 직접 자식 기준)
-- **커밋**: `(이 단위)`
+- **구현 위치(최초, F18)**: `MainWindow` `_leftExpanded/_rightExpanded` + `SetExpanded`/`ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`(C# 목록 조작). → **C1(코어 트리 이관)으로 재구현**.
+- **재구현(C1, refactor-001 E12)**: 펼침 상태의 소유는 코어 트리 핸들(뷰 내)이지만, **진입/이동 간 유지는 탭별 경로셋**으로:
+  - `PanelTab.Expanded`(경로 HashSet, OrdinalIgnoreCase) — 펼친 폴더 경로 보유.
+  - [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`(디스클로저·키보드 공용)가 코어 토글 후 경로셋 add/remove.
+  - [VirtualTreeCollection.cs](../app/Nexa.App/VirtualTreeCollection.cs) `ExpandPaths(paths)` — `Open` 후 **얕은→깊은 순 배치 재펼침**(부모 먼저 → 자식 가시화, Reset 1회). `LoadDirectory`가 호출.
+- **커밋**: `(이 단위)`(최초) · `(refactor-001 E12)`(코어 트리 재구현)
 - **테스트(Windows)**:
   | 방법 | 동작 | 기대 |
   | --- | --- | --- |
   | 진입 유지 | 폴더 여러 단계 펼친 뒤 그중 한 폴더 더블클릭 진입 | 진입한 폴더의 하위 펼침 상태가 **동일하게 유지** |
   | 위로 유지 | 위로/뒤로로 상위 복귀 | 이전에 펼쳐둔 하위 상태 그대로 |
   | 접힘 후 재펼침 | 접었다가 다시 펼침 | 접기 전 하위 펼침 상태까지 유지 |
-- **한계/후속**: 세션 종료 후 영속화(JSON)는 미포함(인메모리) · 외부 변경(watcher) 반영 · 코어 `VisibleRow` 스트림(C1) 이관 시 통합.
+- **한계/후속**: 세션 종료 후 영속화(JSON)는 미포함(인메모리) · 외부 변경(watcher) 반영. (코어 `VisibleRow` 스트림 이관은 C1에서 **완료** — 위 재구현.)
 
 ### F19. Alt+↓ 항목 활성화 (폴더 진입 / 파일 실행)
 - **무엇**: 캐럿(현재) 항목에서 **Alt+↓** → **폴더/심볼릭은 진입**(더블클릭과 동일, 네비 기록), **파일은 실행**(확장자 연결 프로그램).

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 
 namespace Nexa.App;
 
@@ -148,6 +149,49 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
             : NativeInterop.TreeExpand(_handle, item.Id);
         InvalidateAndReset();
     }
+
+    /// <summary>
+    /// 저장된 펼침 경로들을 재적용한다(F18 진입/이동 간 펼침 유지). 얕은→깊은 순으로 처리해
+    /// 부모를 먼저 펼쳐야 자식이 가시화되어 찾을 수 있다. 코어를 직접 질의(캐시 미사용)하고
+    /// 전부 처리한 뒤 캐시 무효화 + Reset을 <b>1회</b>만 통지한다.
+    /// </summary>
+    public void ExpandPaths(IEnumerable<string> paths)
+    {
+        if (_handle == IntPtr.Zero)
+        {
+            return;
+        }
+        // 경로 구분자 수(깊이) 오름차순 — 부모 먼저.
+        var ordered = new List<string>(paths);
+        ordered.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
+
+        bool changed = false;
+        foreach (var target in ordered)
+        {
+            string norm = target.TrimEnd('\\', '/');
+            int n = NativeInterop.TreeVisibleLen(_handle);
+            for (int i = 0; i < n; i++)
+            {
+                if (!NativeInterop.TreeGetRow(_handle, i, out TreeRow r) || !r.HasChildren || r.Expanded)
+                {
+                    continue;
+                }
+                string p = NativeInterop.TreeRowPath(_handle, i) ?? string.Empty;
+                if (string.Equals(p.TrimEnd('\\', '/'), norm, StringComparison.OrdinalIgnoreCase))
+                {
+                    NativeInterop.TreeExpand(_handle, r.Id);   // 가시 목록이 늘어남(다음 target에 반영)
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if (changed)
+        {
+            InvalidateAndReset();
+        }
+    }
+
+    private static int Depth(string path) => path.TrimEnd('\\', '/').Count(c => c is '\\' or '/');
 
     // ── 선택 (코어 위임, OrderedSet) ─────────────────────────────────
 

@@ -103,8 +103,15 @@ public sealed partial class MainWindow : Window
             bool ok = items.Open(path, v.ShowHiddenFiles, v.ShowDotFiles);
             grid.ItemsSource = items;
             pathBar.Path = path;
+            int direct = items.Count;   // 직접 자식 수(펼침 재적용 전)
+            if (ok)
+            {
+                // F18: 진입/이동에도 이전 펼침 상태 유지 — 탭별 경로셋을 얕은→깊은 순 재적용.
+                var tab = ReferenceEquals(items, _leftItems) ? _leftTab : _rightTab;
+                items.ExpandPaths(tab.Expanded);
+            }
             header.Text = ok
-                ? $"{path} — {items.Count}개 항목"
+                ? $"{path} — {direct}개 항목"
                 : $"디렉터리 열기 실패: {path}";
         }
         catch (Exception ex)
@@ -360,7 +367,32 @@ public sealed partial class MainWindow : Window
         }
         e.Handled = true;
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
-        (left ? _leftItems : _rightItems).ToggleExpand(item);   // 코어 위임 → diff 반영(Reset)
+        ToggleExpandRow(left, item);
+    }
+
+    /// <summary>
+    /// 폴더 행 펼침/접힘 토글(디스클로저·키보드 공용). 코어에 위임하고, **탭별 펼침 경로셋**을
+    /// 갱신해 진입/이동에도 상태가 유지되게 한다(F18).
+    /// </summary>
+    private void ToggleExpandRow(bool left, DirItem item)
+    {
+        if (!item.IsDir)
+        {
+            return;
+        }
+        var items = left ? _leftItems : _rightItems;
+        var set = (left ? _leftTab : _rightTab).Expanded;
+        bool willExpand = !item.IsExpanded;
+        items.ToggleExpand(item);   // 코어 위임 → diff 반영(Reset)
+        string key = item.FullPath.TrimEnd('\\', '/');
+        if (willExpand)
+        {
+            set.Add(key);
+        }
+        else
+        {
+            set.Remove(key);
+        }
     }
 
     /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
@@ -672,7 +704,7 @@ public sealed partial class MainWindow : Window
                 // →: 현재 폴더 펼침(폴더가 아니거나 이미 펼쳤으면 무시).
                 if (cur >= 0 && items[cur].IsDir && !items[cur].IsExpanded)
                 {
-                    items.ToggleExpand(items[cur]);
+                    ToggleExpandRow(left, items[cur]);
                 }
             }
             else if (cur >= 0)
@@ -681,7 +713,7 @@ public sealed partial class MainWindow : Window
                 var it = items[cur];
                 if (it.IsDir && it.IsExpanded)
                 {
-                    items.ToggleExpand(it);
+                    ToggleExpandRow(left, it);
                 }
                 else
                 {

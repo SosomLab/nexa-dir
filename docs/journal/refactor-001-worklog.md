@@ -182,9 +182,17 @@ refactor/001-audit  (분기: 6e81734)
    - 원인 추정: 탭 전환=`SwitchToTab`→`Navigate`→`LoadDirectory`→`Open`(새 트리 핸들) + **Reset** → `ItemsRepeater` 전체 재실체화가 **UI 스레드 동기** 처리. 각 행 실체화가 `row`+`row_path` 2회 P/Invoke + 아이콘 로드 유발.
    - → **슬라이스 4**: 탭별 트리 핸들 **캐시/보존**(전환 시 재-Open 회피) · 초기 창만 실체화 · 행 조회 일괄화 · 아이콘 로드 스로틀. (#3과 동일 성능 트랙)
 
-## 진행 예정 (E12~)
+## E12 · C1 — F18 펼침 상태 유지 재구현 (QA #1 복원) → `(이 커밋)` ★실기 QA
 
-- **E12 · 3b-3 정리 + F18 복원**: 위 QA #1(F18 펼침 유지 복원) + 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
+- **왜**: E11b 회귀(진입/이동 시 펼침 유실) 복원 — 머지 전 필수.
+- **무엇 · 파일**:
+  - [VirtualTreeCollection.cs](../../app/Nexa.App/VirtualTreeCollection.cs) `ExpandPaths(paths)` — `Open` 후 **얕은→깊은 순 배치 재펼침**(코어 직접 질의, 부모 먼저 → 자식 가시화, Reset 1회).
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`(디스클로저·키보드 →/← 공용) — 코어 토글 후 **탭별 경로셋**(`PanelTab.Expanded`) add/remove. `LoadDirectory`가 `Open` 후 `ExpandPaths(tab.Expanded)` 호출. 헤더 항목수는 재펼침 전 직접 자식 수 유지.
+- **검증(How)**: app build 0 warn/err. ★실기 QA: 폴더 여러 단계 펼친 뒤 하위 진입→상위 복귀 시 펼침 유지 / 뒤로·앞으로·위로 / 접힘 후 재펼침 / 탭 전환 시 탭별 유지.
+
+## 진행 예정 (E13~)
+
+- **E13 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
 - **E13 · 4 성능**: QA #3(대용량 스크롤)·**#4(탭 전환 클릭 지연)** — 탭별 트리 핸들 캐시 + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n) + 10만 노드 벤치(AC5).
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 
