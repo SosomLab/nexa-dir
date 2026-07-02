@@ -85,28 +85,11 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
     }
 
     /// <summary>
-    /// 경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자 무시·대소문자 무시.
-    /// 경로만 필요하므로 <see cref="DirItem"/>를 실체화하지 않고 코어 <c>TreeRowPath</c>만 조회
-    /// (아이콘 로드·행 캐시 오염 회피, 성능 슬라이스 4-3).
+    /// 경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자·대소문자 무시.
+    /// 코어가 직접 매칭(단일 호출) — 행별 <c>TreeRowPath</c> P/Invoke·문자열 복사를 제거(감사 P3).
     /// </summary>
-    public int IndexOfPath(string fullPath)
-    {
-        if (_handle == IntPtr.Zero)
-        {
-            return -1;
-        }
-        string target = fullPath.TrimEnd('\\', '/');
-        int n = Count;
-        for (int i = 0; i < n; i++)
-        {
-            string p = NativeInterop.TreeRowPath(_handle, i) ?? string.Empty;
-            if (string.Equals(p.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase))
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
+    public int IndexOfPath(string fullPath) =>
+        _handle == IntPtr.Zero ? -1 : NativeInterop.TreeIndexOfPath(_handle, fullPath);
 
     /// <summary>현재 가시 행 수(코어 질의).</summary>
     public int Count => _handle == IntPtr.Zero ? 0 : NativeInterop.TreeVisibleLen(_handle);
@@ -161,7 +144,8 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 
     /// <summary>
     /// 저장된 펼침 경로들을 재적용한다(F18 진입/이동 간 펼침 유지). 얕은→깊은 순으로 처리해
-    /// 부모를 먼저 펼쳐야 자식이 가시화되어 찾을 수 있다. 코어를 직접 질의(캐시 미사용)하고
+    /// 부모를 먼저 펼쳐야 자식이 가시화되어 다음 경로가 매칭된다. 경로 매칭·펼침은 코어에 위임
+    /// (경로당 단일 <c>TreeExpandPath</c> — 기존 O(경로수×가시행) per-row 마샬 제거, 감사 P3).
     /// 전부 처리한 뒤 캐시 무효화 + Reset을 <b>1회</b>만 통지한다.
     /// </summary>
     public void ExpandPaths(IEnumerable<string> paths)
@@ -170,28 +154,17 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         {
             return;
         }
-        // 경로 구분자 수(깊이) 오름차순 — 부모 먼저.
+        // 경로 구분자 수(깊이) 오름차순 — 부모 먼저(펼쳐야 자식이 가시화됨).
         var ordered = new List<string>(paths);
         ordered.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
 
         bool changed = false;
         foreach (var target in ordered)
         {
-            string norm = target.TrimEnd('\\', '/');
-            int n = NativeInterop.TreeVisibleLen(_handle);
-            for (int i = 0; i < n; i++)
+            var rg = NativeInterop.TreeExpandPath(_handle, target);   // 코어가 경로 매칭+펼침
+            if (rg.Inserted > 0 || rg.Removed > 0)
             {
-                if (!NativeInterop.TreeGetRow(_handle, i, out TreeRow r) || !r.HasChildren || r.Expanded)
-                {
-                    continue;
-                }
-                string p = NativeInterop.TreeRowPath(_handle, i) ?? string.Empty;
-                if (string.Equals(p.TrimEnd('\\', '/'), norm, StringComparison.OrdinalIgnoreCase))
-                {
-                    NativeInterop.TreeExpand(_handle, r.Id);   // 가시 목록이 늘어남(다음 target에 반영)
-                    changed = true;
-                    break;
-                }
+                changed = true;
             }
         }
         if (changed)

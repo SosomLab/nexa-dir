@@ -250,6 +250,17 @@ impl Tree {
         self.index_of(id)
     }
 
+    /// 가시 목록에서 경로가 일치하는 행 인덱스(끝 구분자·대소문자 무시). 없으면 `None`.
+    /// 호스트가 행별 경로를 P/Invoke·문자열 복사로 왕복하지 않고 코어에서 직접 매칭하도록 공개
+    /// (슬라이스 4-3+ / 감사 P3). 대소문자는 ASCII 무시(Windows 경로 관례, 앱 `OrdinalIgnoreCase`와 정합).
+    pub fn index_of_path(&self, target: &str) -> Option<usize> {
+        let want = target.trim_end_matches(['\\', '/']);
+        self.visible.iter().position(|&id| {
+            let p = self.nodes[id as usize].path.to_string_lossy();
+            p.trim_end_matches(['\\', '/']).eq_ignore_ascii_case(want)
+        })
+    }
+
     /// `id`의 펼침 하위(자식과 그 펼친 후손)를 가시 순서(DFS)로 `out`에 모은다.
     fn collect_subtree(&self, id: NodeId, out: &mut Vec<NodeId>) {
         for &c in &self.nodes[id as usize].children {
@@ -292,6 +303,18 @@ impl Tree {
             removed: 0,
             inserted,
         })
+    }
+
+    /// 경로로 지정한 가시 폴더를 펼친다(F18 펼침 복원용, 감사 P3). 경로가 가시 목록에 없거나
+    /// 이미 펼침/파일이면 `RangeChange::NONE`. 호스트의 O(경로수×가시행) per-row 마샬을 대체.
+    pub fn expand_path(&mut self, target: &str) -> io::Result<RangeChange> {
+        match self.index_of_path(target) {
+            Some(i) => {
+                let id = self.visible[i];
+                self.expand(id)
+            }
+            None => Ok(RangeChange::NONE),
+        }
     }
 
     /// `id`를 접는다. 펼침 상태가 아니거나 가시 상태가 아니면 무변경. 하위의 펼침 상태는 보존.
@@ -691,6 +714,40 @@ mod tests {
             names(&t),
             vec!["dirA", "dirB", "z.txt", "x.txt", "y.txt", "file1.txt"]
         );
+    }
+
+    #[test]
+    fn index_of_path_and_expand_path() {
+        let base = make_fixture("bypath");
+        let mut t = Tree::open(&base).unwrap();
+        let dir_a_path = base.join("dirA");
+        // 최상위에서 경로로 인덱스 조회(끝 구분자·대소문자 무시)
+        assert_eq!(t.index_of_path(&dir_a_path.to_string_lossy()), Some(0));
+        let mut trailing = dir_a_path.to_string_lossy().into_owned();
+        trailing.push('\\');
+        assert_eq!(t.index_of_path(&trailing), Some(0)); // 끝 구분자 무시
+        let upper = dir_a_path.to_string_lossy().to_uppercase();
+        assert_eq!(t.index_of_path(&upper), Some(0)); // 대소문자 무시
+        assert_eq!(t.index_of_path("nope"), None);
+
+        // 경로로 펼침 → dirA 자식 삽입, 이후 dirB도 보이면 경로로 조회 가능
+        let c = t.expand_path(&dir_a_path.to_string_lossy()).unwrap();
+        assert_eq!((c.start, c.removed, c.inserted), (1, 0, 3));
+        assert_eq!(
+            names(&t),
+            vec!["dirA", "dirB", "x.txt", "y.txt", "file1.txt"]
+        );
+        assert_eq!(
+            t.index_of_path(&base.join("dirA/dirB").to_string_lossy()),
+            Some(1)
+        );
+        // 이미 펼침 → NONE, 없는 경로 → NONE
+        assert_eq!(
+            t.expand_path(&dir_a_path.to_string_lossy()).unwrap(),
+            RangeChange::NONE
+        );
+        assert_eq!(t.expand_path("no/such").unwrap(), RangeChange::NONE);
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

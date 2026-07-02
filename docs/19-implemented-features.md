@@ -25,7 +25,7 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=5, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).

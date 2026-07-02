@@ -44,4 +44,15 @@ refactor/002-audit  (분기: b38e6b3)
 - **핵심 결론**: 큰 아키텍처 변경 불필요, 설계 훼손 없음(C1으로 개선). 지금 손볼 3대 = ①성능 UI 병목(P1/P2/P3) ②구조 리팩토링(ViewModels/PanelView/XAML, C3 전) ③설계 계약 공백(ops/VFS/watcher/에러표준). Double Commander 대비 UI는 네이티브 열위(메모리 2배·크기 3–5배·콜드스타트) → 스택 교체 아닌 NFR 재보정+배포 이원화+상주규율 구현으로 대응.
 - **산출**: [20260702_234558_refactor-002-audit.md](20260702_234558_refactor-002-audit.md) — 2차 기준(트랙 A~E 우선순위 백로그) 포함.
 
+## E2 · 2026-07-02 · 트랙 A-3 [P3] — 코어 경로→NodeId 조회(per-row 마샬 제거) → `(이 커밋)`
+
+- **왜**: 감사 P3 — `ExpandPaths`(F18)·`IndexOfPath`(GoUp)가 경로 매칭을 위해 가시 행마다 `TreeGetRow`+`TreeRowPath` P/Invoke + 문자열 복사(O(경로수×가시행)). 큰 폴더 진입/위로 이동 시 마샬링·할당 폭주.
+- **무엇 · 파일**:
+  - 코어 [nexa-tree](../../core/crates/nexa-tree/src/lib.rs): `index_of_path(&str)`(가시 목록 경로 매칭, 끝 구분자·ASCII 대소문자 무시) + `expand_path(&str)`(경로로 가시 폴더 펼침). 단위테스트 `index_of_path_and_expand_path`.
+  - ABI [nexa-interop](../../core/crates/nexa-interop/src/lib.rs): `nexa_tree_index_of_path`/`nexa_tree_expand_path`(→`NexaRange`), **ABI v4→v5**. 라운드트립 테스트 추가.
+  - 관리형 [NativeInterop](../../app/Nexa.App/NativeInterop.cs): `TreeIndexOfPath`/`TreeExpandPath` + `ExpectedAbi=5`.
+  - 컬렉션 [VirtualTreeCollection](../../app/Nexa.App/VirtualTreeCollection.cs): `IndexOfPath`=코어 단일 호출, `ExpandPaths`=경로당 단일 `TreeExpandPath`(전체 재스캔 제거).
+- **효과**: 경로 매칭이 O(경로수×가시행) per-row 마샬 → **경로당 단일 P/Invoke**(매칭은 코어 Vec 스캔). 스모크 출력 `abi=5`.
+- **검증**: 코어 `cargo test` green(nexa-tree 10 + interop 5, 경로 라운드트립 포함), fmt·clippy(-D warnings). 앱부는 PR CI(app) + 실기 QA.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->
