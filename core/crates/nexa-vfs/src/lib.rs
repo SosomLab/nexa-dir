@@ -9,13 +9,28 @@ use std::time::SystemTime;
 
 use nexa_core::FileKind;
 
-/// 디렉터리 항목. 이름·종류 + 기본 메타데이터(크기·수정시각).
+/// 디렉터리 항목. 이름·종류 + 기본 메타데이터(크기·수정시각·속성).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     pub name: String,
     pub kind: FileKind,
     pub size: u64,
     pub modified: Option<SystemTime>,
+    /// Windows 파일 속성 비트(FILE_ATTRIBUTE_*). Windows 외에는 0.
+    /// 열거 시 이미 조회한 메타데이터에서 꺼내므로 추가 syscall이 없다(숨김 필터의 무료 원천).
+    pub attrs: u32,
+}
+
+/// 열거 메타데이터에서 Windows 파일 속성 비트를 꺼낸다(비Windows=0).
+#[cfg(windows)]
+fn file_attrs(m: &fs::Metadata) -> u32 {
+    use std::os::windows::fs::MetadataExt;
+    m.file_attributes()
+}
+
+#[cfg(not(windows))]
+fn file_attrs(_m: &fs::Metadata) -> u32 {
+    0
 }
 
 /// 로컬 디렉터리를 **스트리밍 열거**한다 — 엔트리를 도착하는 대로 순차 산출.
@@ -36,15 +51,16 @@ pub fn read_dir_entries(
         } else {
             FileKind::File
         };
-        let (size, modified) = match dirent.metadata() {
-            Ok(m) => (m.len(), m.modified().ok()),
-            Err(_) => (0, None),
+        let (size, modified, attrs) = match dirent.metadata() {
+            Ok(m) => (m.len(), m.modified().ok(), file_attrs(&m)),
+            Err(_) => (0, None, 0),
         };
         Ok(Entry {
             name: dirent.file_name().to_string_lossy().into_owned(),
             kind,
             size,
             modified,
+            attrs,
         })
     });
     Ok(iter)
@@ -69,6 +85,7 @@ mod tests {
             kind: FileKind::File,
             size: 5,
             modified: None,
+            attrs: 0,
         };
         assert_eq!(e.kind, FileKind::File);
         assert_eq!(e.name, "a.txt");

@@ -12,9 +12,10 @@ use nexa_core::FileKind;
 use nexa_vfs::{read_dir_entries, Entry};
 
 /// 인터롭 ABI 버전. C# 측과 호환성 점검용(불일치 시 로드 거부 가능).
+/// v2: `NexaEntry`에 `attrs`(Windows 파일 속성) 필드 추가.
 #[no_mangle]
 pub extern "C" fn nexa_abi_version() -> c_uint {
-    1
+    2
 }
 
 /// 왕복(round-trip) PoC: C# 호스트가 보낸 두 정수의 합을 반환한다.
@@ -42,7 +43,8 @@ pub struct NexaEntry {
     pub name: *const c_char,
     pub kind: u32, // 0=file, 1=dir, 2=symlink
     pub size: u64,
-    pub modified_unix_ms: i64, // 없으면 -1
+    pub modified_unix_ms: i64,        // 없으면 -1
+    pub attrs: u32,                   // Windows 파일 속성 비트(FILE_ATTRIBUTE_*), 비Windows=0
 }
 
 /// 디렉터리 열거를 시작한다. 실패(널/경로오류/IO)면 널 반환.
@@ -97,6 +99,7 @@ pub unsafe extern "C" fn nexa_dir_next(handle: *mut DirHandle, out: *mut NexaEnt
         out.kind = kind;
         out.size = entry.size;
         out.modified_unix_ms = modified;
+        out.attrs = entry.attrs;
         return 1;
     }
     0
@@ -118,8 +121,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_one() {
-        assert_eq!(nexa_abi_version(), 1);
+    fn abi_version_is_two() {
+        assert_eq!(nexa_abi_version(), 2);
     }
 
     #[test]
@@ -146,6 +149,7 @@ mod tests {
                 kind: 99,
                 size: 0,
                 modified_unix_ms: 0,
+                attrs: 0,
             };
             while nexa_dir_next(h, &mut e) == 1 {
                 let name = CStr::from_ptr(e.name).to_string_lossy().into_owned();
