@@ -15,6 +15,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexa-tree"
+version = "0.0.0"
+dependencies = [
+ "nexa-core",
+ "nexa-vfs",
+]
+
+[[package]]
 name = "nexa-vfs"
 version = "0.0.0"
 dependencies = [

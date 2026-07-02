@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-07-02 (KST) · 단계: **M1 진행** — 데이터흐름(F1~5)+레이아웃(F6~9)+**플래그십 초안**(인라인 펼침·컬럼 F10 / 선택 F11·F17) + **패널 탭**(F20·닫기 F22) + **계층 경로 바 `NexaPathBar`**(F23) + 네비(F13·F19·F21) + **숨김/점 파일 토글**(코어 attrs·ABI v2, F24) 구현(**F1~F24**, [19](19-implemented-features.md)). 기본 폰트 Segoe UI. 다음=**코어 VisibleRow 스트림(C1)**·`Nexa.ViewModels` 분리 · 코어 9 tests green
+> 갱신: 2026-07-02 (KST) · 단계: **M1 진행** — 데이터흐름(F1~5)+레이아웃(F6~9)+**플래그십 초안**(인라인 펼침·컬럼 F10 / 선택 F11·F17) + **패널 탭**(F20·닫기 F22) + **계층 경로 바 `NexaPathBar`**(F23) + 네비(F13·F19·F21) + **숨김/점 파일 토글**(코어 attrs·ABI v2, F24) + **마우스 뒤로/앞으로**(F25) 구현(**F1~F25**, [19](19-implemented-features.md)). 기본 폰트 Segoe UI. **진행 중: C1 코어 트리/선택 모델 `nexa-tree`**(F26, 슬라이스 1 — 모델+테스트, `refactor/001-audit` 브랜치, ADR [29](29-adr-0004-core-tree-model.md)). 다음=C1 ABI(슬라이스 2)·앱 재배선(슬라이스 3)·`Nexa.ViewModels` 분리 · 코어 16 tests green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 
@@ -83,7 +83,7 @@
   방지 규약(맥은 WinUI 빌드 불가 → **CI green 확인 필수**, TFM 정합) → [18](18-build-and-test.md) §2 · CLAUDE.md §6.
 
 - **다음 단위(M0→M1)**:
-  1. **코어 `VisibleRow` 평면 스트림(C1)** — 현재 인라인 펼침·선택은 **앱(C#) 계층 초안**(F10/F11/F17). 대규모 가상화·성능(NFR-P1/P2)·이식을 위해 트리/선택 모델을 **Rust 코어로** 이관([07](07-flagship-tree-multiselect.md)).
+  1. **코어 `VisibleRow` 평면 스트림(C1)** — 현재 인라인 펼침·선택은 **앱(C#) 계층 초안**(F10/F11/F17). 대규모 가상화·성능(NFR-P1/P2)·이식을 위해 트리/선택 모델을 **Rust 코어로** 이관([07](07-flagship-tree-multiselect.md)·ADR [29](29-adr-0004-core-tree-model.md)). **슬라이스 1 착수됨**(`nexa-tree` 모델+테스트, F26); 다음 = ABI v3(슬라이스 2) → 앱 재배선(슬라이스 3) → 성능 벤치(슬라이스 4).
   2. **교차폴더 다중 선택 완성(C3/C4)** + 러버밴드 드래그 선택 + 혼합 파일 작업.
   3. **경로 바(브레드크럼)** · **탭 모델**(현재 탭은 placeholder) · **설정 JSON 영속화**(F15 준비됨) · 컬럼 설정 모달([23](23-column-system.md)).
   4. **설정 화면(UI)** — 단축키 편집(다중 바인딩·키보드+마우스, [26 §2-1·§8](26-command-palette.md)) · 표시 옵션(F24) · **창 위치 복원 on/off**([28](28-window-session-restore.md)). (설계됨·구현 대기)
