@@ -24,7 +24,9 @@ refactor/001-audit  (분기: 6e81734)
 ├─ E4 진행 로그(이 문서) ......................... 89c0690  (2026-07-02 13:34:45)
 ├─ E5 C1 슬라이스 2 (트리 C ABI + ABI v3) ........ 00966af  (2026-07-02 13:55:12)
 │    └ 산출: core/crates/nexa-interop/** · docs/18·19(F27)·STATUS
-└─ E6~ C1 슬라이스 3(앱 재배선)·4(성능) .......... 예정
+├─ E6 C1 슬라이스 3a (호스트 ABI 안전 계층) ...... 30d8b16  (2026-07-02 14:04:34)
+│    └ 산출: nexa_entry_size + VerifyAbi() · docs/19(F28)·STATUS
+└─ E7~ C1 슬라이스 3b(앱 트리 재배선)·4(성능) .... 예정
 ```
 
 ---
@@ -88,7 +90,19 @@ refactor/001-audit  (분기: 6e81734)
 - **어떻게/검증(How)**: `tree_abi_open_expand_select_collapse` 테스트(열기·펼침 diff `(1,0,1)`·교차 선택·선택 경로 `ends_with(child.txt)`·접힘 `(1,1,0)`·경계/널). `nexa-interop` **5 tests**, 코어 전체 **17 green**, fmt·clippy 통과. `abi_version_is_two`→`_three`.
 - **어디서(Where)**: `core/crates/nexa-interop/{src/lib.rs,Cargo.toml}` · `core/Cargo.lock` · `docs/18`·`docs/19`(F27)·`docs/STATUS`(abi 표기 2→3, 테스트 16→17).
 
+## E6 · 2026-07-02 14:04:34 · C1 슬라이스 3a — 호스트 ABI 안전 계층 → `30d8b16`
+
+- **누가/왜(Who/Why)**: Claude 구현. 감사 A2/A3 정정 — `nexa_abi_version()`을 **표시만** 하던 것을 실제 게이트로.
+- **목표(Goal)**: 구형/신형 dll이 조용히 로드돼 구조체가 오정렬되는 것을 시작 시 차단(3b 트리 재배선의 안전 전제).
+- **무엇/세부(What) · 파일:줄**:
+  - 코어: `nexa_entry_size()`([nexa-interop/src/lib.rs](../../core/crates/nexa-interop/src/lib.rs):31, `size_of::<NexaEntry>()`).
+  - 앱: `ExpectedAbi=3` + `VerifyAbi()`([NativeInterop.cs](../../app/Nexa.App/NativeInterop.cs)) — ① 버전==3 ② `Marshal.SizeOf<NexaEntry>()`==코어 크기, 불일치 시 `InvalidOperationException`.
+  - 앱: `ShowInteropRoundTrip`([MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs):85)이 `VerifyAbi()` 선행 → 불일치 시 `인터롭 실패:` 격리.
+- **어떻게/검증(How)**: 코어 fmt/clippy/test 통과(17), 앱 로컬 `dotnet build` 0 err. **WinUI라 CI(app)로 최종 검증**(브랜치 CI는 push만으론 미실행 → PR 필요).
+
 ## 진행 예정 (E7~)
 
-- **E6 · C1 슬라이스 3**: 앱 재배선 — 호스트(C#)가 **로드 시 `nexa_abi_version()==3` 실제 검사**(감사 A3) + `NexaRow` 구조체 크기 가드, `MainWindow`의 C# `ExpandInPlace`/`IsSelected`를 코어 `VisibleRow` 소비로 교체(`ItemsRepeater` 가상화 + diff 반영).
-- **E7 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
+- **E7 · C1 슬라이스 3b**: `NexaRow`/`NexaRange` P/Invoke 미러 + 크기 가드, `MainWindow`의 C# `ExpandInPlace`/`CollapseInPlace`/`IsSelected`/`ApplySavedExpansion`을 코어 `nexa_tree_*`(VisibleRow) 소비로 교체(`ItemsRepeater` 가상화 + diff 반영). **큰 변경 · CI 검증 필수**.
+- **E8 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
+
+> ⚠️ **CI 참고**: 워크플로 트리거는 `push: [main]` + `pull_request`. 리팩토링 브랜치는 **PR을 열어야 CI가 돈다**. 앱(WinUI) 변경(E6·E7)은 맥 빌드 불가 → PR로 `app` job green 확인.
