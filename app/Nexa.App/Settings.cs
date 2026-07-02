@@ -29,6 +29,19 @@ internal sealed class TabOptions
 }
 
 /// <summary>
+/// 목록 표시(가시성) 옵션. 숨김 파일과 점(.) 파일을 <b>독립</b>으로 토글한다(동시 설정 가능).
+/// 기본값은 Windows 탐색기와 동일 — 숨김 속성 파일은 감추고, 점(.) 파일은 보인다.
+/// </summary>
+internal sealed class ViewOptions
+{
+    /// <summary>Windows 숨김 속성(FILE_ATTRIBUTE_HIDDEN) 파일 표시 여부(기본 <c>false</c> = 감춤).</summary>
+    public bool ShowHiddenFiles { get; set; } = false;
+
+    /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더를 숨길지(기본 <c>false</c> = 표시).</summary>
+    public bool HideDotFiles { get; set; } = false;
+}
+
+/// <summary>
 /// 앱 전역 설정(인메모리 단일 인스턴스). 나중에 JSON 파일 로드/저장으로 확장한다
 /// (설정 시스템 백로그, docs/19). 지금은 코드 기본값이 유일한 원천.
 /// </summary>
@@ -39,6 +52,9 @@ internal static class AppSettings
 
     /// <summary>탭 옵션(더블클릭 동작 등).</summary>
     public static TabOptions Tab { get; } = new();
+
+    /// <summary>표시(가시성) 옵션(숨김 파일·점 파일). 목록 필터는 이 값을 참조한다.</summary>
+    public static ViewOptions View { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
 }

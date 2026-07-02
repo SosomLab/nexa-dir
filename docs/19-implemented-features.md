@@ -25,12 +25,12 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=1, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=2, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).
 - **구현 위치**: [core/crates/nexa-vfs/src/lib.rs](../core/crates/nexa-vfs/src/lib.rs)
-  - `Entry { name, kind, size, modified }`
+  - `Entry { name, kind, size, modified, attrs }` (`attrs`=Windows 파일 속성 비트, 비Windows=0 — 열거 시 이미 조회한 메타데이터에서 꺼내 **추가 syscall 0**, F24 숨김 필터의 무료 원천)
   - `read_dir_entries(path) -> io::Result<impl Iterator<Item = io::Result<Entry>>>` (lazy, 엔트리별 Result로 오류 격리)
 - **커밋**: `623da9d`
 - **테스트**:
@@ -46,7 +46,7 @@
   - `nexa_dir_open(*const c_char) -> *mut DirHandle` (실패 시 널)
   - `nexa_dir_next(*mut DirHandle, *mut NexaEntry) -> c_int` (1=엔트리, 0=끝, -1=널인자)
   - `nexa_dir_close(*mut DirHandle)`
-  - `#[repr(C)] NexaEntry { name, kind(0/1/2), size, modified_unix_ms(-1=없음) }` — `name`은 다음 호출 전까지 유효
+  - `#[repr(C)] NexaEntry { name, kind(0/1/2), size, modified_unix_ms(-1=없음), attrs }` — `name`은 다음 호출 전까지 유효 (`attrs`는 ABI v2에서 추가, F24)
 - **커밋**: `541e887`
 - **테스트**:
   | 방법 | 명령 | 기대 |
@@ -337,6 +337,24 @@
 - **시인성 개선**: 세그먼트/구분자 `\` **간격 축소**(라벨 좌우 패딩 1px)로 fullpath처럼 표시 · **hover 시 배경/글자색 반전**(밝은 배경+어두운 글자)으로 확연히 강조.
 - **F23-1 파일 경로 처리**: 편집 제출 경로가 **폴더면 그대로 이동**, **파일이면 그 파일의 상위 폴더로 이동 + 그 파일 선택**. (`OnPathBarNavigated`: `Directory.Exists` / `File.Exists`→`GetDirectoryName`→`Navigate`+`SelectByPath`)
 - **후속(β/γ, [27](27-pathbar-component.md))**: 오버플로 `…`·UNC · 형제 `▾` 드롭다운 · 세그먼트 드롭 타깃 · VFS 스킴 Segmenter · 템플릿드 컨트롤화.
+
+### F24. 숨김 파일 보기 · 점(.) 파일 숨기기 (독립 토글, 코어 attrs)
+
+- **무엇**: 표시(S) 메뉴에 **체크형 토글 2개**(독립·동시 설정). ① **숨김 파일 보기**(Windows `FILE_ATTRIBUTE_HIDDEN` 표시 여부, 기본 OFF) · ② **점(.) 파일 숨기기**(리눅스식 dotfile 숨김, 기본 OFF). 기본값은 Windows 탐색기와 동일(숨김 속성 감춤·점 파일 표시).
+- **왜 코어에서(성능)**: Windows 디렉터리 열거(`FindNextFile`)가 속성을 결과에 이미 포함 → Rust `DirEntry::metadata()`는 Windows에서 **추가 syscall 없이** 속성 제공. 코어가 이미 크기·시각용으로 `metadata()`를 부르므로 `attrs` 노출은 **비용 0**. C#에서 `File.GetAttributes`로 판정하면 **엔트리당 syscall 1회**(10만 노드=10만 회) → 코어 확정.
+- **구현 위치**:
+  - 코어: [core/crates/nexa-vfs/src/lib.rs](../core/crates/nexa-vfs/src/lib.rs) `Entry.attrs` + `file_attrs()`(`#[cfg(windows)]` MetadataExt), [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) `NexaEntry.attrs` + `nexa_dir_next` 채움 + **ABI v1→v2**
+  - 앱: [app/Nexa.App/Settings.cs](../app/Nexa.App/Settings.cs) `ViewOptions{ShowHiddenFiles, HideDotFiles}`·`AppSettings.View` · [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) `DirItem.Attrs/IsHidden/IsDotFile`·`ReadDir` 필터(`IsVisible`) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnToggleShowHidden/OnToggleHideDotFiles`·`ReloadBothPanels`
+  - 메뉴: [app/Nexa.Controls/NexaMenu.cs](../app/Nexa.Controls/NexaMenu.cs) `NexaMenuEntry.IsCheckable/IsChecked/Click` · [NexaMenuBar.xaml.cs](../app/Nexa.Controls/NexaMenuBar.xaml.cs) 체크형 렌더(체크 글리프)·탭 토글 · [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) 표시(S) 메뉴 엔트리 2개
+- **커밋**: `(이 단위)`
+- **테스트**:
+  | 방법 | 명령/동작 | 기대 |
+  | --- | --- | --- |
+  | 코어 단위 | `cargo test --workspace` | 9 tests 통과(`abi_version_is_two` 포함) |
+  | 앱(Windows) | 표시(S) → "숨김 파일 보기" 체크 | 숨김 속성 파일이 목록에 나타남(체크 표시 토글) |
+  | 앱(Windows) | 표시(S) → "점(.) 파일 숨기기" 체크 | `.git`·`.vscode` 등 점 파일/폴더가 사라짐 |
+  | 독립성 | 두 토글 조합 | 각각 독립 적용(둘 다 OFF=탐색기와 동일) |
+- **후속**: System(0x4) 속성·설정 JSON 영속화(docs/19 설정 시스템) · 토글 상태 초기 동기화(현재 기본 OFF=엔트리 기본값과 일치).
 
 ---
 

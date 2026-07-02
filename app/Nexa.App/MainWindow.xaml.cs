@@ -129,6 +129,35 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정) ─────
+
+    /// <summary>"숨김 파일 보기" 토글 → 숨김 속성 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
+    private void OnToggleShowHidden(object sender, EventArgs e)
+    {
+        AppSettings.View.ShowHiddenFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles;
+        ReloadBothPanels();
+    }
+
+    /// <summary>"점(.) 파일 숨기기" 토글 → 리눅스식 점 파일 숨김 여부 갱신 후 양쪽 패널 재로드.</summary>
+    private void OnToggleHideDotFiles(object sender, EventArgs e)
+    {
+        AppSettings.View.HideDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.HideDotFiles;
+        ReloadBothPanels();
+    }
+
+    /// <summary>현재 경로 기준으로 좌·우 패널을 다시 열거한다(펼침 상태 유지). 설정 토글 반영용.</summary>
+    private void ReloadBothPanels()
+    {
+        if (!string.IsNullOrEmpty(_leftTab.Current))
+        {
+            LoadDirectory(_leftTab.Current, _leftItems, DirGrid, DirHeader, PathBarL);
+        }
+        if (!string.IsNullOrEmpty(_rightTab.Current))
+        {
+            LoadDirectory(_rightTab.Current, _rightItems, DirGrid2, DirHeader2, PathBarR);
+        }
+    }
+
     // ── 네비게이션(패널/탭별 이동 기록: 뒤로·앞으로·위로) ─────────────
 
     /// <summary>지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).</summary>

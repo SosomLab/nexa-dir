@@ -25,7 +25,7 @@ internal enum NexaFileKind : uint
 /// </summary>
 internal sealed class DirItem : INotifyPropertyChanged
 {
-    public DirItem(string name, NexaFileKind kind, ulong size, long modifiedUnixMs, string fullPath, int depth)
+    public DirItem(string name, NexaFileKind kind, ulong size, long modifiedUnixMs, string fullPath, int depth, uint attrs = 0)
     {
         Name = name;
         Kind = kind;
@@ -33,12 +33,22 @@ internal sealed class DirItem : INotifyPropertyChanged
         ModifiedUnixMs = modifiedUnixMs;
         FullPath = fullPath;
         Depth = depth;
+        Attrs = attrs;
     }
 
     public string Name { get; }
     public NexaFileKind Kind { get; }
     public ulong Size { get; }
     public long ModifiedUnixMs { get; }
+
+    /// <summary>Windows 파일 속성 비트(코어가 열거 시 채움). 비Windows/미조회는 0.</summary>
+    public uint Attrs { get; }
+
+    /// <summary>Windows 숨김 속성(FILE_ATTRIBUTE_HIDDEN=0x2) 보유 여부.</summary>
+    public bool IsHidden => (Attrs & 0x2) != 0;
+
+    /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더인지.</summary>
+    public bool IsDotFile => Name.StartsWith('.');
 
     /// <summary>절대 경로(펼침 시 자식 열거용).</summary>
     public string FullPath { get; }
@@ -221,6 +231,7 @@ internal static class NativeInterop
         public uint Kind;
         public ulong Size;
         public long ModifiedUnixMs;
+        public uint Attrs;   // ABI v2: Windows 파일 속성 비트
     }
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -236,10 +247,12 @@ internal static class NativeInterop
     /// 디렉터리를 열거해 엔트리 목록을 반환한다(open→next 반복→close 래핑).
     /// 네이티브 <c>name</c> 포인터는 즉시 관리형 문자열로 복사해 수명 문제를 차단한다.
     /// 정렬은 <paramref name="sort"/>(생략 시 <see cref="AppSettings.Sort"/>)를 따른다 —
-    /// 폴더 우선(기본) + 이름 오름차순. <paramref name="depth"/>는 트리 들여쓰기용.
+    /// 폴더 우선(기본) + 이름 오름차순. 가시성 필터는 <paramref name="view"/>(생략 시
+    /// <see cref="AppSettings.View"/>) — 숨김 속성·점(.) 파일을 독립 토글로 걸러낸다.
+    /// <paramref name="depth"/>는 트리 들여쓰기용.
     /// </summary>
     /// <exception cref="IOException">열기 실패(없는 경로·권한 등).</exception>
-    public static IReadOnlyList<DirItem> ReadDir(string path, int depth = 0, SortOptions? sort = null)
+    public static IReadOnlyList<DirItem> ReadDir(string path, int depth = 0, SortOptions? sort = null, ViewOptions? view = null)
     {
         IntPtr handle = nexa_dir_open(path);
         if (handle == IntPtr.Zero)
@@ -247,6 +260,7 @@ internal static class NativeInterop
             throw new IOException($"디렉터리 열기 실패: {path}");
         }
 
+        var v = view ?? AppSettings.View;
         var items = new List<DirItem>();
         try
         {
@@ -255,7 +269,11 @@ internal static class NativeInterop
             {
                 string name = Marshal.PtrToStringUTF8(entry.Name) ?? string.Empty;
                 var kind = (NexaFileKind)entry.Kind;
-                items.Add(new DirItem(name, kind, entry.Size, entry.ModifiedUnixMs, Path.Combine(path, name), depth));
+                var it = new DirItem(name, kind, entry.Size, entry.ModifiedUnixMs, Path.Combine(path, name), depth, entry.Attrs);
+                if (IsVisible(it, v))
+                {
+                    items.Add(it);
+                }
             }
         }
         finally
@@ -265,6 +283,23 @@ internal static class NativeInterop
 
         SortItems(items, sort ?? AppSettings.Sort);
         return items;
+    }
+
+    /// <summary>
+    /// 가시성 필터: 점(.) 파일 숨김 토글과 숨김 속성 표시 토글을 독립으로 적용한다.
+    /// 두 조건을 모두 통과해야 표시(둘 다 기본 OFF면 Windows 탐색기와 동일 결과).
+    /// </summary>
+    internal static bool IsVisible(DirItem it, ViewOptions view)
+    {
+        if (view.HideDotFiles && it.IsDotFile)
+        {
+            return false;
+        }
+        if (!view.ShowHiddenFiles && it.IsHidden)
+        {
+            return false;
+        }
+        return true;
     }
 
     /// <summary>

@@ -146,7 +146,7 @@ public sealed partial class NexaMenuBar : UserControl
         ItemsHost.Children.Clear();
         foreach (var entry in menu.Items)
         {
-            ItemsHost.Children.Add(CreateItem(entry.Text));
+            ItemsHost.Children.Add(CreateItem(entry));
         }
 
         // 헤더 좌측 하단 정렬로 위치.
@@ -176,23 +176,59 @@ public sealed partial class NexaMenuBar : UserControl
         }
     }
 
-    /// <summary>드롭다운 항목 하나(사각, hover 하이라이트, 클릭 시 닫힘). 명령 연결은 후속.</summary>
-    private Border CreateItem(string text)
+    /// <summary>
+    /// 드롭다운 항목 하나(사각, hover 하이라이트, 탭 시 닫힘).
+    /// 체크형(<see cref="NexaMenuEntry.IsCheckable"/>)이면 좌측에 체크 칸을 두고 탭할 때마다 상태를 토글한다.
+    /// 탭 시 <see cref="NexaMenuEntry.Click"/>을 발생시켜 호스트가 명령을 처리한다.
+    /// </summary>
+    private Border CreateItem(NexaMenuEntry entry)
     {
-        var item = new Border
+        var content = new StackPanel { Orientation = Orientation.Horizontal };
+
+        FontIcon? check = null;
+        if (entry.IsCheckable)
         {
-            Padding = new Thickness(22, 4, 22, 4),
-            Background = TransparentBrush,
-            Child = new TextBlock
+            check = new FontIcon
             {
-                Text = text,
+                Glyph = "",   // Segoe MDL2 CheckMark
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
                 FontSize = FontSize,
                 Foreground = ItemTextBrush,
-            },
+                Width = 18,
+                Visibility = entry.IsChecked ? Visibility.Visible : Visibility.Collapsed,
+            };
+            content.Children.Add(check);
+        }
+
+        content.Children.Add(new TextBlock
+        {
+            Text = entry.Text,
+            FontSize = FontSize,
+            Foreground = ItemTextBrush,
+        });
+
+        var item = new Border
+        {
+            // 체크형은 좌측 체크 칸이 들여쓰기를 대신하므로 좌 패딩을 줄인다.
+            Padding = entry.IsCheckable ? new Thickness(6, 4, 22, 4) : new Thickness(22, 4, 22, 4),
+            Background = TransparentBrush,
+            Child = content,
         };
         item.PointerEntered += (_, _) => item.Background = ItemHoverBrush;
         item.PointerExited += (_, _) => item.Background = TransparentBrush;
-        item.Tapped += (_, _) => CloseMenu();   // TODO: 실제 명령 실행
+        item.Tapped += (_, _) =>
+        {
+            if (entry.IsCheckable)
+            {
+                entry.IsChecked = !entry.IsChecked;
+                if (check is not null)
+                {
+                    check.Visibility = entry.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+            entry.RaiseClick();
+            CloseMenu();
+        };
         return item;
     }
 
