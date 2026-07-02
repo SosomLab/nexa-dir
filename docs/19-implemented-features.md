@@ -4,7 +4,7 @@
 > ⚠️ **기능을 추가/변경할 때마다 이 문서에 항목을 더한다**(구현 위치·커밋·테스트 절차 포함).
 > 빌드/실행/디버깅 절차 전반은 [18](18-build-and-test.md), 작업 경위는 [journal/](journal/), 구조는 [16](16-project-structure.md).
 
-전체 코어 테스트: `cd core && cargo test --workspace` (현재 **16 tests green**, **맥/Windows 공통**) · 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
+전체 코어 테스트: `cd core && cargo test --workspace` (현재 **17 tests green**, **맥/Windows 공통**) · 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
 
 > ⚠️ **`dotnet build/run app/Nexa.App` 검증은 Windows(또는 Windows VM)에서만.** 맥에서 실행 시 `NETSDK1100`(EnableWindowsTargeting) → 이어 XamlCompiler 실패 — [11 §6-1](11-dev-environment.md)·[11 §4-4 VM](11-dev-environment.md). 맥에서는 `cargo test`로 코어를 검증한다.
 
@@ -25,7 +25,7 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=2, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=3, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).
@@ -382,7 +382,16 @@
 - **동작**: `expand`=지연 열거(폴더 우선+이름 정렬) + 접힌 하위의 펼침 상태 복원, `collapse`=후속 `depth>base` 연속 구간 제거(하위 펼침 보존).
 - **범위 밖(후속 슬라이스)**: C ABI(슬라이스 2, ABI v3) · 앱 재배선(슬라이스 3) · 성능 벤치/행매핑 O(log n)(슬라이스 4) · watcher/심링크 사이클/폴더선택 흡수(ADR-0004 범위 밖).
 - **커밋**: `(이 단위)`.
-- **테스트**: `cargo test -p nexa-tree` — **7 tests**(open 정렬, expand/collapse 왕복, 중첩 재펼침 복원, 파일/중복 펼침 no-op, 교차폴더 선택 순서, 범위/전체 선택, 없는 경로 오류). 코어 전체 **16 tests green**(맥/Windows 공통).
+- **테스트**: `cargo test -p nexa-tree` — **7 tests**(open 정렬, expand/collapse 왕복, 중첩 재펼침 복원, 파일/중복 펼침 no-op, 교차폴더 선택 순서, 범위/전체 선택, 없는 경로 오류).
+
+### F27. 코어 트리 C ABI `nexa_tree_*` + ABI v3 (C1 슬라이스 2 — 아직 UI 미연결)
+
+- **무엇**: F26 코어 트리/선택을 C#에서 쓸 **핸들 기반 C ABI**로 노출. ABI 버전 **v2→v3**.
+- **구현 위치**: [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) — `TreeHandle`, `#[repr(C)] NexaRow`(코어 `VisibleRow` 미러, 8→4→1바이트 배치)·`NexaRange`(코어 `RangeChange`), 함수 `nexa_tree_open/close/visible_len/row/expand/collapse/select/select_range/select_all/clear_selection/is_selected/selected_len/selected_path`. `kind_code` 헬퍼로 `nexa_dir_next`와 종류 매핑 통일. `nexa-tree` 의존 추가([Cargo.toml](../core/crates/nexa-interop/Cargo.toml)).
+- **규약**: `NexaRow.name`·`selected_path` 반환 문자열은 “다음 호출/close 전까지 유효”(핸들이 최근 `CString` 보관, 기존 `NexaEntry`와 동일). `expand` 반환 `1`=성공/`0`=IO오류(무변경)/`-1`=널.
+- **후속(슬라이스 3)**: 호스트(C#)가 **로드 시 `nexa_abi_version()==3` 실제 검사**(감사 A3 정정) + `NexaRow` 구조체 크기 가드. 앱 재배선.
+- **커밋**: `(이 단위)`.
+- **테스트**: `cargo test -p nexa-interop` — **5 tests**(`tree_abi_open_expand_select_collapse` 추가: 열기·펼침 diff·교차 선택·선택 경로·접힘·경계/널). 코어 전체 **17 tests green**.
 
 ---
 
