@@ -33,15 +33,44 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
     /// <summary>현재 열린 루트 경로.</summary>
     public string RootPath { get; private set; } = string.Empty;
 
-    /// <summary>가시성 필터를 적용해 <paramref name="path"/> 트리를 (재)연다. 실패 시 빈 목록.</summary>
-    public bool Open(string path, bool showHidden, bool showDotFiles)
+    /// <summary>
+    /// 트리를 <b>백그라운드 스레드에서</b> 열고(가시성 필터) 저장된 펼침 경로까지 재적용한다.
+    /// UI 스레드를 블록하지 않도록 <c>LoadDirectory</c>가 <c>Task.Run</c>으로 호출하고, 완성된
+    /// 핸들을 <see cref="AdoptHandle"/>로 채택한다(감사 P1, NFR-P1/R5). 새 핸들은 아직 아무도
+    /// 공유하지 않으므로(별칭 없음) 스레드 안전. 반환: (핸들, 펼침 재적용 전 직접 자식 수).
+    /// 실패 시 (<see cref="IntPtr.Zero"/>, 0).
+    /// </summary>
+    public static (IntPtr Handle, int DirectCount) OpenAndExpand(
+        string path, bool showHidden, bool showDotFiles, IReadOnlyList<string> expandedPaths)
     {
-        Close();
-        _handle = NativeInterop.TreeOpen(path, showHidden, showDotFiles);
-        RootPath = path;
+        IntPtr handle = NativeInterop.TreeOpen(path, showHidden, showDotFiles);
+        if (handle == IntPtr.Zero)
+        {
+            return (IntPtr.Zero, 0);
+        }
+        int direct = NativeInterop.TreeVisibleLen(handle);   // 펼침 재적용 전 직접 자식 수
+        // 얕은→깊은 순(부모 먼저 펼쳐야 자식이 가시화되어 다음 경로가 매칭됨). 경로당 단일 호출(P3).
+        var ordered = new List<string>(expandedPaths);
+        ordered.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
+        foreach (var target in ordered)
+        {
+            NativeInterop.TreeExpandPath(handle, target);
+        }
+        return (handle, direct);
+    }
+
+    /// <summary>
+    /// 백그라운드에서 완성된 핸들을 채택한다(UI 스레드). 이전 핸들을 해제·캐시를 비운 뒤 새 핸들로
+    /// 교체하고 <see cref="NotifyCollectionChangedAction.Reset"/>를 통지한다. 로드 중에는 이전 핸들이
+    /// 계속 표시되므로 빈 화면 깜빡임이 없다.
+    /// </summary>
+    public void AdoptHandle(IntPtr handle, string rootPath)
+    {
+        Close();                 // 이전 핸들 해제 + 캐시 비움
+        _handle = handle;
+        RootPath = rootPath;
         _caretIndex = -1;
         RaiseReset();
-        return _handle != IntPtr.Zero;
     }
 
     // ── 캐럿 / 패널 포커스 (전이 행에 얹는 UI 상태) ───────────────────
@@ -140,37 +169,6 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
             ? NativeInterop.TreeCollapse(_handle, item.Id)
             : NativeInterop.TreeExpand(_handle, item.Id);
         InvalidateAndReset();
-    }
-
-    /// <summary>
-    /// 저장된 펼침 경로들을 재적용한다(F18 진입/이동 간 펼침 유지). 얕은→깊은 순으로 처리해
-    /// 부모를 먼저 펼쳐야 자식이 가시화되어 다음 경로가 매칭된다. 경로 매칭·펼침은 코어에 위임
-    /// (경로당 단일 <c>TreeExpandPath</c> — 기존 O(경로수×가시행) per-row 마샬 제거, 감사 P3).
-    /// 전부 처리한 뒤 캐시 무효화 + Reset을 <b>1회</b>만 통지한다.
-    /// </summary>
-    public void ExpandPaths(IEnumerable<string> paths)
-    {
-        if (_handle == IntPtr.Zero)
-        {
-            return;
-        }
-        // 경로 구분자 수(깊이) 오름차순 — 부모 먼저(펼쳐야 자식이 가시화됨).
-        var ordered = new List<string>(paths);
-        ordered.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
-
-        bool changed = false;
-        foreach (var target in ordered)
-        {
-            var rg = NativeInterop.TreeExpandPath(_handle, target);   // 코어가 경로 매칭+펼침
-            if (rg.Inserted > 0 || rg.Removed > 0)
-            {
-                changed = true;
-            }
-        }
-        if (changed)
-        {
-            InvalidateAndReset();
-        }
     }
 
     private static int Depth(string path) => path.TrimEnd('\\', '/').Count(c => c is '\\' or '/');

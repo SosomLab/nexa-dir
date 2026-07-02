@@ -31,6 +31,11 @@ public sealed partial class MainWindow : Window
     private PanelTab _leftTab = new();
     private PanelTab _rightTab = new();
 
+    // 비동기 로드 재진입 가드(패널별 세대). 로드 중 같은 패널이 다시 이동하면 세대가 올라가고,
+    // 뒤늦게 끝난 이전 로드는 결과를 폐기한다(방금 연 핸들 정리) — 최신 이동만 반영(감사 P1).
+    private int _leftLoadGen;
+    private int _rightLoadGen;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -88,37 +93,57 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 코어 트리(nexa-tree)를 열어(<c>TreeOpen</c>) 폴더 내용을 지정 패널 목록에 표시한다.
-    /// 좌/우 패널이 같은 로직을 공유(패널별 목록/header/path). 실패는 헤더 메시지로 격리.
-    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리의 가시 노드 평면 스트림을
-    /// 가상화로 소비한다(보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
+    /// 코어 트리(nexa-tree)를 <b>백그라운드 스레드</b>에서 열어(<c>OpenAndExpand</c>: 열거+펼침 재적용)
+    /// 폴더 내용을 지정 패널 목록에 표시한다. 열거·펼침이 UI 스레드를 블록하지 않으므로 수만 항목 폴더
+    /// 진입에도 프리즈가 없다(감사 P1, NFR-P1/R5). 완료는 <c>await</c> 연속(UI 스레드)에서 핸들 채택 +
+    /// <paramref name="onLoaded"/>(로드 후 동작: GoUp 선택 등) 실행. 로드 중 같은 패널이 다시 이동하면
+    /// 세대 가드로 이전 결과를 폐기한다. 좌/우 패널이 같은 로직 공유. 실패는 헤더 메시지로 격리.
+    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리의 가시 노드 평면 스트림을 가상화로 소비한다
+    /// (보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
     /// </summary>
-    private void LoadDirectory(bool left, PanelTab tab)
+    private async void LoadDirectory(bool left, PanelTab tab, Action? onLoaded = null)
     {
         var (grid, header, pathBar) = PanelUi(left);
+        int gen = left ? ++_leftLoadGen : ++_rightLoadGen;
+        var v = AppSettings.View;
+        string path = tab.Current;
+        var expanded = new List<string>(tab.Expanded);   // 백그라운드용 스냅샷(UI 스레드 컬렉션 보호)
+        header.Text = $"{path} — 여는 중…";
+        (IntPtr Handle, int DirectCount) result;
         try
         {
-            var v = AppSettings.View;
-            bool ok = tab.Items.Open(tab.Current, v.ShowHiddenFiles, v.ShowDotFiles);
-            grid.ItemsSource = tab.Items;
-            pathBar.Path = tab.Current;
-            int direct = tab.Items.Count;   // 직접 자식 수(펼침 재적용 전)
-            if (ok)
-            {
-                // F18: 진입/이동에도 이전 펼침 상태 유지 — 탭별 경로셋을 얕은→깊은 순 재적용.
-                tab.Items.ExpandPaths(tab.Expanded);
-            }
-            tab.Loaded = ok;                 // 캐시: 성공 시 이 탭은 열린 상태(전환 시 재-Open 불요)
-            tab.DirectChildCount = direct;
-            grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 이후 SelectByPath가 대상 중앙 정렬로 덮어씀.
-            header.Text = ok
-                ? $"{tab.Current} — {direct}개 항목"
-                : $"디렉터리 열기 실패: {tab.Current}";
+            // 열거+펼침(전체 read_dir + metadata syscall + 정렬)을 백그라운드로 오프로드 → UI 무블록.
+            result = await Task.Run(() =>
+                VirtualTreeCollection.OpenAndExpand(path, v.ShowHiddenFiles, v.ShowDotFiles, expanded));
         }
         catch (Exception ex)
         {
-            tab.Loaded = false;
-            header.Text = $"디렉터리 열거 실패: {ex.Message}";
+            if (gen == (left ? _leftLoadGen : _rightLoadGen))
+            {
+                tab.Loaded = false;
+                header.Text = $"디렉터리 열거 실패: {ex.Message}";
+            }
+            return;
+        }
+        // 재진입: 로드 중 같은 패널이 다시 이동했으면 이 결과를 폐기(방금 연 핸들 정리, UI 미변경).
+        if (gen != (left ? _leftLoadGen : _rightLoadGen))
+        {
+            NativeInterop.TreeClose(result.Handle);
+            return;
+        }
+        bool ok = result.Handle != IntPtr.Zero;
+        tab.Items.AdoptHandle(result.Handle, path);   // 이전 핸들 Close + 새 핸들 채택 + Reset
+        grid.ItemsSource = tab.Items;
+        pathBar.Path = path;
+        tab.Loaded = ok;                 // 캐시: 성공 시 이 탭은 열린 상태(전환 시 재-Open 불요)
+        tab.DirectChildCount = result.DirectCount;
+        grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 onLoaded의 SelectByPath가 대상 정렬로 덮어씀.
+        header.Text = ok
+            ? $"{path} — {result.DirectCount}개 항목"
+            : $"디렉터리 열기 실패: {path}";
+        if (ok)
+        {
+            onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등)
         }
     }
 
@@ -163,8 +188,11 @@ public sealed partial class MainWindow : Window
 
     // ── 네비게이션(패널/탭별 이동 기록: 뒤로·앞으로·위로) ─────────────
 
-    /// <summary>지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).</summary>
-    private void Navigate(bool left, string path, bool record)
+    /// <summary>
+    /// 지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).
+    /// 로드는 비동기이므로, 로드 완료 후 실행할 동작(예: GoUp의 대상 선택)은 <paramref name="onLoaded"/>로 전달한다.
+    /// </summary>
+    private void Navigate(bool left, string path, bool record, Action? onLoaded = null)
     {
         var nav = left ? _leftTab : _rightTab;
         if (record && !string.IsNullOrEmpty(nav.Current))
@@ -175,7 +203,7 @@ public sealed partial class MainWindow : Window
         nav.Current = path;
         nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
         nav.Loaded = false;           // 새 경로 → 재-Open 필요(탭 캐시 무효화)
-        LoadDirectory(left, nav);
+        LoadDirectory(left, nav, onLoaded);
         UpdateNavButtons(left);
     }
 
@@ -208,9 +236,12 @@ public sealed partial class MainWindow : Window
         var parent = Directory.GetParent(from);
         if (parent is not null)
         {
-            Navigate(left, parent.FullName, record: true);
-            SetActivePanel(left);       // 그 패널을 활성으로(선택 포커스 색)
-            SelectByPath(left, from);   // 상위 목록에서 방금 떠난 폴더를 선택·포커스
+            // 상위 목록은 비동기 로드 → 방금 떠난 폴더 선택·포커스는 로드 완료 후에 실행.
+            Navigate(left, parent.FullName, record: true, onLoaded: () =>
+            {
+                SetActivePanel(left);       // 그 패널을 활성으로(선택 포커스 색)
+                SelectByPath(left, from);   // 상위 목록에서 방금 떠난 폴더를 선택·포커스
+            });
         }
     }
 
@@ -329,8 +360,8 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
                 SetActivePanel(left);
-                Navigate(left, dir, record: true);   // 파일이면 그 파일의 상위 폴더로 이동
-                SelectByPath(left, p);               // 그 파일 선택
+                // 상위 폴더는 비동기 로드 → 그 파일 선택은 로드 완료 후에.
+                Navigate(left, dir, record: true, onLoaded: () => SelectByPath(left, p));   // 파일이면 상위 폴더로 이동 후 선택
                 return;
             }
         }

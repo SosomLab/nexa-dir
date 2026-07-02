@@ -30,9 +30,11 @@
 
 ```
 refactor/002-audit  (분기: b38e6b3)
-├─ E1 통합 감사(5축 병렬) ......... (이 커밋)
+├─ E1 통합 감사(5축 병렬) ......... 5b18bcb
 │    └ 산출: docs/journal/20260702_234558_refactor-002-audit.md
-└─ E2~ 트랙 A 성능(P1/P2/P3) ...... 예정
+├─ E2 트랙 A-3 [P3] 경로→NodeId ... 8db50c3 (+ faef3cc 테스트 픽스)
+├─ E3 트랙 A-1 [P1] 열거 백그라운드 . (이 커밋)
+└─ E4~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
 ```
 
 ---
@@ -54,5 +56,15 @@ refactor/002-audit  (분기: b38e6b3)
   - 컬렉션 [VirtualTreeCollection](../../app/Nexa.App/VirtualTreeCollection.cs): `IndexOfPath`=코어 단일 호출, `ExpandPaths`=경로당 단일 `TreeExpandPath`(전체 재스캔 제거).
 - **효과**: 경로 매칭이 O(경로수×가시행) per-row 마샬 → **경로당 단일 P/Invoke**(매칭은 코어 Vec 스캔). 스모크 출력 `abi=5`.
 - **검증**: 코어 `cargo test` green(nexa-tree 10 + interop 5, 경로 라운드트립 포함), fmt·clippy(-D warnings). 앱부는 PR CI(app) + 실기 QA.
+
+## E3 · 2026-07-03 · 트랙 A-1 [P1] — 열거·펼침 백그라운드화(UI 프리즈 제거) → `(이 커밋)`
+
+- **왜**: 감사 P1 — `LoadDirectory`가 `TreeOpen`(전체 열거+`metadata()` syscall+정렬) + 펼침 재적용을 **UI 스레드 동기 실행** → 수만 항목 폴더(System32·node_modules) 진입/이동 시 UI 프리즈(NFR-P1 <150ms · NFR-R5 무블록 위반).
+- **무엇 · 파일**:
+  - 컬렉션 [VirtualTreeCollection](../../app/Nexa.App/VirtualTreeCollection.cs): 동기 `Open`/`ExpandPaths` 제거 → **정적 `OpenAndExpand`**(새 핸들에서 열거+깊이순 펼침, 별칭 없어 스레드 안전, 반환=(핸들, 펼침 전 직접 자식 수)) + **`AdoptHandle`**(UI 스레드에서 이전 핸들 Close·새 핸들 채택·Reset).
+  - 윈도우 [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs): `LoadDirectory`를 `async void`로 전환 — `Task.Run(OpenAndExpand)`로 오프로드, `await` 연속(UI 스레드)에서 채택. **패널별 세대 가드**(`_leftLoadGen`/`_rightLoadGen`)로 로드 중 재이동 시 이전 결과 폐기(뒤늦은 핸들 정리). `Navigate`에 `onLoaded` 연속 콜백 추가 → 로드 후 동작(**GoUp** 대상 선택·포커스, **경로바 파일** 선택)을 완료 시점으로 이동. `Navigate`/호출부는 동기 유지(async 파급 최소화).
+- **효과**: 열거·펼침이 UI를 블록하지 않음(대형 폴더 진입 프리즈 제거). 로드 중 이전 핸들이 계속 표시돼 **빈 화면 깜빡임 없음**. 재이동 시 최신 이동만 반영. 헤더에 "여는 중…" 표시.
+- **한계(후속)**: 뒤처진 로드는 결과만 폐기(백그라운드 열거는 완료까지 진행) — 코어 취소 가능 열거는 별도 슬라이스. `Task.Run` 결과 폐기 시 CPU 낭비는 남음.
+- **검증**: 로컬 `dotnet build`(app x64) green(경고 0/오류 0). 코어 무변경. 앱부 재진입·GoUp 순서·프리즈 해소는 **실기 QA**(대형 폴더 진입, 빠른 연속 이동, 위로 이동 후 대상 선택) + PR CI(app).
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
