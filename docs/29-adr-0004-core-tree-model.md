@@ -53,7 +53,9 @@ nexa_tree_selected_len / nexa_tree_selected_path(index) -> *const c_char
 1. **`nexa-tree` 모델**(이 저장소 슬라이스 1) — 위 타입 + open/expand/collapse/visible/selection + **단위테스트**(임시 폴더, 맥 green). ABI·앱 미접촉.
 2. **C ABI**(nexa-interop) — 위 함수 + `NexaRow`/`NexaRange` + ABI v3 + 라운드트립 테스트.
 3. **앱 재배선** — `MainWindow`의 C# 트리/선택을 코어 `VisibleRow` 소비로 교체(`ItemsRepeater` 가상화 + diff 반영). C# `ExpandInPlace`/`IsSelected` 경로 제거.
-4. **성능 검증** — 10만 노드 벤치(AC5), 필요 시 행 인덱스↔노드 매핑 O(log n)(부모별 자식수 캐시) 도입.
+4. **성능 검증**(슬라이스 4) —
+   - **4-1 코어 벤치(완료)**: 합성 10만 노드에서 expand 100k행 **5.7ms** · row()×100k **0.8ms** · select_all **5.6ms** · collapse **1.9ms** — 전부 16ms 프레임 예산 안. `visible_index`는 O(n) 선형이나 **단일 UI 동작당 1회≈20µs**(10만 기준)라 무시 가능 → **O(log n) 매핑 불채택**(위 "필요 시" 조건 미충족). 벤치: `nexa-tree` `bench_100k_visible`(`--ignored`) + 상시 스케일 가드 `large_tree_scale_ops_complete`.
+   - **4-2/4-3 앱(예정)**: 병목은 C# 측 — 탭 전환 시 **재-Open**(핸들 캐시로 제거) + 펼침/접힘 **Reset 재실체화·스크롤 튐**(`RangeChange` 범위 diff 통지로 교체).
 
 ## 범위 밖(후속)
 - 외부 변경(watcher) 반영·경로변동 시 선택 자동정리, 순환 심링크 사이클 차단, 정렬 변경 유지, 폴더 선택 시 하위 흡수(중복 제거), 부모별 다른 정렬키. (docs/07 §4·§9)

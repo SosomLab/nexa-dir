@@ -431,9 +431,168 @@ fn to_unix_ms(t: Option<SystemTime>) -> i64 {
 }
 
 #[cfg(test)]
+impl Tree {
+    /// 파일시스템 없이 합성 노드로 채운 트리(벤치/스케일 테스트 전용).
+    /// 최상위 `dirs`개 폴더 × 각 `per_dir`개 파일 자식(모두 `loaded`, 접힘 상태).
+    /// 최상위만 가시(dirs행). 실제 열거 비용을 제거하고 순수 트리 연산만 측정.
+    fn synthetic(dirs: usize, per_dir: usize) -> Tree {
+        let mut nodes: Vec<Node> = Vec::with_capacity(dirs * (per_dir + 1));
+        let mut roots = Vec::with_capacity(dirs);
+        for d in 0..dirs {
+            let dir_id = nodes.len() as NodeId;
+            let dir_name = format!("dir{d:05}");
+            let dir_path = PathBuf::from(&dir_name);
+            let mut children = Vec::with_capacity(per_dir);
+            // 자식 먼저 예약할 수 없으니 부모 push 후 자식 push, children는 나중에 세팅.
+            nodes.push(Node {
+                id: dir_id,
+                parent: None,
+                path: dir_path.clone(),
+                name: dir_name,
+                kind: FileKind::Dir,
+                depth: 0,
+                size: 0,
+                modified_unix_ms: -1,
+                attrs: 0,
+                expanded: false,
+                loaded: true,
+                children: Vec::new(),
+            });
+            for f in 0..per_dir {
+                let cid = nodes.len() as NodeId;
+                let cname = format!("f{f:05}.txt");
+                nodes.push(Node {
+                    id: cid,
+                    parent: Some(dir_id),
+                    path: dir_path.join(&cname),
+                    name: cname,
+                    kind: FileKind::File,
+                    depth: 1,
+                    size: 0,
+                    modified_unix_ms: -1,
+                    attrs: 0,
+                    expanded: false,
+                    loaded: true,
+                    children: Vec::new(),
+                });
+                children.push(cid);
+            }
+            nodes[dir_id as usize].children = children;
+            roots.push(dir_id);
+        }
+        Tree {
+            nodes,
+            visible: roots.clone(),
+            roots,
+            sel_order: Vec::new(),
+            sel_set: HashSet::new(),
+            anchor: None,
+            root_path: PathBuf::from("<synthetic>"),
+            filter: Filter {
+                show_hidden: true,
+                show_dotfiles: true,
+            },
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
+    use std::time::Instant;
+
+    /// AC5 벤치(NFR-P1/P2, docs/07·29) — 10만 가시 노드에서 트리 연산이 UI 프레임 예산 안인지.
+    /// 타이밍 단언은 CI 머신 편차로 불안정하므로 하지 않고(`--ignored`로 수동 측정),
+    /// 대신 **연산이 완료됨**(무한/이차 폭주 방지)만 확인한다. `-- --ignored --nocapture`로 수치 확인.
+    #[test]
+    #[ignore = "수동 벤치: cargo test -p nexa-tree -- --ignored --nocapture"]
+    fn bench_100k_visible() {
+        let dirs = 100;
+        let per_dir = 1000; // 100 × 1000 = 100,000 파일 + 100 폴더
+        let build = Instant::now();
+        let mut t = Tree::synthetic(dirs, per_dir);
+        eprintln!(
+            "[bench] synthetic build: {:?} ({} nodes)",
+            build.elapsed(),
+            t.nodes.len()
+        );
+
+        // 전체 펼침 → 100,100 가시 행. 각 expand는 splice(꼬리 이동)를 포함.
+        let expand = Instant::now();
+        let root_ids: Vec<NodeId> = t.roots.clone();
+        for id in &root_ids {
+            t.expand(*id).unwrap();
+        }
+        let vis = t.visible_len();
+        eprintln!(
+            "[bench] expand {dirs} dirs → {vis} visible rows: {:?}",
+            expand.elapsed()
+        );
+        assert_eq!(vis, dirs + dirs * per_dir);
+
+        // 무작위 위치 10,000회 visible_index 조회(현재 O(n) 선형) — 병목 후보 측정.
+        let lookups = 10_000usize;
+        let probe = Instant::now();
+        let mut acc = 0usize;
+        for k in 0..lookups {
+            let target = t.visible[(k * 7919) % vis]; // 흩뿌린 인덱스
+            acc += t.visible_index(target).unwrap();
+        }
+        eprintln!(
+            "[bench] {lookups}× visible_index: {:?} (acc={acc})",
+            probe.elapsed()
+        );
+
+        // 행 조회 전체 순회(호스트 마샬 전 코어 비용).
+        let rows = Instant::now();
+        for i in 0..vis {
+            let _ = t.row(i).unwrap();
+        }
+        eprintln!("[bench] row() × {vis}: {:?}", rows.elapsed());
+
+        // 전체 선택 + 접힘.
+        let sel = Instant::now();
+        t.select_all_visible();
+        eprintln!(
+            "[bench] select_all_visible ({}): {:?}",
+            t.selection_count(),
+            sel.elapsed()
+        );
+        let col = Instant::now();
+        for id in &root_ids {
+            t.collapse(*id);
+        }
+        eprintln!(
+            "[bench] collapse {dirs} dirs → {} visible: {:?}",
+            t.visible_len(),
+            col.elapsed()
+        );
+    }
+
+    /// 스케일 가드(CI 상시) — 10만 노드에서 핵심 연산이 정상 완료(이차 폭주·패닉 없음).
+    #[test]
+    fn large_tree_scale_ops_complete() {
+        let mut t = Tree::synthetic(20, 5000); // 20 × 5000 = 100,000 + 20
+        for id in t.roots.clone() {
+            t.expand(id).unwrap();
+        }
+        let vis = t.visible_len();
+        assert_eq!(vis, 20 + 20 * 5000);
+        // 경계 행 조회.
+        assert!(t.row(0).unwrap().has_children);
+        assert!(t.row(vis - 1).is_some());
+        assert!(t.row(vis).is_none());
+        // 위치 조회(끝 근처) + 선택.
+        let last = t.visible[vis - 1];
+        assert_eq!(t.visible_index(last), Some(vis - 1));
+        t.select(last, SelectMode::Single);
+        assert!(t.is_selected(last));
+        // 첫 폴더 접기 → 5000 제거.
+        let removed = t.collapse(t.roots[0]).removed;
+        assert_eq!(removed, 5000);
+        assert_eq!(t.visible_len(), vis - 5000);
+    }
 
     /// 격리된 임시 트리: base/{dirA/{x.txt,y.txt}, dirA/dirB/z.txt, file1.txt}.
     fn make_fixture(tag: &str) -> PathBuf {

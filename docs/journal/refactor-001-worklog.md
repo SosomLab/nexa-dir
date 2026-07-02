@@ -220,15 +220,23 @@ refactor/001-audit  (분기: 6e81734)
   4. **머지 전 점검**: F18/스크롤/선택 회귀 없는지 최종 QA 후 main 머지.
 - **실행 주의**: IDE 내장 터미널에서 `dotnet run`은 즉시 종료(터미널 환경 이슈) → **pwsh 또는 빌드 exe** 사용. 미처리 예외는 `%LOCALAPPDATA%\NexaDir\crash.log`.
 
-## 진행 예정 (E14~)
+## E14 · 2026-07-02 · C1 슬라이스 4-1 — AC5 10만 노드 코어 벤치 → `(이 커밋)`
 
-- **E14 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
-- **E13 · 4 성능**: QA #3(대용량 스크롤)·**#4(탭 전환 클릭 지연)** — 탭별 트리 핸들 캐시 + 범위 diff 통지(Reset→Insert/Remove) + 행 매핑 O(log n) + 10만 노드 벤치(AC5).
+- **왜**: 슬라이스 4 착수 전 **어디가 병목인지 측정**(ADR-0004 §4는 "벤치 → 필요 시 O(log n)" 순서). 추측 대신 수치로 O(log n) 매핑 도입 여부 판단.
+- **무엇 · 파일** ([nexa-tree/src/lib.rs](../../core/crates/nexa-tree/src/lib.rs)):
+  - `#[cfg(test)] Tree::synthetic(dirs, per_dir)` — 파일시스템 없이 arena에 노드 직접 채움(열거 비용 배제, 순수 트리 연산만 측정).
+  - `bench_100k_visible`(`#[ignore]`, 수동) — 100×1000=10만 파일 전체 펼침·`visible_index`·`row`·`select_all`·`collapse` 측정. 타이밍 단언은 CI 편차로 생략, `--nocapture` 출력.
+  - `large_tree_scale_ops_complete`(상시) — 10만 노드에서 경계 행·위치조회·선택·접힘이 정상 완료(이차 폭주·패닉 가드).
+- **측정 결과**(로컬, release): expand 100k행 **5.7ms** · row()×100k **0.8ms** · select_all **5.6ms** · collapse **1.9ms** — 전부 16ms 프레임 예산 안. `visible_index`는 O(n)이나 **단일 동작당 1회≈20µs**(10만) → **O(log n) 매핑 불채택**.
+- **결론**: **코어는 10만 노드에서 이미 AC5 충족**. 실사용 병목은 C# 측(탭 재-Open·펼침 Reset 재실체화) → 4-2/4-3에서 처리.
+- **검증(How)**: `cargo test -p nexa-tree` **10 green**(+scale gard), `cargo test -p nexa-tree -- --ignored --nocapture bench_100k`로 수치. fmt·clippy(-D warnings) 통과. **맥 완전 검증(코어 전용, WinUI 무관).**
+
+## 진행 예정 (E15~)
+
+- **E15 · 4-2 탭별 트리 핸들 캐시**: 탭 전환 시 `Navigate→Open` 재열거 제거(#4). 각 `PanelTab`이 자체 `VirtualTreeCollection`(또는 코어 핸들) 보유, 전환=활성 컬렉션 스왑.
+- **E16 · 4-3 펼침/접힘 범위 diff 통지**: `ToggleExpand`가 `TreeRange`(start/removed/inserted)로 `Add`/`Remove` 통지(#3 스크롤 보존). 캐시 인덱스·캐럿 시프트 처리.
+- **E17 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
-
-- **E9 · C1 슬라이스 3b-2 완료**: `VirtualTreeCollection`(IList+INotifyCollectionChanged, 인덱스별 `TreeGetRow` 지연 생성·캐시) → 패널당 `NexaTree` 보유, `LoadDirectory`를 `TreeOpen`+가상화 소비로 전환(현 `ReadDir`/`DirItem` 전량 채움 대체). **전면 가상화 = 보이는 행만 구체화.**
-- **E10 · C1 슬라이스 3b-3**: 펼침/접힘(`TreeExpand/Collapse` + `TreeRange` → 컬렉션 diff 이벤트) + 선택(`TreeSelect*`, `IsSelected`=코어) 위임. C# `ExpandInPlace`/`CollapseInPlace`/`ApplySavedExpansion`/`SortItems`·`DirItem.IsSelected` 소유 제거.
-- **E11 · C1 슬라이스 4**: 10만 노드 성능 벤치(AC5) + 행 인덱스↔노드 매핑 O(log n).
 
 > ⚠️ **남은 MainWindow 재배선은 이 브랜치 최대 단일 변경** — WinUI 런타임 검증 불가(CI는 빌드만) → 실기 QA 필요. 회귀 위험 큰 만큼 위 E9/E10로 분할, 각 push마다 PR #1 CI(`app`) green 확인.
 
