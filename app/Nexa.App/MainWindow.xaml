@@ -67,9 +67,9 @@
                     <ctrls:NexaMenuEntry Text="아이콘" />
                     <ctrls:NexaMenuEntry Text="목록" />
                     <ctrls:NexaMenuEntry Text="컬럼" />
-                    <!-- 숨김 파일 보기 · 점(.) 파일 숨기기 — 독립 토글(동시 설정 가능) -->
-                    <ctrls:NexaMenuEntry Text="숨김 파일 보기" IsCheckable="True" Click="OnToggleShowHidden" />
-                    <ctrls:NexaMenuEntry Text="점(.) 파일 숨기기" IsCheckable="True" Click="OnToggleHideDotFiles" />
+                    <!-- 숨김 파일 보기 · 점(.) 파일 보기 — 독립 토글(동시 설정 가능, 기본 둘 다 표시=체크 ON) -->
+                    <ctrls:NexaMenuEntry Text="숨김 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
+                    <ctrls:NexaMenuEntry Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="구성(O)" />
                 <ctrls:NexaMenu Header="도움말(H)">

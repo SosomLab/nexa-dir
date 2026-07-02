@@ -30,15 +30,15 @@ internal sealed class TabOptions
 
 /// <summary>
 /// 목록 표시(가시성) 옵션. 숨김 파일과 점(.) 파일을 <b>독립</b>으로 토글한다(동시 설정 가능).
-/// 기본값은 Windows 탐색기와 동일 — 숨김 속성 파일은 감추고, 점(.) 파일은 보인다.
+/// 두 토글 모두 "보기(표시)" 개념 — 기본은 <b>표시</b>(체크 ON), 해제하면 감춘다.
 /// </summary>
 internal sealed class ViewOptions
 {
-    /// <summary>Windows 숨김 속성(FILE_ATTRIBUTE_HIDDEN) 파일 표시 여부(기본 <c>false</c> = 감춤).</summary>
-    public bool ShowHiddenFiles { get; set; } = false;
+    /// <summary>Windows 숨김 속성(FILE_ATTRIBUTE_HIDDEN) 파일 표시 여부(기본 <c>true</c> = 표시, 해제 시 감춤).</summary>
+    public bool ShowHiddenFiles { get; set; } = true;
 
-    /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더를 숨길지(기본 <c>false</c> = 표시).</summary>
-    public bool HideDotFiles { get; set; } = false;
+    /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더 표시 여부(기본 <c>true</c> = 표시, 해제 시 감춤).</summary>
+    public bool ShowDotFiles { get; set; } = true;
 }
 
 /// <summary>

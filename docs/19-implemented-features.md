@@ -338,23 +338,24 @@
 - **F23-1 파일 경로 처리**: 편집 제출 경로가 **폴더면 그대로 이동**, **파일이면 그 파일의 상위 폴더로 이동 + 그 파일 선택**. (`OnPathBarNavigated`: `Directory.Exists` / `File.Exists`→`GetDirectoryName`→`Navigate`+`SelectByPath`)
 - **후속(β/γ, [27](27-pathbar-component.md))**: 오버플로 `…`·UNC · 형제 `▾` 드롭다운 · 세그먼트 드롭 타깃 · VFS 스킴 Segmenter · 템플릿드 컨트롤화.
 
-### F24. 숨김 파일 보기 · 점(.) 파일 숨기기 (독립 토글, 코어 attrs)
+### F24. 숨김 파일 보기 · 점(.) 파일 보기 (독립 토글, 코어 attrs)
 
-- **무엇**: 표시(S) 메뉴에 **체크형 토글 2개**(독립·동시 설정). ① **숨김 파일 보기**(Windows `FILE_ATTRIBUTE_HIDDEN` 표시 여부, 기본 OFF) · ② **점(.) 파일 숨기기**(리눅스식 dotfile 숨김, 기본 OFF). 기본값은 Windows 탐색기와 동일(숨김 속성 감춤·점 파일 표시).
+- **무엇**: 표시(S) 메뉴에 **체크형 토글 2개**(독립·동시 설정, 둘 다 "보기" 개념). ① **숨김 파일 보기**(Windows `FILE_ATTRIBUTE_HIDDEN`) · ② **점(.) 파일 보기**(리눅스식 dotfile). **기본은 둘 다 표시(체크 ON)** — 해제하면 해당 종류를 감춘다.
 - **왜 코어에서(성능)**: Windows 디렉터리 열거(`FindNextFile`)가 속성을 결과에 이미 포함 → Rust `DirEntry::metadata()`는 Windows에서 **추가 syscall 없이** 속성 제공. 코어가 이미 크기·시각용으로 `metadata()`를 부르므로 `attrs` 노출은 **비용 0**. C#에서 `File.GetAttributes`로 판정하면 **엔트리당 syscall 1회**(10만 노드=10만 회) → 코어 확정.
 - **구현 위치**:
   - 코어: [core/crates/nexa-vfs/src/lib.rs](../core/crates/nexa-vfs/src/lib.rs) `Entry.attrs` + `file_attrs()`(`#[cfg(windows)]` MetadataExt), [core/crates/nexa-interop/src/lib.rs](../core/crates/nexa-interop/src/lib.rs) `NexaEntry.attrs` + `nexa_dir_next` 채움 + **ABI v1→v2**
-  - 앱: [app/Nexa.App/Settings.cs](../app/Nexa.App/Settings.cs) `ViewOptions{ShowHiddenFiles, HideDotFiles}`·`AppSettings.View` · [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) `DirItem.Attrs/IsHidden/IsDotFile`·`ReadDir` 필터(`IsVisible`) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnToggleShowHidden/OnToggleHideDotFiles`·`ReloadBothPanels`
+  - 앱: [app/Nexa.App/Settings.cs](../app/Nexa.App/Settings.cs) `ViewOptions{ShowHiddenFiles=true, ShowDotFiles=true}`·`AppSettings.View` · [app/Nexa.App/NativeInterop.cs](../app/Nexa.App/NativeInterop.cs) `DirItem.Attrs/IsHidden/IsDotFile`·`ReadDir` 필터(`IsVisible`: 해제된 종류만 제외) · [MainWindow.xaml.cs](../app/Nexa.App/MainWindow.xaml.cs) `OnToggleShowHidden/OnToggleShowDotFiles`·`ReloadBothPanels`
+  - 메뉴 초기 체크: [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) 엔트리 `IsChecked="True"`(기본 표시=체크 ON, 설정 기본값과 일치)
   - 메뉴: [app/Nexa.Controls/NexaMenu.cs](../app/Nexa.Controls/NexaMenu.cs) `NexaMenuEntry.IsCheckable/IsChecked/Click` · [NexaMenuBar.xaml.cs](../app/Nexa.Controls/NexaMenuBar.xaml.cs) 체크형 렌더(체크 글리프)·탭 토글 · [MainWindow.xaml](../app/Nexa.App/MainWindow.xaml) 표시(S) 메뉴 엔트리 2개
 - **커밋**: `(이 단위)`
 - **테스트**:
   | 방법 | 명령/동작 | 기대 |
   | --- | --- | --- |
   | 코어 단위 | `cargo test --workspace` | 9 tests 통과(`abi_version_is_two` 포함) |
-  | 앱(Windows) | 표시(S) → "숨김 파일 보기" 체크 | 숨김 속성 파일이 목록에 나타남(체크 표시 토글) |
-  | 앱(Windows) | 표시(S) → "점(.) 파일 숨기기" 체크 | `.git`·`.vscode` 등 점 파일/폴더가 사라짐 |
-  | 독립성 | 두 토글 조합 | 각각 독립 적용(둘 다 OFF=탐색기와 동일) |
-- **후속**: System(0x4) 속성·설정 JSON 영속화(docs/19 설정 시스템) · 토글 상태 초기 동기화(현재 기본 OFF=엔트리 기본값과 일치).
+  | 앱(Windows) | 표시(S)(기본 체크 ON) → "숨김 파일 보기" 체크 해제 | 숨김 속성 파일이 목록에서 사라짐 |
+  | 앱(Windows) | 표시(S) → "점(.) 파일 보기" 체크 해제 | `.git`·`.vscode` 등 점 파일/폴더가 사라짐 |
+  | 독립성 | 두 토글 조합 | 각각 독립 적용(둘 다 ON=모두 표시가 기본) |
+- **후속**: System(0x4) 속성·설정 JSON 영속화(docs/19 설정 시스템) · 토글 상태 초기 동기화(현재 XAML `IsChecked="True"`가 설정 기본값과 일치).
 
 ---
 

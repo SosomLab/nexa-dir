@@ -286,12 +286,12 @@ internal static class NativeInterop
     }
 
     /// <summary>
-    /// 가시성 필터: 점(.) 파일 숨김 토글과 숨김 속성 표시 토글을 독립으로 적용한다.
-    /// 두 조건을 모두 통과해야 표시(둘 다 기본 OFF면 Windows 탐색기와 동일 결과).
+    /// 가시성 필터: 숨김 속성 표시 토글과 점(.) 파일 표시 토글을 독립으로 적용한다.
+    /// 둘 다 "보기" 개념 — 해제(<c>false</c>)된 종류만 걸러낸다(기본은 둘 다 표시).
     /// </summary>
     internal static bool IsVisible(DirItem it, ViewOptions view)
     {
-        if (view.HideDotFiles && it.IsDotFile)
+        if (!view.ShowDotFiles && it.IsDotFile)
         {
             return false;
         }

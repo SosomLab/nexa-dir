@@ -131,19 +131,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정) ─────
+    // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
-    /// <summary>"숨김 파일 보기" 토글 → 숨김 속성 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
+    /// <summary>"숨김 파일 보기" 토글(체크=표시) → 숨김 속성 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
     private void OnToggleShowHidden(object sender, EventArgs e)
     {
         AppSettings.View.ShowHiddenFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles;
         ReloadBothPanels();
     }
 
-    /// <summary>"점(.) 파일 숨기기" 토글 → 리눅스식 점 파일 숨김 여부 갱신 후 양쪽 패널 재로드.</summary>
-    private void OnToggleHideDotFiles(object sender, EventArgs e)
+    /// <summary>"점(.) 파일 보기" 토글(체크=표시) → 리눅스식 점 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
+    private void OnToggleShowDotFiles(object sender, EventArgs e)
     {
-        AppSettings.View.HideDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.HideDotFiles;
+        AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
         ReloadBothPanels();
     }
 
