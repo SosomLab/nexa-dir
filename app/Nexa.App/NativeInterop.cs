@@ -359,8 +359,8 @@ internal static class NativeInterop
                 : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
     }
 
-    // ── 코어 트리/선택 (C1, ABI v3) — 구조체 미러 ────────────────────────────
-    // 함수 바인딩(nexa_tree_*)과 UI 소비는 후속 슬라이스(3b-2/3b-3). 여기서는 레이아웃 가드용 미러만.
+    // ── 코어 트리/선택 (C1, ABI v3) — 구조체 미러 + 관리형 클라이언트 ─────────────
+    // UI 소비(가상화 컬렉션)는 후속. 여기서는 P/Invoke + 마샬 은닉 관리형 API를 제공.
 
     /// <summary>C ABI <c>NexaRow</c> 미러(코어 <c>VisibleRow</c>). 8→4→1바이트 배치와 일치.
     /// <c>Name</c>은 다음 row/close 전까지만 유효한 네이티브 포인터.</summary>
@@ -386,4 +386,125 @@ internal static class NativeInterop
         public ulong Removed;
         public ulong Inserted;
     }
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr nexa_tree_open([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void nexa_tree_close(IntPtr handle);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern ulong nexa_tree_visible_len(IntPtr handle);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_row(IntPtr handle, ulong index, ref NexaRow row);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_expand(IntPtr handle, ulong id, ref NexaRange range);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_collapse(IntPtr handle, ulong id, ref NexaRange range);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void nexa_tree_select(IntPtr handle, ulong id, uint mode);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void nexa_tree_select_range(IntPtr handle, ulong id);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void nexa_tree_select_all(IntPtr handle);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void nexa_tree_clear_selection(IntPtr handle);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_is_selected(IntPtr handle, ulong id);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern ulong nexa_tree_selected_len(IntPtr handle);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr nexa_tree_selected_path(IntPtr handle, ulong index);
+
+    // ── 마샬 은닉 관리형 API (호출측은 TreeRow/TreeRange만 다룸) ─────────────
+
+    /// <summary>트리를 연다(실패 시 <see cref="IntPtr.Zero"/>). <see cref="TreeClose"/>로 해제.</summary>
+    internal static IntPtr TreeOpen(string path) => nexa_tree_open(path);
+
+    /// <summary>트리 핸들 해제(널 무시).</summary>
+    internal static void TreeClose(IntPtr handle) => nexa_tree_close(handle);
+
+    /// <summary>가시 행 수.</summary>
+    internal static int TreeVisibleLen(IntPtr handle) => (int)nexa_tree_visible_len(handle);
+
+    /// <summary>가시 인덱스의 행(범위 밖이면 <c>false</c>). <c>Name</c>은 즉시 관리형 문자열로 복사.</summary>
+    internal static bool TreeGetRow(IntPtr handle, int index, out TreeRow row)
+    {
+        var r = default(NexaRow);
+        if (nexa_tree_row(handle, (ulong)index, ref r) != 1)
+        {
+            row = default;
+            return false;
+        }
+        row = new TreeRow(
+            r.Id, r.Depth, (NexaFileKind)r.Kind, Marshal.PtrToStringUTF8(r.Name) ?? string.Empty,
+            r.Size, r.ModifiedUnixMs, r.Attrs, r.Expanded != 0, r.HasChildren != 0);
+        return true;
+    }
+
+    /// <summary>펼침 → 가시 목록 변경 구간(IO 오류/무변경은 빈 구간).</summary>
+    internal static TreeRange TreeExpand(IntPtr handle, ulong id)
+    {
+        var rg = default(NexaRange);
+        nexa_tree_expand(handle, id, ref rg);
+        return new TreeRange((int)rg.Start, (int)rg.Removed, (int)rg.Inserted);
+    }
+
+    /// <summary>접힘 → 가시 목록 변경 구간.</summary>
+    internal static TreeRange TreeCollapse(IntPtr handle, ulong id)
+    {
+        var rg = default(NexaRange);
+        nexa_tree_collapse(handle, id, ref rg);
+        return new TreeRange((int)rg.Start, (int)rg.Removed, (int)rg.Inserted);
+    }
+
+    /// <summary>선택: <paramref name="mode"/> 0=단일, 1=토글.</summary>
+    internal static void TreeSelect(IntPtr handle, ulong id, uint mode) => nexa_tree_select(handle, id, mode);
+
+    /// <summary>anchor~id 가시 범위 선택.</summary>
+    internal static void TreeSelectRange(IntPtr handle, ulong id) => nexa_tree_select_range(handle, id);
+
+    /// <summary>가시 노드 전체 선택.</summary>
+    internal static void TreeSelectAll(IntPtr handle) => nexa_tree_select_all(handle);
+
+    /// <summary>선택 해제.</summary>
+    internal static void TreeClearSelection(IntPtr handle) => nexa_tree_clear_selection(handle);
+
+    /// <summary>id 선택 여부.</summary>
+    internal static bool TreeIsSelected(IntPtr handle, ulong id) => nexa_tree_is_selected(handle, id) != 0;
+
+    /// <summary>선택 수.</summary>
+    internal static int TreeSelectedLen(IntPtr handle) => (int)nexa_tree_selected_len(handle);
+
+    /// <summary>선택(삽입 순서) index번째 경로(없으면 null).</summary>
+    internal static string? TreeSelectedPath(IntPtr handle, int index)
+    {
+        IntPtr p = nexa_tree_selected_path(handle, (ulong)index);
+        return p == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(p);
+    }
 }
+
+/// <summary>코어 트리 가시 행(관리형). 코어 <c>VisibleRow</c>/C ABI <c>NexaRow</c>의 관리형 표현.</summary>
+internal readonly record struct TreeRow(
+    ulong Id,
+    uint Depth,
+    NexaFileKind Kind,
+    string Name,
+    ulong Size,
+    long ModifiedUnixMs,
+    uint Attrs,
+    bool Expanded,
+    bool HasChildren);
+
+/// <summary>펼침/접힘으로 인한 가시 목록 변경 구간(관리형).</summary>
+internal readonly record struct TreeRange(int Start, int Removed, int Inserted);
