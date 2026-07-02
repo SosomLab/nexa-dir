@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 갱신: 2026-07-02 (KST) · 단계: **M1 진행** — 데이터흐름(F1~5)+레이아웃(F6~9)+**플래그십 초안**(인라인 펼침·컬럼 F10 / 선택 F11·F17) + **패널 탭**(F20·닫기 F22) + **계층 경로 바 `NexaPathBar`**(F23) + 네비(F13·F19·F21) + **숨김/점 파일 토글**(코어 attrs·ABI v2, F24) + **마우스 뒤로/앞으로**(F25) 구현(**F1~F25**, [19](19-implemented-features.md)). 기본 폰트 Segoe UI. **진행 중: C1 코어 트리/선택**(`refactor/001-audit`, ADR [29](29-adr-0004-core-tree-model.md)) — 슬라이스 1 `nexa-tree` 모델(F26) + 슬라이스 2 **C ABI `nexa_tree_*`·ABI v3**(F27). 다음=슬라이스 3 앱 재배선(로드 시 ABI 검사 포함)·`Nexa.ViewModels` 분리 · 코어 17 tests green
+> 갱신: 2026-07-02 (KST) · 단계: **M1 진행** — 데이터흐름(F1~5)+레이아웃(F6~9)+**플래그십 초안**(인라인 펼침·컬럼 F10 / 선택 F11·F17) + **패널 탭**(F20·닫기 F22) + **계층 경로 바 `NexaPathBar`**(F23) + 네비(F13·F19·F21) + **숨김/점 파일 토글**(코어 attrs·ABI v2, F24) + **마우스 뒤로/앞으로**(F25) 구현(**F1~F25**, [19](19-implemented-features.md)). 기본 폰트 Segoe UI. **진행 중: C1 코어 트리/선택**(`refactor/001-audit`, ADR [29](29-adr-0004-core-tree-model.md)) — 슬라이스 1 `nexa-tree` 모델(F26) + 슬라이스 2 **C ABI `nexa_tree_*`·ABI v3**(F27). + 슬라이스 3a **호스트 ABI 안전 계층**(로드 시 버전·레이아웃 검사, F28, 감사 A2/A3 정정). 다음=슬라이스 3b 앱 트리/선택 재배선·`Nexa.ViewModels` 분리 · 코어 17 tests green
 
 ## 1. 확정된 결정 (Decision Record [10](10-decision-record.md))
 

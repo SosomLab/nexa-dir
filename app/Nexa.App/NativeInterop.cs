@@ -213,9 +213,39 @@ internal static class NativeInterop
 {
     private const string Dll = "nexa_interop";
 
-    /// <summary>인터롭 ABI 버전(호환성 점검용). 불일치 시 로드 거부 등에 사용 예정.</summary>
+    /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
+    public const uint ExpectedAbi = 3;
+
+    /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     public static extern uint nexa_abi_version();
+
+    /// <summary>코어의 <c>NexaEntry</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ulong nexa_entry_size();
+
+    /// <summary>
+    /// 로드된 네이티브 dll의 <b>ABI 호환성</b>을 검사한다(감사 A2/A3 정정):
+    /// ① 버전이 <see cref="ExpectedAbi"/>와 일치, ② 마샬 구조체(<c>NexaEntry</c>) 크기가 코어와 일치.
+    /// 불일치 시 <see cref="InvalidOperationException"/> — 호출측이 네이티브 경로를 비활성/경고한다.
+    /// 구형/신형 dll이 조용히 로드돼 구조체가 오정렬되는 것을 차단한다.
+    /// </summary>
+    public static void VerifyAbi()
+    {
+        uint abi = nexa_abi_version();
+        if (abi != ExpectedAbi)
+        {
+            throw new InvalidOperationException(
+                $"코어 ABI 불일치: dll={abi}, 기대={ExpectedAbi} — nexa_interop.dll이 구형/신형입니다(재빌드 필요).");
+        }
+        ulong marshalSize = (ulong)Marshal.SizeOf<NexaEntry>();
+        ulong nativeSize = nexa_entry_size();
+        if (marshalSize != nativeSize)
+        {
+            throw new InvalidOperationException(
+                $"NexaEntry 레이아웃 불일치: C#={marshalSize}B, 코어={nativeSize}B — P/Invoke 미러가 어긋났습니다.");
+        }
+    }
 
     /// <summary>왕복 PoC: 두 정수의 합을 코어(Rust)에서 계산해 반환.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]

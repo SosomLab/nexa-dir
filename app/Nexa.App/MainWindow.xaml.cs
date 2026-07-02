@@ -84,6 +84,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            NativeInterop.VerifyAbi();   // ABI 버전 + 구조체 레이아웃 검사(불일치 시 예외)
             uint abi = NativeInterop.nexa_abi_version();
             int sum = NativeInterop.nexa_poc_add(2, 3);
             StatusText.Text = $"인터롭 OK — abi={abi}, nexa_poc_add(2, 3)={sum}";

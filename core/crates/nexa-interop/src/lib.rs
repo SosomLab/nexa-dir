@@ -28,6 +28,12 @@ pub extern "C" fn nexa_abi_version() -> c_uint {
     3
 }
 
+/// `NexaEntry`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용(감사 A2 — 구조체 드리프트 가드).
+#[no_mangle]
+pub extern "C" fn nexa_entry_size() -> u64 {
+    std::mem::size_of::<NexaEntry>() as u64
+}
+
 /// 왕복(round-trip) PoC: C# 호스트가 보낸 두 정수의 합을 반환한다.
 ///
 /// Rust↔C# 인터롭 경계의 **값 전달·반환**을 검증하기 위한 최소 함수.
