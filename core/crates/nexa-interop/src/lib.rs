@@ -147,6 +147,7 @@ pub unsafe extern "C" fn nexa_dir_close(handle: *mut DirHandle) {
 pub struct TreeHandle {
     tree: Tree,
     row_name: Option<CString>,
+    row_path: Option<CString>,
     sel_path: Option<CString>,
 }
 
@@ -191,6 +192,7 @@ pub unsafe extern "C" fn nexa_tree_open(path: *const c_char) -> *mut TreeHandle 
         Ok(tree) => Box::into_raw(Box::new(TreeHandle {
             tree,
             row_name: None,
+            row_path: None,
             sel_path: None,
         })),
         Err(_) => ptr::null_mut(),
@@ -250,6 +252,27 @@ pub unsafe extern "C" fn nexa_tree_row(
     out.expanded = row.expanded as u8;
     out.has_children = row.has_children as u8;
     1
+}
+
+/// 가시 인덱스 행의 절대 경로(범위 밖/널이면 널). 아이콘 로딩·네비게이션용.
+/// 반환 포인터는 다음 `nexa_tree_row_path`/`nexa_tree_close` 호출 전까지만 유효.
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_row_path(handle: *mut TreeHandle, index: u64) -> *const c_char {
+    if handle.is_null() {
+        return ptr::null();
+    }
+    let h = &mut *handle;
+    let Some(row) = h.tree.row(index as usize) else {
+        return ptr::null();
+    };
+    let Some(p) = h.tree.node_path(row.id) else {
+        return ptr::null();
+    };
+    h.row_path = Some(CString::new(p.to_string_lossy().as_ref()).unwrap_or_default());
+    h.row_path.as_ref().map_or(ptr::null(), |c| c.as_ptr())
 }
 
 /// `id`(디렉터리)를 펼치고 변경 구간을 `out`에 채운다.
@@ -512,6 +535,8 @@ mod tests {
             assert_eq!(nexa_tree_row(h, 1, &mut row), 1); // child.txt
             assert_eq!(row.depth, 1);
             let child_id = row.id;
+            let rp = CStr::from_ptr(nexa_tree_row_path(h, 1)).to_string_lossy();
+            assert!(rp.ends_with("child.txt"), "row_path={rp}");
             assert_eq!(nexa_tree_row(h, 2, &mut row), 1); // top.txt
             let top_id = row.id;
 

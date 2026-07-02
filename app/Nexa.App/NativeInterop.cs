@@ -400,6 +400,9 @@ internal static class NativeInterop
     private static extern int nexa_tree_row(IntPtr handle, ulong index, ref NexaRow row);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr nexa_tree_row_path(IntPtr handle, ulong index);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern int nexa_tree_expand(IntPtr handle, ulong id, ref NexaRange range);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -450,6 +453,13 @@ internal static class NativeInterop
             r.Id, r.Depth, (NexaFileKind)r.Kind, Marshal.PtrToStringUTF8(r.Name) ?? string.Empty,
             r.Size, r.ModifiedUnixMs, r.Attrs, r.Expanded != 0, r.HasChildren != 0);
         return true;
+    }
+
+    /// <summary>가시 인덱스 행의 절대 경로(범위 밖이면 null). 아이콘/네비게이션용.</summary>
+    internal static string? TreeRowPath(IntPtr handle, int index)
+    {
+        IntPtr p = nexa_tree_row_path(handle, (ulong)index);
+        return p == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(p);
     }
 
     /// <summary>펼침 → 가시 목록 변경 구간(IO 오류/무변경은 빈 구간).</summary>
