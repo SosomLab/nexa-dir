@@ -257,10 +257,20 @@ refactor/001-audit  (분기: 6e81734)
 - **검증(How)**: 코어 `cargo test` green(interop 5·tree 9+ignored, `index_of` 라운드트립 포함), fmt·clippy(-D warnings). 앱부는 **PR #1 CI(app) + 실기 QA**(큰 폴더 끝쪽 클릭 반응·GoUp 선택 즉시성).
 - **비고**: 원 계획의 "펼침/접힘 Reset→범위 diff 통지(스크롤 보존)"는 별도 후속(E18)으로 분리 — ItemsRepeater의 세밀 통지는 런타임 검증 필요, 이번 병목(클릭 실체화)이 우선.
 
-## 진행 예정 (E17~)
+## E17 · 2026-07-02 · 죽은 코드 정리 (감사 C6) → `(이 커밋)`
 
-- **E17 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
+- **왜**: C1 코어 트리 이관으로 앱 계층 열거·필터·정렬이 코어로 넘어가면서 **C# 경로가 미사용**으로 남음(감사 C6, "죽은 코드/중복 헬퍼"). 유지비·오해 소지 제거.
+- **무엇 · 파일**(모두 호출처 0 확인 후 제거):
+  - [NativeInterop.cs](../../app/Nexa.App/NativeInterop.cs): `ReadDir`·`IsVisible`·`SortItems` 메서드 + 이들만 쓰던 `nexa_dir_open`/`nexa_dir_next`/`nexa_dir_close` P/Invoke 바인딩 삭제. `DirItem.IsHidden`/`IsDotFile`(IsVisible 전용)·`KindLabel`(미사용) 삭제. **`NexaEntry` 미러·`nexa_entry_size`는 `VerifyAbi` 레이아웃 가드가 계속 사용 → 유지.**
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `_leftNav`/`_rightNav`(=`_leftTab`/`_rightTab` 별칭) 인라인·삭제. `LoadDirectory` 스테일 doc(`nexa_dir_*` 호출) 정정.
+  - [docs/16](../16-project-structure.md): `NativeInterop.cs` 구조 설명을 현행(코어 트리 소비)으로 갱신.
+- **참고**: 코어 `nexa_dir_*`(F2/F3)는 Rust에서 계속 export·테스트 — **C# 바인딩만** 제거(현재 소비자 없음). `SortOptions`/`AppSettings.Sort`는 A5 정렬 설정 스캐폴드라 유지. docs/19의 F2~F4·F24 C# 세부는 시점 기록(historical)으로 둠.
+- **검증(How)**: 코어 무영향. 앱부는 **PR CI(app) 빌드 green**으로 미사용 제거가 컴파일 깨지 않음을 확인.
+
+## 진행 예정 (E18~)
+
 - **E18 · 4-4 펼침/접힘 스크롤 보존**: 펼침/접힘 시 스크롤 오프셋 유지(#3 "비자연" 잔여) — Reset 전후 오프셋 복원 또는 범위 diff. 런타임 QA 필요.
+- **감사 잔여(다음 라운드 후보)**: C1 `PanelView` 통합(bool left 소거)·A2 `Nexa.ViewModels` 분리 · B1 FFI 패닉 가드 · B5 `Directory.Build.props` · D2 커밋해시 백필.
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
 
 > ⚠️ **남은 MainWindow 재배선은 이 브랜치 최대 단일 변경** — WinUI 런타임 검증 불가(CI는 빌드만) → 실기 QA 필요. 회귀 위험 큰 만큼 위 E9/E10로 분할, 각 push마다 PR #1 CI(`app`) green 확인.

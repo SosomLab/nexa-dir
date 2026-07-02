@@ -30,9 +30,6 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<PanelTab> _rightTabs = new();
     private PanelTab _leftTab = new();
     private PanelTab _rightTab = new();
-    // 기존 네비게이션 코드 유지용 접근자 — 활성 탭의 이동 기록.
-    private PanelTab _leftNav => _leftTab;
-    private PanelTab _rightNav => _rightTab;
 
     public MainWindow()
     {
@@ -91,9 +88,9 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 코어 디렉터리 스트리밍 열거(nexa_dir_*)를 호출해 폴더 내용을 지정 패널 목록에 표시한다.
+    /// 코어 트리(nexa-tree)를 열어(<c>TreeOpen</c>) 폴더 내용을 지정 패널 목록에 표시한다.
     /// 좌/우 패널이 같은 로직을 공유(패널별 목록/header/path). 실패는 헤더 메시지로 격리.
-    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리(nexa-tree)의 가시 노드 평면 스트림을
+    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리의 가시 노드 평면 스트림을
     /// 가상화로 소비한다(보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
     /// </summary>
     private void LoadDirectory(bool left, PanelTab tab)
@@ -169,7 +166,7 @@ public sealed partial class MainWindow : Window
     /// <summary>지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).</summary>
     private void Navigate(bool left, string path, bool record)
     {
-        var nav = left ? _leftNav : _rightNav;
+        var nav = left ? _leftTab : _rightTab;
         if (record && !string.IsNullOrEmpty(nav.Current))
         {
             nav.Back.Push(nav.Current);
@@ -184,7 +181,7 @@ public sealed partial class MainWindow : Window
 
     private void GoBack(bool left)
     {
-        var nav = left ? _leftNav : _rightNav;
+        var nav = left ? _leftTab : _rightTab;
         if (nav.Back.Count == 0)
         {
             return;
@@ -195,7 +192,7 @@ public sealed partial class MainWindow : Window
 
     private void GoForward(bool left)
     {
-        var nav = left ? _leftNav : _rightNav;
+        var nav = left ? _leftTab : _rightTab;
         if (nav.Fwd.Count == 0)
         {
             return;
@@ -206,7 +203,7 @@ public sealed partial class MainWindow : Window
 
     private void GoUp(bool left)
     {
-        var nav = left ? _leftNav : _rightNav;
+        var nav = left ? _leftTab : _rightTab;
         var from = nav.Current;   // 떠나는 폴더(=나) — 상위에서 이 폴더를 선택 상태로
         var parent = Directory.GetParent(from);
         if (parent is not null)
@@ -237,7 +234,7 @@ public sealed partial class MainWindow : Window
     /// <summary>뒤로/앞으로/위로 버튼 활성 상태 갱신.</summary>
     private void UpdateNavButtons(bool left)
     {
-        var nav = left ? _leftNav : _rightNav;
+        var nav = left ? _leftTab : _rightTab;
         bool up = !string.IsNullOrEmpty(nav.Current) && Directory.GetParent(nav.Current) is not null;
         if (left)
         {

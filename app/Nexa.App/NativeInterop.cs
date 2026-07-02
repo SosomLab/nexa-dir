@@ -48,12 +48,6 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>Windows 파일 속성 비트(코어가 열거 시 채움). 비Windows/미조회는 0.</summary>
     public uint Attrs { get; }
 
-    /// <summary>Windows 숨김 속성(FILE_ATTRIBUTE_HIDDEN=0x2) 보유 여부.</summary>
-    public bool IsHidden => (Attrs & 0x2) != 0;
-
-    /// <summary>이름이 '.'으로 시작하는 리눅스식 점 파일/폴더인지.</summary>
-    public bool IsDotFile => Name.StartsWith('.');
-
     /// <summary>절대 경로(펼침 시 자식 열거용).</summary>
     public string FullPath { get; }
 
@@ -61,9 +55,6 @@ internal sealed class DirItem : INotifyPropertyChanged
     public int Depth { get; }
 
     public bool IsDir => Kind == NexaFileKind.Dir;
-
-    /// <summary>표시용 종류 라벨(File/Dir/Symlink).</summary>
-    public string KindLabel => Kind.ToString();
 
     /// <summary>표시용 크기(폴더는 빈 문자열).</summary>
     public string SizeLabel => Kind == NexaFileKind.Dir ? string.Empty : $"{Size:N0} B";
@@ -282,88 +273,12 @@ internal static class NativeInterop
         public uint Attrs;   // ABI v2: Windows 파일 속성 비트
     }
 
-    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-    private static extern IntPtr nexa_dir_open([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    // 디렉터리 스트리밍 열거(nexa_dir_*)는 C1에서 코어 트리(nexa_tree_*)로 대체됨 — 관련
+    // C# 경로(ReadDir/IsVisible/SortItems + nexa_dir_open/next/close 바인딩)는 미사용이라 제거(E17).
+    // 가시성 필터·정렬은 이제 코어(nexa-tree)가 소유(F24·F26). NexaEntry 미러/nexa_entry_size는
+    // ABI 레이아웃 가드(VerifyAbi)가 계속 사용하므로 유지.
 
-    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-    private static extern int nexa_dir_next(IntPtr handle, ref NexaEntry entry);
-
-    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void nexa_dir_close(IntPtr handle);
-
-    /// <summary>
-    /// 디렉터리를 열거해 엔트리 목록을 반환한다(open→next 반복→close 래핑).
-    /// 네이티브 <c>name</c> 포인터는 즉시 관리형 문자열로 복사해 수명 문제를 차단한다.
-    /// 정렬은 <paramref name="sort"/>(생략 시 <see cref="AppSettings.Sort"/>)를 따른다 —
-    /// 폴더 우선(기본) + 이름 오름차순. 가시성 필터는 <paramref name="view"/>(생략 시
-    /// <see cref="AppSettings.View"/>) — 숨김 속성·점(.) 파일을 독립 토글로 걸러낸다.
-    /// <paramref name="depth"/>는 트리 들여쓰기용.
-    /// </summary>
-    /// <exception cref="IOException">열기 실패(없는 경로·권한 등).</exception>
-    public static IReadOnlyList<DirItem> ReadDir(string path, int depth = 0, SortOptions? sort = null, ViewOptions? view = null)
-    {
-        IntPtr handle = nexa_dir_open(path);
-        if (handle == IntPtr.Zero)
-        {
-            throw new IOException($"디렉터리 열기 실패: {path}");
-        }
-
-        var v = view ?? AppSettings.View;
-        var items = new List<DirItem>();
-        try
-        {
-            var entry = default(NexaEntry);
-            while (nexa_dir_next(handle, ref entry) == 1)
-            {
-                string name = Marshal.PtrToStringUTF8(entry.Name) ?? string.Empty;
-                var kind = (NexaFileKind)entry.Kind;
-                var it = new DirItem(name, kind, entry.Size, entry.ModifiedUnixMs, Path.Combine(path, name), depth, entry.Attrs);
-                if (IsVisible(it, v))
-                {
-                    items.Add(it);
-                }
-            }
-        }
-        finally
-        {
-            nexa_dir_close(handle);
-        }
-
-        SortItems(items, sort ?? AppSettings.Sort);
-        return items;
-    }
-
-    /// <summary>
-    /// 가시성 필터: 숨김 속성 표시 토글과 점(.) 파일 표시 토글을 독립으로 적용한다.
-    /// 둘 다 "보기" 개념 — 해제(<c>false</c>)된 종류만 걸러낸다(기본은 둘 다 표시).
-    /// </summary>
-    internal static bool IsVisible(DirItem it, ViewOptions view)
-    {
-        if (!view.ShowDotFiles && it.IsDotFile)
-        {
-            return false;
-        }
-        if (!view.ShowHiddenFiles && it.IsHidden)
-        {
-            return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// 파일 목록을 제자리 정렬한다. <see cref="SortOptions.FoldersFirst"/>가 켜져 있으면
-    /// 폴더를 파일보다 먼저 두고, 같은 그룹 안에서는 이름 오름차순(대소문자 무시).
-    /// 정렬 키·방향(A5)은 후속으로 <see cref="SortOptions"/>에 추가한다.
-    /// </summary>
-    internal static void SortItems(List<DirItem> items, SortOptions sort)
-    {
-        items.Sort((a, b) =>
-            sort.FoldersFirst && a.IsDir != b.IsDir
-                ? (a.IsDir ? -1 : 1)
-                : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
-    }
-
-    // ── 코어 트리/선택 (C1, ABI v3) — 구조체 미러 + 관리형 클라이언트 ─────────────
+    // ── 코어 트리/선택 (C1, ABI v4) — 구조체 미러 + 관리형 클라이언트 ─────────────
     // UI 소비(가상화 컬렉션)는 후속. 여기서는 P/Invoke + 마샬 은닉 관리형 API를 제공.
 
     /// <summary>C ABI <c>NexaRow</c> 미러(코어 <c>VisibleRow</c>). 8→4→1바이트 배치와 일치.
