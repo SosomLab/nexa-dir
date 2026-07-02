@@ -188,7 +188,7 @@ refactor/001-audit  (분기: 6e81734)
 - **무엇 · 파일**:
   - [VirtualTreeCollection.cs](../../app/Nexa.App/VirtualTreeCollection.cs) `ExpandPaths(paths)` — `Open` 후 **얕은→깊은 순 배치 재펼침**(코어 직접 질의, 부모 먼저 → 자식 가시화, Reset 1회).
   - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`(디스클로저·키보드 →/← 공용) — 코어 토글 후 **탭별 경로셋**(`PanelTab.Expanded`) add/remove. `LoadDirectory`가 `Open` 후 `ExpandPaths(tab.Expanded)` 호출. 헤더 항목수는 재펼침 전 직접 자식 수 유지.
-- **검증(How)**: app build 0 warn/err. ★실기 QA: 폴더 여러 단계 펼친 뒤 하위 진입→상위 복귀 시 펼침 유지 / 뒤로·앞으로·위로 / 접힘 후 재펼침 / 탭 전환 시 탭별 유지.
+- **검증(How)**: app build 0 warn/err. **★실기 QA 통과(2026-07-02)** — (a) C:\에서 Oracle 하위 다단계 펼침 → **Oracle 진입** 시 펼침 유지 + 진입 뷰에서 network 하위 확장 정상, (b) **확장 후 위로(상위) 이동** 시에도 펼침 상태 유지(사용자 스크린샷 2건). 진입·위로 모두 확인 → **F18 회귀 해소**.
 
 ## 진행 예정 (E13~)
 
