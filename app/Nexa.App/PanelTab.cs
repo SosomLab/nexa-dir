@@ -21,6 +21,17 @@ public sealed class PanelTab : INotifyPropertyChanged
     // 펼침 상태 유지(F18) — 탭별(경로, 대소문자 무시).
     public readonly HashSet<string> Expanded = new(StringComparer.OrdinalIgnoreCase);
 
+    // 탭별 가상화 목록 — 자체 코어 트리 핸들을 소유한다(성능 슬라이스 4-2).
+    // 탭 전환 시 재-Open(재열거·재펼침) 없이 이 컬렉션의 ItemsSource를 그대로 재사용한다.
+    // (VirtualTreeCollection은 Nexa.App 내부 타입 → internal 멤버로 노출.)
+    internal readonly VirtualTreeCollection Items = new();
+
+    /// <summary>현재 경로(<see cref="Current"/>)가 이미 열려(Open) 있는가. false면 다음 표시 때 로드.</summary>
+    public bool Loaded;
+
+    /// <summary>헤더 표시용 직접 자식 수(펼침 재적용 전) — 캐시 전환 시 헤더 복원.</summary>
+    public int DirectChildCount;
+
     private string _title = string.Empty;
     /// <summary>탭에 표시할 이름(현재 폴더명).</summary>
     public string Title

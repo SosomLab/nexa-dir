@@ -21,8 +21,9 @@ public sealed partial class MainWindow : Window
 {
     // 패널별 가상화 목록: 코어 트리(nexa-tree)의 가시 노드 평면 스트림을 소비(C1, docs/29).
     // 선택(OrderedSet)·캐럿·펼침 상태는 코어/컬렉션이 소유 — MainWindow는 위임만 한다.
-    private readonly VirtualTreeCollection _leftItems = new();
-    private readonly VirtualTreeCollection _rightItems = new();
+    // 소유는 활성 탭(PanelTab.Items) — 탭 전환 시 재-Open 없이 재사용(성능 슬라이스 4-2).
+    private VirtualTreeCollection _leftItems => _leftTab.Items;
+    private VirtualTreeCollection _rightItems => _rightTab.Items;
 
     // 패널별 탭: 각 탭(PanelTab)이 자체 이동 기록·펼침 상태를 가짐. 활성 탭이 현재 뷰.
     private readonly ObservableCollection<PanelTab> _leftTabs = new();
@@ -50,9 +51,9 @@ public sealed partial class MainWindow : Window
         // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
         ShowInteropRoundTrip();
-        // 가상화 목록: 새 행이 실체화될 때 실제 셸 아이콘을 비동기 로드(폴백: 글리프).
-        _leftItems.RowBuilt = it => _ = LoadIconAsync(it);
-        _rightItems.RowBuilt = it => _ = LoadIconAsync(it);
+        // 초기 탭의 가상화 목록 배선(새 행 실체화 시 셸 아이콘 비동기 로드). 탭별 컬렉션마다 필요.
+        WireTab(_leftTab);
+        WireTab(_rightTab);
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _leftTab.IsActive = true;
         _rightTab.IsActive = true;
@@ -95,31 +96,41 @@ public sealed partial class MainWindow : Window
     /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리(nexa-tree)의 가시 노드 평면 스트림을
     /// 가상화로 소비한다(보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
     /// </summary>
-    private void LoadDirectory(string path, VirtualTreeCollection items, NexaFileGrid grid, TextBlock header, NexaPathBar pathBar)
+    private void LoadDirectory(bool left, PanelTab tab)
     {
+        var (grid, header, pathBar) = PanelUi(left);
         try
         {
             var v = AppSettings.View;
-            bool ok = items.Open(path, v.ShowHiddenFiles, v.ShowDotFiles);
-            grid.ItemsSource = items;
-            pathBar.Path = path;
-            int direct = items.Count;   // 직접 자식 수(펼침 재적용 전)
+            bool ok = tab.Items.Open(tab.Current, v.ShowHiddenFiles, v.ShowDotFiles);
+            grid.ItemsSource = tab.Items;
+            pathBar.Path = tab.Current;
+            int direct = tab.Items.Count;   // 직접 자식 수(펼침 재적용 전)
             if (ok)
             {
                 // F18: 진입/이동에도 이전 펼침 상태 유지 — 탭별 경로셋을 얕은→깊은 순 재적용.
-                var tab = ReferenceEquals(items, _leftItems) ? _leftTab : _rightTab;
-                items.ExpandPaths(tab.Expanded);
+                tab.Items.ExpandPaths(tab.Expanded);
             }
+            tab.Loaded = ok;                 // 캐시: 성공 시 이 탭은 열린 상태(전환 시 재-Open 불요)
+            tab.DirectChildCount = direct;
             grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 이후 SelectByPath가 대상 중앙 정렬로 덮어씀.
             header.Text = ok
-                ? $"{path} — {direct}개 항목"
-                : $"디렉터리 열기 실패: {path}";
+                ? $"{tab.Current} — {direct}개 항목"
+                : $"디렉터리 열기 실패: {tab.Current}";
         }
         catch (Exception ex)
         {
+            tab.Loaded = false;
             header.Text = $"디렉터리 열거 실패: {ex.Message}";
         }
     }
+
+    /// <summary>패널 측(좌/우)의 UI 3종(그리드·헤더·경로바)을 묶어 반환.</summary>
+    private (NexaFileGrid grid, TextBlock header, NexaPathBar pathBar) PanelUi(bool left) =>
+        left ? (DirGrid, DirHeader, PathBarL) : (DirGrid2, DirHeader2, PathBarR);
+
+    /// <summary>탭의 가상화 목록에 아이콘 지연 로드 콜백을 배선(탭 생성 시 1회).</summary>
+    private void WireTab(PanelTab tab) => tab.Items.RowBuilt = it => _ = LoadIconAsync(it);
 
     // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
@@ -137,16 +148,19 @@ public sealed partial class MainWindow : Window
         ReloadBothPanels();
     }
 
-    /// <summary>현재 경로 기준으로 좌·우 패널을 다시 열거한다(펼침 상태 유지). 설정 토글 반영용.</summary>
+    /// <summary>현재 경로 기준으로 좌·우 패널을 다시 열거한다(펼침 상태 유지). 설정 토글(가시성) 반영용.</summary>
     private void ReloadBothPanels()
     {
+        // 필터가 바뀌었으므로 모든 탭의 캐시를 무효화 — 비활성 탭도 다음 전환 때 재-Open.
+        foreach (var t in _leftTabs) { t.Loaded = false; }
+        foreach (var t in _rightTabs) { t.Loaded = false; }
         if (!string.IsNullOrEmpty(_leftTab.Current))
         {
-            LoadDirectory(_leftTab.Current, _leftItems, DirGrid, DirHeader, PathBarL);
+            LoadDirectory(true, _leftTab);
         }
         if (!string.IsNullOrEmpty(_rightTab.Current))
         {
-            LoadDirectory(_rightTab.Current, _rightItems, DirGrid2, DirHeader2, PathBarR);
+            LoadDirectory(false, _rightTab);
         }
     }
 
@@ -163,14 +177,8 @@ public sealed partial class MainWindow : Window
         }
         nav.Current = path;
         nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
-        if (left)
-        {
-            LoadDirectory(path, _leftItems, DirGrid, DirHeader, PathBarL);
-        }
-        else
-        {
-            LoadDirectory(path, _rightItems, DirGrid2, DirHeader2, PathBarR);
-        }
+        nav.Loaded = false;           // 새 경로 → 재-Open 필요(탭 캐시 무효화)
+        LoadDirectory(left, nav);
         UpdateNavButtons(left);
     }
 
@@ -538,7 +546,30 @@ public sealed partial class MainWindow : Window
             else { _rightTab = tab; }
         }
         SetActivePanel(left);
-        Navigate(left, tab.Current, record: false);   // 활성 탭 경로 로드(펼침 상태 유지)
+        ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
+    }
+
+    /// <summary>
+    /// 탭을 화면에 표시한다. 탭이 이미 열려(캐시) 있으면 <b>재-Open 없이</b> 그리드의 ItemsSource만
+    /// 그 탭의 컬렉션으로 스왑하고 경로바·헤더·네비 버튼을 복원한다(탭 전환 지연 제거, QA #4).
+    /// 아직 로드 전이면 <see cref="LoadDirectory"/>로 연다.
+    /// </summary>
+    private void ShowTab(bool left, PanelTab tab)
+    {
+        if (tab.Loaded && tab.Items.Handle != IntPtr.Zero)
+        {
+            var (grid, header, pathBar) = PanelUi(left);
+            grid.ItemsSource = tab.Items;   // 열린 핸들 재사용 — 재열거·재펼침 없음
+            grid.ScrollToTop();             // ItemsSource 교체 후 뷰포트 확정(잔존 오프셋으로 빈 화면 방지)
+            pathBar.Path = tab.Current;
+            header.Text = $"{tab.Current} — {tab.DirectChildCount}개 항목";
+            UpdateSelectionCount(tab.Items);
+        }
+        else
+        {
+            LoadDirectory(left, tab);
+        }
+        UpdateNavButtons(left);
     }
 
     /// <summary>새 탭 추가(현재 탭 경로 기준, 없으면 홈) 후 그 탭으로 전환.</summary>
@@ -550,6 +581,7 @@ public sealed partial class MainWindow : Window
             basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
         var tab = new PanelTab { Current = basePath };
+        WireTab(tab);   // 새 탭 컬렉션에 아이콘 로드 콜백 배선
         (left ? _leftTabs : _rightTabs).Add(tab);
         SwitchToTab(left, tab);
     }
@@ -587,6 +619,7 @@ public sealed partial class MainWindow : Window
         }
         bool wasActive = ReferenceEquals(tab, left ? _leftTab : _rightTab);
         tabs.RemoveAt(idx);
+        tab.Items.Dispose();   // 닫힌 탭의 코어 트리 핸들 해제(캐시 메모리 회수, NFR-R)
         if (wasActive)
         {
             SwitchToTab(left, tabs[Math.Min(idx, tabs.Count - 1)]);

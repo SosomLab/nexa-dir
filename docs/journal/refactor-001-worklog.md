@@ -231,9 +231,22 @@ refactor/001-audit  (분기: 6e81734)
 - **결론**: **코어는 10만 노드에서 이미 AC5 충족**. 실사용 병목은 C# 측(탭 재-Open·펼침 Reset 재실체화) → 4-2/4-3에서 처리.
 - **검증(How)**: `cargo test -p nexa-tree` **10 green**(+scale gard), `cargo test -p nexa-tree -- --ignored --nocapture bench_100k`로 수치. fmt·clippy(-D warnings) 통과. **맥 완전 검증(코어 전용, WinUI 무관).**
 
-## 진행 예정 (E15~)
+## E15 · 2026-07-02 · C1 슬라이스 4-2 — 탭별 트리 핸들 캐시 → `(이 커밋)` ★실기 QA
 
-- **E15 · 4-2 탭별 트리 핸들 캐시**: 탭 전환 시 `Navigate→Open` 재열거 제거(#4). 각 `PanelTab`이 자체 `VirtualTreeCollection`(또는 코어 핸들) 보유, 전환=활성 컬렉션 스왑.
+- **왜**: QA #4(파일 많은 디렉터리 탭 전환 시 클릭 반응 지연) — 원인은 `SwitchToTab→Navigate→LoadDirectory→Open`이 **매 전환마다 새 트리 핸들 생성**(디스크 재열거 + 펼침 재적용). 이미 본 탭으로 돌아갈 때도 전량 재구성.
+- **무엇 · 파일**:
+  - [PanelTab.cs](../../app/Nexa.App/PanelTab.cs): 탭이 **자체 `VirtualTreeCollection Items`**(코어 핸들 소유) + `Loaded`(열림 캐시 여부) + `DirectChildCount`(헤더 복원용) 보유.
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs):
+    - `_leftItems`/`_rightItems`를 **활성 탭의 컬렉션 접근자**(`_leftTab.Items`)로 전환(기존 13개 사용부 무변경).
+    - `LoadDirectory(bool,PanelTab)`로 시그니처 정리 + `PanelUi(left)`(그리드/헤더/경로바 3종) · `WireTab`(아이콘 콜백 배선) 헬퍼. 로드 성공 시 `tab.Loaded=true`.
+    - **`ShowTab(left,tab)`**: 탭이 로드돼 있으면(`Loaded && Handle!=0`) **재-Open 없이 `ItemsSource`만 스왑** + 경로바·헤더·선택수 복원. 아니면 `LoadDirectory`. `SwitchToTab`이 `Navigate` 대신 이걸 호출.
+    - `Navigate`/`ReloadBothPanels`는 캐시 무효화(경로 변경·필터 토글 시 `Loaded=false`) 후 재로드 — 비활성 탭도 다음 전환 때 재-Open.
+    - `AddTab`는 `WireTab`, `CloseTab`은 닫는 탭 `Items.Dispose()`(핸들 회수).
+- **효과**: 이미 연 탭으로의 전환이 **O(가시행 재실체화)만** — 디스크 재열거·펼침 재적용 제거. 선택·캐럿·펼침 상태도 탭에 그대로 보존.
+- **검증(How)**: 맥 빌드 불가(WinUI) → **PR #1 CI `app` job green 필수**. 실기 QA: 파일 많은 폴더 여러 개를 탭으로 열고 전환 시 지연 감소 · 전환 후 선택/펼침/스크롤 유지 · 숨김/점 토글이 전 탭 반영 · 탭 닫기 후 크래시 없음.
+
+## 진행 예정 (E16~)
+
 - **E16 · 4-3 펼침/접힘 범위 diff 통지**: `ToggleExpand`가 `TreeRange`(start/removed/inserted)로 `Add`/`Remove` 통지(#3 스크롤 보존). 캐시 인덱스·캐럿 시프트 처리.
 - **E17 · 3b-3 정리**: 미사용 C# 경로(`NativeInterop.ReadDir`/`SortItems`/`IsVisible`) 정리.
 - **설정 화면**: QA #2(헤더 토글) 포함 — 표시 옵션·단축키·창 위치 편집 UI([26 §8](../26-command-palette.md)).
