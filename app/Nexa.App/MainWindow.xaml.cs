@@ -56,6 +56,8 @@ public sealed partial class MainWindow : Window
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
+        // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
         ShowInteropRoundTrip();
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _leftTab.IsActive = true;
@@ -267,6 +269,30 @@ public sealed partial class MainWindow : Window
     private void OnNavForward(object sender, RoutedEventArgs e) => GoForward(IsLeftPanel(sender));
 
     private void OnNavUp(object sender, RoutedEventArgs e) => GoUp(IsLeftPanel(sender));
+
+    /// <summary>
+    /// 마우스 뒤로/앞으로 버튼(XButton1=뒤로, XButton2=앞으로) → <b>활성(포커스) 패널</b>의
+    /// 뒤로/앞으로. 네비 바 버튼과 동일 동작(<see cref="GoBack"/>/<see cref="GoForward"/>)에 연결한다.
+    /// 이 마우스 바인딩은 단축키 시스템(FR-I2, docs/26 §5-4)의 기본 바인딩 — 설정에서 재정의 예정.
+    /// </summary>
+    private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
+        {
+            return;
+        }
+        var props = e.GetCurrentPoint((UIElement)sender).Properties;
+        if (props.IsXButton1Pressed)
+        {
+            GoBack(_activeLeft);
+            e.Handled = true;
+        }
+        else if (props.IsXButton2Pressed)
+        {
+            GoForward(_activeLeft);
+            e.Handled = true;
+        }
+    }
 
     /// <summary>
     /// 경로 바(세그먼트 클릭·편집 제출) 이동 요청.

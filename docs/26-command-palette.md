@@ -19,23 +19,40 @@
 
 ```
 Command
-  string    Id            // 안정 식별자, 점 표기: "view.sort.foldersFirst"
-  string    Title         // 표시명: "폴더 우선 정렬 켜기/끄기"
-  string    Category      // 그룹: "보기" · "파일" · "이동" · "선택"
-  string?   DefaultKey    // 기본 단축키(사용자 재정의 가능): "ctrl+shift+p"
-  string?   When          // 활성 컨텍스트: "panelFocused" · "hasSelection"
-  string?   Icon          // Segoe MDL2 글리프(메뉴/툴바 공유)
-  Func      CanExecute    // 회색 처리 여부
-  Action    Execute       // 실제 동작(코어 ops 호출·설정 변경 등)
-  bool      Checkable     // 토글 명령이면 체크 상태 표시
+  string    Id              // 안정 식별자, 점 표기: "view.sort.foldersFirst"
+  string    Title           // 표시명: "폴더 우선 정렬 켜기/끄기"
+  string    Category        // 그룹: "보기" · "파일" · "이동" · "선택"
+  Binding[] DefaultBindings // 기본 단축키 0개+. ★한 명령에 다중 바인딩 허용(키보드+마우스 혼용)
+  string?   When            // 활성 컨텍스트: "panelFocused" · "hasSelection"
+  string?   Icon            // Segoe MDL2 글리프(메뉴/툴바 공유)
+  Func      CanExecute      // 회색 처리 여부
+  Action    Execute         // 실제 동작(코어 ops 호출·설정 변경 등)
+  bool      Checkable       // 토글 명령이면 체크 상태 표시
   Func<bool> IsChecked
 CommandRegistry
   Register(Command) / Get(id) / All() / Search(query)
-  event  Changed          // 플러그인 기여·설정 변경 시 재빌드
+  event  Changed            // 플러그인 기여·설정 변경 시 재빌드
 ```
 
 - **명령 소스**: ① 내장(앱), ② 플러그인 기여(FR-L1 — 인터롭 이벤트 스트림 → 레지스트리, [09 §UI기여](09-plugin-architecture.md)), ③ 사용자 정의(외부 실행, §5-3).
 - **컨텍스트(When)**: 활성 패널·선택 유무·뷰 모드 등 키/값을 `ContextService`가 보유 → 팔레트/단축키가 `When`으로 필터.
+
+### 2-1. 입력 제스처 모델 ★(키보드 + 마우스, 다중 바인딩)
+
+단축키는 키보드에 국한되지 않는다. **키보드 키와 마우스 버튼을 동일한 `Binding` 추상으로** 다루고, **한 기능에 2개 이상**의 바인딩을 지정할 수 있다(요구: 사용자 요청).
+
+```
+Binding = Gesture (+ 선택 When)      // 한 명령에 여러 개 등록 가능(List)
+Gesture (택1)
+  KeyGesture    { Modifiers(Ctrl/Alt/Shift/Win) , Key(VirtualKey) }   // "ctrl+shift+p", "alt+left"
+  MouseGesture  { Modifiers , Button(Left/Right/Middle/XButton1/XButton2) , Kind(Click/Double) }
+                                                                       // "mouse:xbutton1", "ctrl+mouse:middle"
+```
+
+- **표기(문자열 직렬화)**: 키보드 = `ctrl+shift+p`, 마우스 = `mouse:<button>`(`xbutton1`=뒤로, `xbutton2`=앞으로, `middle`, `right`…), 조합 = `ctrl+mouse:middle`, 더블 = `mouse:double:left`.
+- **다중 바인딩**: 같은 `command`에 여러 `Binding`을 매핑(예: `nav.back` = `Alt+←` **그리고** `mouse:xbutton1`). `keybindings.json`은 명령당 여러 줄로 표현(§5-1).
+- **입력 소스 통합**: `KeymapService`가 키 이벤트(`OnGridKeyDown`)와 포인터 이벤트(`OnRootPointerPressed`)를 **같은 제스처 해석 경로**로 보낸다 → (Gesture + When) → 명령.
+- **마우스 뒤로/앞으로는 이미 기본 바인딩으로 구현**(F25): `XButton1→nav.back`, `XButton2→nav.forward`(활성 패널). 레지스트리 이관 전까지는 하드코딩 기본값이며, 이관 시 위 모델의 `DefaultBindings`로 흡수된다.
 
 ## 3. 팔레트 UX
 
@@ -86,11 +103,18 @@ CommandRegistry
   }
 }
 
-// keybindings.json — 명령 id ↔ 키(+선택 When). 기본 키를 덮어씀
+// keybindings.json — 명령 id ↔ 제스처(+선택 When). 기본 바인딩을 덮어씀/추가함.
+// ★키보드와 마우스 버튼을 같은 스키마로. 한 명령에 여러 줄 = 다중 바인딩.
 [
-  { "key": "ctrl+shift+p", "command": "workbench.commandPalette.show" },
-  { "key": "f2",           "command": "file.rename",     "when": "hasSelection" },
-  { "key": "ctrl+shift+f", "command": "view.sort.foldersFirst" }   // 재정의 예
+  { "key": "ctrl+shift+p",   "command": "workbench.commandPalette.show" },
+  { "key": "f2",             "command": "file.rename",   "when": "hasSelection" },
+  { "key": "ctrl+shift+f",   "command": "view.sort.foldersFirst" },   // 재정의 예
+
+  // 이동: 키보드 + 마우스 버튼을 동시에(각각 별도 줄). "mouse:xbutton1/2" = 마우스 뒤로/앞으로
+  { "key": "alt+left",       "command": "nav.back",    "when": "panelFocused" },
+  { "key": "mouse:xbutton1", "command": "nav.back",    "when": "panelFocused" },
+  { "key": "alt+right",      "command": "nav.forward", "when": "panelFocused" },
+  { "key": "mouse:xbutton2", "command": "nav.forward", "when": "panelFocused" }
 ]
 
 // commands.user.json — 외부 프로그램을 명령/팔레트/런처 공용 액션으로(FR-K3/K5)
@@ -136,6 +160,7 @@ AppSettings (기존)                    →  SettingsStore (확장)
 | `←`(접힘 상태) | 부모로 이동 | `nav.parent.row` | F17-1 |
 | `Alt+↓` | 활성화(폴더 진입 / 파일 실행) | `item.activate` | F19 |
 | `Alt+↑` / `Alt+←` / `Alt+→` | 위로 / 뒤로 / 앞으로 | `nav.up`/`nav.back`/`nav.forward` | F21 |
+| 마우스 `XButton1` / `XButton2` | 뒤로 / 앞으로(활성 패널) | `nav.back`/`nav.forward`(추가 바인딩) | **F25(구현됨)** |
 | (탭) 영역 더블클릭 | 새 탭 | `tab.new` | F20 |
 | `Ctrl+W` · 탭 더블클릭 | 탭 닫기(더블클릭 동작은 설정) | `tab.close` | F22 |
 | (예정) `Ctrl+T/W/Shift+T`·`Ctrl+Tab` | 탭 열기/닫기/복원/전환 | `tab.*` | FR-B |
@@ -168,5 +193,6 @@ AppSettings (기존)                    →  SettingsStore (확장)
 
 - FR-I2·FR-J4를 본 설계로 구체화. [02](02-roadmap.md) M1 "단일 액션 레지스트리" + P1 "명령 팔레트 고도화"에 링크.
 - **★ 할 일(사용자 요청)**: 현재 하드코딩된 키보드 단축키(§5-4: 이동/선택/펼침/`Alt+↓` 등)를 **명령 레지스트리 + `keybindings.json`으로 이관해 사용자가 변경 가능**하게. 신규 단축키도 명령으로 등록.
+- **★ 할 일(사용자 요청) — 입력 제스처/설정 UI**: (a) **한 기능에 단축키 2개 이상** + (b) **마우스 버튼도 단축키로**(§2-1, 이미 `mouse:xbutton1/2`=뒤로/앞으로 구현) 지원. (c) 이를 **설정 화면(단축키 편집 UI)**에서 추가/변경/제거할 수 있게 — 설정 화면은 **별도 구현 단위**로 등록(β, §7). 제스처 캡처(키/마우스 눌러서 지정)·충돌 감지·명령별 다중 바인딩 목록 편집 포함.
 - [04](04-trends-todo.md) "명령 팔레트(Ctrl+P)" → 본 설계로 승격. 구현 순서는 [19](19-implemented-features.md) 트랙 D와 통합(메뉴/툴바 실동작을 레지스트리로 전환).
 - 미해결(착수 전 확정): 기본 키맵 세트(참조 앱 대비표)·`state.json` vs `settings.json` 경계·JSONC 파서(주석 허용) 채택 여부.
