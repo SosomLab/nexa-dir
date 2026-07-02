@@ -20,7 +20,8 @@ namespace Nexa.Controls;
 public sealed partial class NexaMenuBar : UserControl
 {
     private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
-    private static readonly SolidColorBrush ActiveHeaderBrush = new(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF));
+    // 흰색 메뉴 바 기준: 활성 헤더 = 연한 파랑(고전 Windows 메뉴), 헤더/항목 텍스트 = 어두운색.
+    private static readonly SolidColorBrush ActiveHeaderBrush = new(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
     private static readonly SolidColorBrush ItemHoverBrush = new(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
     private static readonly SolidColorBrush ItemTextBrush = new(Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A));
 
@@ -97,6 +98,7 @@ public sealed partial class NexaMenuBar : UserControl
                 MinWidth = 0,
                 Padding = new Thickness(8, 0, 8, 0),
                 Background = TransparentBrush,
+                Foreground = ItemTextBrush,   // 흰색 바 위에서 헤더 텍스트 가독성 확보
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(0),
                 VerticalAlignment = VerticalAlignment.Stretch,
