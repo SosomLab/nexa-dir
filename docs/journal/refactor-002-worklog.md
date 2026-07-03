@@ -34,8 +34,9 @@ refactor/002-audit  (분기: b38e6b3)
 │    └ 산출: docs/journal/20260702_234558_refactor-002-audit.md
 ├─ E2 트랙 A-3 [P3] 경로→NodeId ... 8db50c3 (+ faef3cc 테스트 픽스)
 ├─ E3 트랙 A-1 [P1] 열거 백그라운드 . 4c6f74c
-├─ E4 트랙 E 문서 스테일 일괄+ADR등재 . (이 커밋)
-└─ E5~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
+├─ E4 트랙 E 문서 스테일 일괄+ADR등재 . 6db4915
+├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . (이 커밋)
+└─ E6~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
 ```
 
 ---
@@ -79,5 +80,13 @@ refactor/002-audit  (분기: b38e6b3)
   - [10 결정기록](../10-decision-record.md): **§1-1 ADR 색인 신설** — ADR-0001~0004 등재, **ADR-0004(코어 트리/선택 모델) Accepted**(구현·병합 완료) 기록.
 - **한계(후속 E5)**: docs/19 `(이 단위)` 커밋해시 플레이스홀더 **21개 백필**(D2, git 아카이브 매핑 필요)은 별도 단위로 이월.
 - **검증**: 문서 편집만(코드 무변경). ADR 링크 파일명 실재 확인(`22-adr-0003-view-and-panel-modules.md` 등). 코어/앱 빌드 영향 없음.
+
+## E5 · 2026-07-03 · P1 실기 QA#1 — 상위 이동 시 대상 스크롤 안 됨 수정 → `(이 커밋)`
+
+- **증상(QA)**: 긴 목록(System32 4880개)에서 하단 폴더 진입 후 Alt+↑ 상위 이동 시, 대상이 선택은 되나 뷰가 **최상단에 걸림**(스크롤이 대상으로 안 감). 들쭉날쭉(가끔 가운데, 대개 상/하단).
+- **원인**: P1으로 로드가 비동기가 되며 `AdoptHandle`(Reset) 직후 `onLoaded`→`SelectByPath`→`ScrollIndexIntoView`가 같은 틱에 실행. 이때 `ItemsRepeater`가 새 목록을 아직 레이아웃하지 않아 `ScrollableHeight==0` → `ChangeView(target)`가 **0으로 클램프**돼 최상단. 동기 경로에선 입력 이벤트 후 레이아웃이 Low 콜백 전에 끝나 문제없었음.
+- **무엇 · 파일**: [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs) `ScrollIndexIntoView` — 스크롤 직전 **`BodyScroll.UpdateLayout()`로 레이아웃 동기 강제** → 가상화 익스텐트(StackLayout 추정=전체개수×평균높이) 즉시 확정 후 오프셋 계산·`ChangeView`. 익스텐트가 여러 패스 필요하면 자라는 동안만 재시도(끝 근처 항목은 상한 클램프=하단 완전표시가 최선). [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs)는 임시 지연 되돌리고 주석만 정리.
+- **효과**: GoUp(F13-1)·경로바 파일 선택(F23-1) 등 로드 후 스크롤 대상이 안정적으로 위치. 실기 QA 통과(사용자 확인).
+- **검증**: 로컬 `dotnet build`(app x64) green. 실기 QA — 상위 이동 유지 동작 확인.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->

@@ -143,7 +143,7 @@ public sealed partial class MainWindow : Window
             : $"디렉터리 열기 실패: {path}";
         if (ok)
         {
-            onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등)
+            onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등). 스크롤 타이밍은 ScrollIndexIntoView가 자체 처리.
         }
     }
 
