@@ -4,7 +4,7 @@
 > ⚠️ **기능을 추가/변경할 때마다 이 문서에 항목을 더한다**(구현 위치·커밋·테스트 절차 포함).
 > 빌드/실행/디버깅 절차 전반은 [18](18-build-and-test.md), 작업 경위는 [journal/](journal/), 구조는 [16](16-project-structure.md).
 
-전체 코어 테스트: `cd core && cargo test --workspace` (현재 **17 tests green**, **맥/Windows 공통**) · 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
+전체 코어 테스트: `cd core && cargo test --workspace` (현재 **21 tests green** — nexa-core 2·nexa-vfs 3·nexa-tree 11·nexa-interop 5, + 벤치 1 ignored, **맥/Windows 공통**). **C# 순수 로직 테스트**: `dotnet test app/Nexa.ViewModels.Tests` (**xUnit 12**, net8.0 크로스플랫폼 — 감사 B-1). 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
 
 > ⚠️ **`dotnet build/run app/Nexa.App` 검증은 Windows(또는 Windows VM)에서만.** 맥에서 실행 시 `NETSDK1100`(EnableWindowsTargeting) → 이어 XamlCompiler 실패 — [11 §6-1](11-dev-environment.md)·[11 §4-4 VM](11-dev-environment.md). 맥에서는 `cargo test`로 코어를 검증한다.
 
@@ -25,7 +25,7 @@
   | --- | --- | --- |
   | 코어 단위 | `cargo test -p nexa-interop` | `poc_add_roundtrip` 등 통과 |
   | 헤드리스 dll 왕복 | [18](18-build-and-test.md) §6-3 PowerShell Add-Type | `nexa_poc_add(2,3)` → `5` |
-  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5` |
+  | 앱 실행(스모크) | `dotnet run --project app/Nexa.App` | 창에 `인터롭 OK — abi=5, nexa_poc_add(2, 3)=5` |
 
 ### F2. 로컬 디렉터리 스트리밍 열거
 - **무엇**: 폴더 내용을 전체 스캔 대기 없이 **도착하는 대로 점진 산출**(가상화 렌더·인라인 트리의 기반, FR-A1).

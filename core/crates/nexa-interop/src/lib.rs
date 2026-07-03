@@ -24,9 +24,10 @@ fn kind_code(kind: FileKind) -> u32 {
 /// 인터롭 ABI 버전. C# 측과 호환성 점검용(호스트가 로드 시 일치 확인 — 슬라이스 3).
 /// v2: `NexaEntry.attrs`. v3: 코어 트리/선택 표면(`nexa_tree_*`, `NexaRow`/`NexaRange`).
 /// v4: `nexa_tree_index_of`(행 재실체화 없는 id→가시 인덱스 조회, 슬라이스 4-3).
+/// v5: `nexa_tree_index_of_path`/`nexa_tree_expand_path`(경로→인덱스/펼침, per-row 마샬 제거, 감사 P3).
 #[no_mangle]
 pub extern "C" fn nexa_abi_version() -> c_uint {
-    4
+    5
 }
 
 /// `NexaEntry`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용(감사 A2 — 구조체 드리프트 가드).
@@ -244,6 +245,58 @@ pub unsafe extern "C" fn nexa_tree_index_of(handle: *mut TreeHandle, id: u64) ->
     }
 }
 
+/// 가시 목록에서 경로가 일치하는 행 인덱스(끝 구분자·대소문자 무시). 없거나 널/비UTF-8이면 `-1`.
+/// 호스트가 행별 경로를 P/Invoke·문자열 복사로 왕복하지 않고 코어에서 매칭하도록 제공(감사 P3).
+///
+/// # Safety
+/// `handle`은 유효한 트리 핸들이거나 널, `path`는 널 종료 UTF-8이거나 널이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_index_of_path(
+    handle: *mut TreeHandle,
+    path: *const c_char,
+) -> i64 {
+    if handle.is_null() || path.is_null() {
+        return -1;
+    }
+    let Ok(s) = CStr::from_ptr(path).to_str() else {
+        return -1;
+    };
+    match (*handle).tree.index_of_path(s) {
+        Some(i) => i as i64,
+        None => -1,
+    }
+}
+
+/// 경로로 지정한 가시 폴더를 펼친다(F18 복원). 반환: `1`=펼침(diff는 `out`), `0`=무변경/없음, `-1`=널.
+/// 호스트가 저장된 펼침 경로마다 전체 가시 목록을 재스캔하던 O(경로수×가시행)을 대체(감사 P3).
+///
+/// # Safety
+/// `handle`은 유효 핸들이거나 널, `path`는 널 종료 UTF-8이거나 널, `out`은 쓰기 가능한 `NexaRange`여야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_expand_path(
+    handle: *mut TreeHandle,
+    path: *const c_char,
+    out: *mut NexaRange,
+) -> c_int {
+    if handle.is_null() || path.is_null() || out.is_null() {
+        return -1;
+    }
+    let Ok(s) = CStr::from_ptr(path).to_str() else {
+        write_range(out, 0, 0, 0);
+        return 0;
+    };
+    match (*handle).tree.expand_path(s) {
+        Ok(rc) if rc != nexa_tree::RangeChange::NONE => {
+            write_range(out, rc.start, rc.removed, rc.inserted);
+            1
+        }
+        _ => {
+            write_range(out, 0, 0, 0);
+            0
+        }
+    }
+}
+
 /// 가시 인덱스의 행을 `out`에 채운다. 반환: `1`=행, `0`=범위 밖, `-1`=널 인자.
 /// `out.name`은 다음 `nexa_tree_row`/`nexa_tree_close` 호출 전까지만 유효.
 ///
@@ -453,8 +506,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_four() {
-        assert_eq!(nexa_abi_version(), 4);
+    fn abi_version_is_five() {
+        assert_eq!(nexa_abi_version(), 5);
     }
 
     #[test]
@@ -568,6 +621,22 @@ mod tests {
             assert_eq!(nexa_tree_index_of(h, top_id), 2);
             assert_eq!(nexa_tree_index_of(h, 9999), -1);
             assert_eq!(nexa_tree_index_of(ptr::null_mut(), sub_id), -1);
+
+            // 경로 조회(P3): base/sub → 0, 루트 자신은 가시 목록에 없어 -1, 널 -1
+            let sub_path = CString::new(base.join("sub").to_str().unwrap()).unwrap();
+            assert_eq!(nexa_tree_index_of_path(h, sub_path.as_ptr()), 0);
+            assert_eq!(nexa_tree_index_of_path(h, cpath.as_ptr()), -1);
+            assert_eq!(
+                nexa_tree_index_of_path(ptr::null_mut(), sub_path.as_ptr()),
+                -1
+            );
+            // 이미 펼친 sub를 경로로 재펼침 → 0(무변경)
+            let mut rng_p = NexaRange {
+                start: 0,
+                removed: 0,
+                inserted: 0,
+            };
+            assert_eq!(nexa_tree_expand_path(h, sub_path.as_ptr(), &mut rng_p), 0);
 
             // 교차 선택(다른 부모): child(single) + top(toggle)
             nexa_tree_select(h, child_id, 0);

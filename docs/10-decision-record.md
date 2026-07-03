@@ -18,6 +18,17 @@
 > **저장소 가시성(보완)**: 현재 **private**. 소스공개(DR-5) 방향에 따라 **어느 정도 진행된 뒤 public 전환 예정**.
 > 그때까지도 공개 대비 비밀 커밋 금지 규율을 적용한다(시점 변경은 journal로 추적). [STATUS](STATUS.md)·[14](14-context-sharing.md) 동일 반영.
 
+### 1-1. 아키텍처 결정 기록(ADR) 색인
+
+> 개별 아키텍처 결정은 ADR 문서로 추적한다. 상위 방향(DR-*)을 구현 수준에서 확정한 기록.
+
+| ADR | 결정 | 상태 | 문서 |
+| --- | --- | --- | --- |
+| **ADR-0001** | 기술 스택 — Rust 코어(cdylib) + WinUI 3(C#/.NET8), C ABI 인터롭 | **Accepted** | [06](06-adr-0001-stack.md) |
+| **ADR-0002** | 재사용 파일뷰 컨트롤(`Nexa.Controls`) — `NexaFileGrid`(도메인 비종속, 독립 제품화 가능) | **Accepted** | [21](21-adr-0002-fileview-control.md) |
+| **ADR-0003** | 뷰/패널 모듈 확장 계약 — `IFileView`/`IToolPanel`(미리보기·검색 등 M2+ 수용) | **Accepted** | [22](22-adr-0003-view-and-panel-modules.md) |
+| **ADR-0004** | **코어 트리/선택 모델(C1)** — 인라인 트리를 **가시 노드 평면 스트림(`VisibleRow`)** + **OrderedSet 교차선택**으로 Rust 코어(`nexa-tree`)에 단일화. 진실원천을 C# `ObservableCollection`에서 코어로 이관(대규모 가상화·성능·이식) | **Accepted** (구현 완료·`0.1.0` 후 main 병합, 2차 감사서 설계 훼손 없음·개선 확인) | [29](29-adr-0004-core-tree-model.md) |
+
 ## 2. 기술 요소 동결 (Tech Stack Freeze)
 
 | 레이어 | 선택 | 비고 |

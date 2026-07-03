@@ -209,7 +209,7 @@ internal static class NativeInterop
     private const string Dll = "nexa_interop";
 
     /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
-    public const uint ExpectedAbi = 4;
+    public const uint ExpectedAbi = 5;
 
     /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -323,6 +323,14 @@ internal static class NativeInterop
     private static extern long nexa_tree_index_of(IntPtr handle, ulong id);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern long nexa_tree_index_of_path(
+        IntPtr handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_expand_path(
+        IntPtr handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, ref NexaRange range);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr nexa_tree_row_path(IntPtr handle, ulong index);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -366,6 +374,18 @@ internal static class NativeInterop
 
     /// <summary>노드 <paramref name="id"/>의 가시 인덱스(없으면 -1). 행 재실체화 없이 단일 호출로 조회.</summary>
     internal static int TreeIndexOf(IntPtr handle, ulong id) => (int)nexa_tree_index_of(handle, id);
+
+    /// <summary>경로가 일치하는 가시 행 인덱스(없으면 -1). 끝 구분자·대소문자 무시(코어 매칭, 감사 P3).</summary>
+    internal static int TreeIndexOfPath(IntPtr handle, string path) =>
+        (int)nexa_tree_index_of_path(handle, path);
+
+    /// <summary>경로로 지정한 가시 폴더를 펼친다(F18 복원). 반환: 변경 구간(무변경이면 전부 0).</summary>
+    internal static TreeRange TreeExpandPath(IntPtr handle, string path)
+    {
+        var rg = default(NexaRange);
+        nexa_tree_expand_path(handle, path, ref rg);
+        return new TreeRange((int)rg.Start, (int)rg.Removed, (int)rg.Inserted);
+    }
 
     /// <summary>가시 인덱스의 행(범위 밖이면 <c>false</c>). <c>Name</c>은 즉시 관리형 문자열로 복사.</summary>
     internal static bool TreeGetRow(IntPtr handle, int index, out TreeRow row)

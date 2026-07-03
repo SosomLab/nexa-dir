@@ -13,7 +13,8 @@
 | 부문 | 빌드 | 테스트/검사 | OS |
 | --- | --- | --- | --- |
 | 코어(Rust) | `cargo build` | `cargo test --workspace` · `fmt` · `clippy` | mac/Win/Linux |
-| WinUI 앱(C#) | `dotnet build app/Nexa.App` (cargo로 nexa-interop 자동 빌드 포함) | (현재 단위 없음) · `dotnet run` 수동 | **Windows 전용** |
+| ViewModels(C#, 순수 로직) | `dotnet build app/Nexa.ViewModels` | `dotnet test app/Nexa.ViewModels.Tests` (xUnit) | **mac/Win/Linux** |
+| WinUI 앱(C#) | `dotnet build app/Nexa.App` (cargo로 nexa-interop 자동 빌드 포함) | (UI 단위 없음) · `dotnet run` 수동 | **Windows 전용** |
 | 라이선스 게이트 | — | `cargo deny check ...` | any |
 | 패키징(MSIX/포터블) | (후속, [12](12-packaging-portable.md)) | — | Windows |
 
@@ -28,7 +29,7 @@
 ```powershell
 # (최초 1회) 환경: scripts/bootstrap.ps1  ·  앱 실행 런타임: Windows App Runtime 1.6 (§6-2)
 dotnet build app/Nexa.App -c Debug     # ①코어(cargo)+②dll 복사+③앱 빌드 (자동, 한 번에)
-dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=4, nexa_poc_add(2, 3)=5"
+dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=5, nexa_poc_add(2, 3)=5"
 ```
 
 - 단계별 상세: 코어 **[§1]** · dll 자동 복사 **[§2-1]** · 앱 빌드 **[§2]** · 실행 **[§6-2]** · dll 잠금 오류 **[§6-3]**.
@@ -89,8 +90,7 @@ dotnet run     --project app/Nexa.App          # 실행(수동 확인)
 - ⚠️ **TFM 정합 규칙**: 앱 `TargetFramework`의 Windows 버전(현재 **22621**)은 **참조하는 UI 패키지(CommunityToolkit 등)가 제공하는 TFM과 일치**시켜야 한다. 불일치 시 복원은 되어도 **XAML 컴파일에서 CS0234**(`GridSplitter` 등 미해결) → `XamlCompiler` MSB3073. 확인: `Get-ChildItem <pkg>/lib`.
   - `TargetFramework`(빌드 SDK) ≠ `TargetPlatformMinVersion`(실행 최소, 17763) — **역할이 다르며 값이 달라도 정상**.
 - ⚠️ **macOS에서 앱을 바꿨으면 CI 필수 확인**: WinUI는 맥에서 **빌드 불가** → 로컬 통과가 없다. push 후 **CI(windows) `app` job green을 반드시 확인**(`gh run watch`)해야 한다. 이 검증을 건너뛰면 빌드 깨짐이 여러 커밋 누적된다(실제 사례: 레이아웃 골격 3커밋이 TFM 불일치로 CI 연속 실패).
-- 현재는 스켈레톤(빈 윈도우) — 단위 테스트 프로젝트는 아직 없음. 기능 단위 추가 시 `Nexa.*.Tests` 프로젝트와 `dotnet test` 절차를 본 문서에 추가.
-- (권장 후속) 맥 빌드 가능한 `Nexa.ViewModels`(net8.0) 분리 시: `dotnet test app/Nexa.ViewModels.Tests` 절차 추가([11](11-dev-environment.md) §6-1).
+- **UI 코드비하인드는 Windows 전용**이라 맥 테스트 불가 → 순수 로직은 아래 `Nexa.ViewModels`로 분리해 크로스플랫폼 테스트한다(god object 축소, 감사 B-1).
 
 ### 2-1. Rust 코어 인터롭 통합 (cdylib 자동 빌드·복사)
 
@@ -110,6 +110,18 @@ dotnet run     --project app/Nexa.App          # 실행(수동 확인)
   Push-Location core\target\debug; [T]::nexa_poc_add(2,3); Pop-Location   # → 5
   ```
 
+## 2-2. ViewModels — 순수 로직 (`app/Nexa.ViewModels`) · 크로스플랫폼 테스트
+
+UI 비종속 순수 로직(`PathDisplay`·`NavigationHistory` 등)을 담는 **net8.0**(플랫폼 무관) 라이브러리 →
+**맥/Linux/Windows 어디서나 빌드·테스트**(WinUI 앱은 Windows 전용이라 맥 테스트 불가한 한계 우회, 감사 B-1).
+
+```bash
+dotnet test app/Nexa.ViewModels.Tests           # xUnit, 맥/Linux/Windows 공통
+dotnet build app/Nexa.ViewModels                 # 라이브러리만
+```
+- 전제: .NET SDK 8+(`global.json` rollForward로 9.x 가능). WinUI/Windows App SDK **불필요**.
+- 앱(`Nexa.App`)이 `ProjectReference`로 소비. UI 코드비하인드에서 순수 로직을 이리로 옮겨 테스트 커버리지 확보.
+
 ## 3. 라이선스 게이트 — cargo-deny
 
 퍼미시브(MIT/Apache/BSD/ISC/MPL-2.0) 온리 강제. 설정 [core/deny.toml](../core/deny.toml).
@@ -125,6 +137,7 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 | --- | --- | --- |
 | `core` | macos-latest, windows-latest | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` |
 | `license-gate` | ubuntu-latest | `cargo deny check licenses bans advisories` |
+| `viewmodels` | ubuntu-latest | `dotnet test app/Nexa.ViewModels.Tests -c Release` (크로스플랫폼 C# 로직, 감사 B-1) |
 | `app` | windows-latest | Rust 툴체인 설치(인터롭 빌드용) → `dotnet restore` → `dotnet build app/Nexa.App -c Release --no-restore`(cargo로 nexa-interop 자동 빌드 포함) |
 
 - 트리거: `main` push · 모든 PR. main은 항상 green 유지.
@@ -180,7 +193,7 @@ cargo test -p nexa-interop      # 특정 크레이트만
 dotnet run --project app/Nexa.App
 ```
 - 창 가운데 상태줄에 **인터롭 왕복 결과**가 표시되면 성공:
-  `인터롭 OK — abi=4, nexa_poc_add(2, 3)=5`
+  `인터롭 OK — abi=5, nexa_poc_add(2, 3)=5`
 - `인터롭 실패: ...` 가 보이면 dll 미복사/미로드 → §2-1(빌드 통합)·`cargo`가 PATH인지 확인.
 - 종료: 창 닫기. (현재는 빈 셸 + PoC 표시 단계 — 후속 단위에서 경로바·트리 추가)
 

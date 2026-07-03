@@ -7,29 +7,25 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
-using Windows.Storage.FileProperties;
 using Windows.System;
 using Windows.UI.Core;
 using Nexa.Controls;
+using Nexa.ViewModels;
 
 namespace Nexa.App;
 
 /// <summary>메인 윈도우 — 레이아웃 골격(docs/20) + 좌/우 패널 디렉터리 목록(F4/F5).</summary>
 public sealed partial class MainWindow : Window
 {
-    // 패널별 가상화 목록: 코어 트리(nexa-tree)의 가시 노드 평면 스트림을 소비(C1, docs/29).
-    // 선택(OrderedSet)·캐럿·펼침 상태는 코어/컬렉션이 소유 — MainWindow는 위임만 한다.
-    // 소유는 활성 탭(PanelTab.Items) — 탭 전환 시 재-Open 없이 재사용(성능 슬라이스 4-2).
-    private VirtualTreeCollection _leftItems => _leftTab.Items;
-    private VirtualTreeCollection _rightItems => _rightTab.Items;
+    // 좌/우 패널: 각 PanelView가 상태(탭·활성탭·세대) + UI 참조(그리드·헤더·경로바·탭바)를 묶는다.
+    // bool left ? _leftX : _rightX 분기를 Panel(left).X로 통합(감사 B-2). ctor에서 XAML 요소로 초기화.
+    // 선택(OrderedSet)·캐럿·펼침은 코어/컬렉션이 소유(C1, docs/29). 활성 탭이 트리 핸들 소유(4-2).
+    private PanelView _left = null!;
+    private PanelView _right = null!;
 
-    // 패널별 탭: 각 탭(PanelTab)이 자체 이동 기록·펼침 상태를 가짐. 활성 탭이 현재 뷰.
-    private readonly ObservableCollection<PanelTab> _leftTabs = new();
-    private readonly ObservableCollection<PanelTab> _rightTabs = new();
-    private PanelTab _leftTab = new();
-    private PanelTab _rightTab = new();
+    /// <summary>지정 측 패널 반환(좌/우 이중화 분기 소거).</summary>
+    private PanelView Panel(bool left) => left ? _left : _right;
 
     public MainWindow()
     {
@@ -48,16 +44,23 @@ public sealed partial class MainWindow : Window
         // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
         ShowInteropRoundTrip();
-        // 초기 탭의 가상화 목록 배선(새 행 실체화 시 셸 아이콘 비동기 로드). 탭별 컬렉션마다 필요.
-        WireTab(_leftTab);
-        WireTab(_rightTab);
+        // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
+        _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
+        _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
+        // 그리드 행 수명 → 아이콘 지연 로드/취소. 행이 화면 밖으로 나가면 큐에서 제거(빠른 스크롤 부하 제한, P6).
+        _iconCache = new ShellIconCache(DispatcherQueue);
+        foreach (var p in new[] { _left, _right })
+        {
+            p.Grid.RowRealized += it => { if (it is DirItem d) { _iconCache.Request(d); } };
+            p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
+        }
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
-        _leftTab.IsActive = true;
-        _rightTab.IsActive = true;
-        _leftTabs.Add(_leftTab);
-        _rightTabs.Add(_rightTab);
-        LeftTabs.ItemsSource = _leftTabs;
-        RightTabs.ItemsSource = _rightTabs;
+        _left.Active.IsActive = true;
+        _right.Active.IsActive = true;
+        _left.Tabs.Add(_left.Active);
+        _right.Tabs.Add(_right.Active);
+        _left.TabStrip.ItemsSource = _left.Tabs;
+        _right.TabStrip.ItemsSource = _right.Tabs;
         // 경로 바(브레드크럼/편집) 이동 요청 → 실제 네비게이션(존재 확인 후). 좌/우 각각.
         PathBarL.Navigated += (_, e) => OnPathBarNavigated(true, e.Path);
         PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
@@ -88,46 +91,70 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 코어 트리(nexa-tree)를 열어(<c>TreeOpen</c>) 폴더 내용을 지정 패널 목록에 표시한다.
-    /// 좌/우 패널이 같은 로직을 공유(패널별 목록/header/path). 실패는 헤더 메시지로 격리.
-    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리의 가시 노드 평면 스트림을
-    /// 가상화로 소비한다(보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
+    /// 코어 트리(nexa-tree)를 <b>백그라운드 스레드</b>에서 열어(<c>OpenAndExpand</c>: 열거+펼침 재적용)
+    /// 폴더 내용을 지정 패널 목록에 표시한다. 열거·펼침이 UI 스레드를 블록하지 않으므로 수만 항목 폴더
+    /// 진입에도 프리즈가 없다(감사 P1, NFR-P1/R5). 완료는 <c>await</c> 연속(UI 스레드)에서 핸들 채택 +
+    /// <paramref name="onLoaded"/>(로드 후 동작: GoUp 선택 등) 실행. 로드 중 같은 패널이 다시 이동하면
+    /// 세대 가드로 이전 결과를 폐기한다. 좌/우 패널이 같은 로직 공유. 실패는 헤더 메시지로 격리.
+    /// 목록은 <see cref="VirtualTreeCollection"/> — 코어 트리의 가시 노드 평면 스트림을 가상화로 소비한다
+    /// (보이는 행만 실체화). 가시성 필터(숨김/점)는 코어에 적용(F24).
     /// </summary>
-    private void LoadDirectory(bool left, PanelTab tab)
+    private async void LoadDirectory(bool left, PanelTab tab, Action? onLoaded = null)
     {
         var (grid, header, pathBar) = PanelUi(left);
+        int gen = ++Panel(left).LoadGen;
+        var v = AppSettings.View;
+        string path = tab.Current;
+        var expanded = new List<string>(tab.Expanded);   // 백그라운드용 스냅샷(UI 스레드 컬렉션 보호)
+        header.Text = $"{path} — 여는 중…";
+        (IntPtr Handle, int DirectCount) result;
         try
         {
-            var v = AppSettings.View;
-            bool ok = tab.Items.Open(tab.Current, v.ShowHiddenFiles, v.ShowDotFiles);
-            grid.ItemsSource = tab.Items;
-            pathBar.Path = tab.Current;
-            int direct = tab.Items.Count;   // 직접 자식 수(펼침 재적용 전)
-            if (ok)
-            {
-                // F18: 진입/이동에도 이전 펼침 상태 유지 — 탭별 경로셋을 얕은→깊은 순 재적용.
-                tab.Items.ExpandPaths(tab.Expanded);
-            }
-            tab.Loaded = ok;                 // 캐시: 성공 시 이 탭은 열린 상태(전환 시 재-Open 불요)
-            tab.DirectChildCount = direct;
-            grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 이후 SelectByPath가 대상 중앙 정렬로 덮어씀.
-            header.Text = ok
-                ? $"{tab.Current} — {direct}개 항목"
-                : $"디렉터리 열기 실패: {tab.Current}";
+            // 열거+펼침(전체 read_dir + metadata syscall + 정렬)을 백그라운드로 오프로드 → UI 무블록.
+            result = await Task.Run(() =>
+                VirtualTreeCollection.OpenAndExpand(path, v.ShowHiddenFiles, v.ShowDotFiles, expanded));
         }
         catch (Exception ex)
         {
-            tab.Loaded = false;
-            header.Text = $"디렉터리 열거 실패: {ex.Message}";
+            if (gen == Panel(left).LoadGen)
+            {
+                tab.Loaded = false;
+                header.Text = $"디렉터리 열거 실패: {ex.Message}";
+            }
+            return;
+        }
+        // 재진입: 로드 중 같은 패널이 다시 이동했으면 이 결과를 폐기(방금 연 핸들 정리, UI 미변경).
+        if (gen != Panel(left).LoadGen)
+        {
+            NativeInterop.TreeClose(result.Handle);
+            return;
+        }
+        bool ok = result.Handle != IntPtr.Zero;
+        tab.Items.AdoptHandle(result.Handle, path);   // 이전 핸들 Close + 새 핸들 채택 + Reset
+        grid.ItemsSource = tab.Items;
+        pathBar.Path = path;
+        tab.Loaded = ok;                 // 캐시: 성공 시 이 탭은 열린 상태(전환 시 재-Open 불요)
+        tab.DirectChildCount = result.DirectCount;
+        grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 onLoaded의 SelectByPath가 대상 정렬로 덮어씀.
+        header.Text = ok
+            ? $"{path} — {result.DirectCount}개 항목"
+            : $"디렉터리 열기 실패: {path}";
+        if (ok)
+        {
+            onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등). 스크롤 타이밍은 ScrollIndexIntoView가 자체 처리.
         }
     }
 
     /// <summary>패널 측(좌/우)의 UI 3종(그리드·헤더·경로바)을 묶어 반환.</summary>
-    private (NexaFileGrid grid, TextBlock header, NexaPathBar pathBar) PanelUi(bool left) =>
-        left ? (DirGrid, DirHeader, PathBarL) : (DirGrid2, DirHeader2, PathBarR);
+    private (NexaFileGrid grid, TextBlock header, NexaPathBar pathBar) PanelUi(bool left)
+    {
+        var p = Panel(left);
+        return (p.Grid, p.Header, p.PathBar);
+    }
 
-    /// <summary>탭의 가상화 목록에 아이콘 지연 로드 콜백을 배선(탭 생성 시 1회).</summary>
-    private void WireTab(PanelTab tab) => tab.Items.RowBuilt = it => _ = LoadIconAsync(it);
+    // 셸 아이콘 로더(전역 단일): 종류/확장자 LRU 캐시 + 속도 제한 로딩 큐(감사 P6). ctor에서 UI 큐로 생성.
+    // 로드/취소는 그리드 행 수명(RowRealized/RowRecycled, ctor에서 배선)에 연결 — 뷰포트 밖 행은 큐에서 제거.
+    private readonly ShellIconCache _iconCache;
 
     // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
@@ -149,75 +176,77 @@ public sealed partial class MainWindow : Window
     private void ReloadBothPanels()
     {
         // 필터가 바뀌었으므로 모든 탭의 캐시를 무효화 — 비활성 탭도 다음 전환 때 재-Open.
-        foreach (var t in _leftTabs) { t.Loaded = false; }
-        foreach (var t in _rightTabs) { t.Loaded = false; }
-        if (!string.IsNullOrEmpty(_leftTab.Current))
+        foreach (var t in _left.Tabs) { t.Loaded = false; }
+        foreach (var t in _right.Tabs) { t.Loaded = false; }
+        if (!string.IsNullOrEmpty(_left.Active.Current))
         {
-            LoadDirectory(true, _leftTab);
+            LoadDirectory(true, _left.Active);
         }
-        if (!string.IsNullOrEmpty(_rightTab.Current))
+        if (!string.IsNullOrEmpty(_right.Active.Current))
         {
-            LoadDirectory(false, _rightTab);
+            LoadDirectory(false, _right.Active);
         }
     }
 
     // ── 네비게이션(패널/탭별 이동 기록: 뒤로·앞으로·위로) ─────────────
 
-    /// <summary>지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).</summary>
-    private void Navigate(bool left, string path, bool record)
+    /// <summary>
+    /// 지정 패널을 <paramref name="path"/>로 이동한다. record=true면 현재 위치를 뒤로 스택에 기록(앞으로 초기화).
+    /// 로드는 비동기이므로, 로드 완료 후 실행할 동작(예: GoUp의 대상 선택)은 <paramref name="onLoaded"/>로 전달한다.
+    /// </summary>
+    private void Navigate(bool left, string path, bool record, Action? onLoaded = null)
     {
-        var nav = left ? _leftTab : _rightTab;
-        if (record && !string.IsNullOrEmpty(nav.Current))
-        {
-            nav.Back.Push(nav.Current);
-            nav.Fwd.Clear();
-        }
-        nav.Current = path;
-        nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
-        nav.Loaded = false;           // 새 경로 → 재-Open 필요(탭 캐시 무효화)
-        LoadDirectory(left, nav);
-        UpdateNavButtons(left);
+        Panel(left).Active.Nav.NavigateTo(path, record);   // 이동 기록 갱신(순수 로직 위임)
+        ShowCurrent(left, onLoaded);
     }
 
     private void GoBack(bool left)
     {
-        var nav = left ? _leftTab : _rightTab;
-        if (nav.Back.Count == 0)
+        if (Panel(left).Active.Nav.GoBack() is not null)
         {
-            return;
+            ShowCurrent(left);
         }
-        nav.Fwd.Push(nav.Current);
-        Navigate(left, nav.Back.Pop(), record: false);
     }
 
     private void GoForward(bool left)
     {
-        var nav = left ? _leftTab : _rightTab;
-        if (nav.Fwd.Count == 0)
+        if (Panel(left).Active.Nav.GoForward() is not null)
         {
-            return;
+            ShowCurrent(left);
         }
-        nav.Back.Push(nav.Current);
-        Navigate(left, nav.Fwd.Pop(), record: false);
+    }
+
+    /// <summary>활성 탭의 <see cref="NavigationHistory.Current"/> 경로를 화면에 로드한다(제목·재-Open·네비버튼 갱신).
+    /// Navigate/GoBack/GoForward 공통 종단 — 이동 기록은 이미 갱신된 상태.</summary>
+    private void ShowCurrent(bool left, Action? onLoaded = null)
+    {
+        var nav = Panel(left).Active;
+        nav.Title = PathDisplay.TabTitle(nav.Current);   // 활성 탭 이름 갱신(탭 바 표시)
+        nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
+        LoadDirectory(left, nav, onLoaded);
+        UpdateNavButtons(left);
     }
 
     private void GoUp(bool left)
     {
-        var nav = left ? _leftTab : _rightTab;
+        var nav = Panel(left).Active;
         var from = nav.Current;   // 떠나는 폴더(=나) — 상위에서 이 폴더를 선택 상태로
         var parent = Directory.GetParent(from);
         if (parent is not null)
         {
-            Navigate(left, parent.FullName, record: true);
-            SetActivePanel(left);       // 그 패널을 활성으로(선택 포커스 색)
-            SelectByPath(left, from);   // 상위 목록에서 방금 떠난 폴더를 선택·포커스
+            // 상위 목록은 비동기 로드 → 방금 떠난 폴더 선택·포커스는 로드 완료 후에 실행.
+            Navigate(left, parent.FullName, record: true, onLoaded: () =>
+            {
+                SetActivePanel(left);       // 그 패널을 활성으로(선택 포커스 색)
+                SelectByPath(left, from);   // 상위 목록에서 방금 떠난 폴더를 선택·포커스
+            });
         }
     }
 
     /// <summary>지정 패널 목록에서 경로가 일치하는 항목을 단일 선택하고 캐럿·스크롤을 맞춘다(없으면 무시).</summary>
     private void SelectByPath(bool left, string fullPath)
     {
-        var items = left ? _leftItems : _rightItems;
+        var items = Panel(left).Items;
         int i = items.IndexOfPath(fullPath);
         if (i < 0)
         {
@@ -226,7 +255,7 @@ public sealed partial class MainWindow : Window
         items.Select(items[i], 0);   // 단일 선택(코어 위임)
         items.SetCaret(i);
         // 방금 떠난 폴더(네비 대상)를 화면에 보이게 — 기본 가운데(설정 UpNavTargetAlign). 오프스크린도 강제 실체화.
-        (left ? DirGrid : DirGrid2).ScrollIndexIntoView(i, AppSettings.View.UpNavTargetAlign);
+        Panel(left).Grid.ScrollIndexIntoView(i, AppSettings.View.UpNavTargetAlign);
         UpdateSelectionCount(items);
         RefreshSelectionFocus();
     }
@@ -234,18 +263,18 @@ public sealed partial class MainWindow : Window
     /// <summary>뒤로/앞으로/위로 버튼 활성 상태 갱신.</summary>
     private void UpdateNavButtons(bool left)
     {
-        var nav = left ? _leftTab : _rightTab;
+        var nav = Panel(left).Active;
         bool up = !string.IsNullOrEmpty(nav.Current) && Directory.GetParent(nav.Current) is not null;
         if (left)
         {
-            BackBtnL.IsEnabled = nav.Back.Count > 0;
-            FwdBtnL.IsEnabled = nav.Fwd.Count > 0;
+            BackBtnL.IsEnabled = nav.Nav.CanGoBack;
+            FwdBtnL.IsEnabled = nav.Nav.CanGoForward;
             UpBtnL.IsEnabled = up;
         }
         else
         {
-            BackBtnR.IsEnabled = nav.Back.Count > 0;
-            FwdBtnR.IsEnabled = nav.Fwd.Count > 0;
+            BackBtnR.IsEnabled = nav.Nav.CanGoBack;
+            FwdBtnR.IsEnabled = nav.Nav.CanGoForward;
             UpBtnR.IsEnabled = up;
         }
     }
@@ -329,37 +358,13 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
                 SetActivePanel(left);
-                Navigate(left, dir, record: true);   // 파일이면 그 파일의 상위 폴더로 이동
-                SelectByPath(left, p);               // 그 파일 선택
+                // 상위 폴더는 비동기 로드 → 그 파일 선택은 로드 완료 후에.
+                Navigate(left, dir, record: true, onLoaded: () => SelectByPath(left, p));   // 파일이면 상위 폴더로 이동 후 선택
                 return;
             }
         }
         StatusText.Text = $"경로 없음: {p}";
-        (left ? PathBarL : PathBarR).Path = (left ? _leftTab : _rightTab).Current;   // 현재 경로로 복귀
-    }
-
-    /// <summary>
-    /// 항목의 실제 셸 아이콘(폴더 커스텀 아이콘·파일 형식 아이콘)을 비동기로 로드한다.
-    /// 성공 시 <see cref="DirItem.IconImage"/> 설정(글리프→실제 아이콘 교체), 실패는 글리프 유지.
-    /// </summary>
-    private static async Task LoadIconAsync(DirItem item)
-    {
-        try
-        {
-            StorageItemThumbnail thumb = item.IsDir
-                ? await (await StorageFolder.GetFolderFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16)
-                : await (await StorageFile.GetFileFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16);
-            if (thumb is not null && thumb.Type == ThumbnailType.Image)
-            {
-                var bmp = new BitmapImage();
-                await bmp.SetSourceAsync(thumb);
-                item.IconImage = bmp;
-            }
-        }
-        catch
-        {
-            // 접근 불가·미지원 → 글리프 폴백 유지.
-        }
+        Panel(left).PathBar.Path = Panel(left).Active.Current;   // 현재 경로로 복귀
     }
 
     /// <summary>
@@ -379,8 +384,8 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// 폴더 행 펼침/접힘 토글(디스클로저·키보드 공용). 코어에 위임하고, **탭별 펼침 경로셋**을
-    /// 갱신해 진입/이동에도 상태가 유지되게 한다(F18). 펼침/접힘의 Reset이 스크롤을 맨 위로
-    /// 되돌리므로, 토글 전 오프셋을 캡처해 복원한다(토글 행 아래만 바뀌므로 위쪽 행은 제자리, E18).
+    /// 갱신해 진입/이동에도 상태가 유지되게 한다(F18). 펼침/접힘은 코어 diff를 <b>범위 Add/Remove로
+    /// 통지</b>하므로 토글 행 위쪽은 제자리·스크롤도 안 튄다 → 이전 E18 오프셋 복원 핵 불요(감사 P2).
     /// </summary>
     private void ToggleExpandRow(bool left, DirItem item)
     {
@@ -388,13 +393,10 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var items = left ? _leftItems : _rightItems;
-        var grid = left ? DirGrid : DirGrid2;
-        var set = (left ? _leftTab : _rightTab).Expanded;
+        var items = Panel(left).Items;
+        var set = Panel(left).Active.Expanded;
         bool willExpand = !item.IsExpanded;
-        double offset = grid.VerticalOffset;   // 토글 전 스크롤 위치
-        items.ToggleExpand(item);   // 코어 위임 → diff 반영(Reset)
-        grid.RestoreVerticalOffset(offset);   // Reset의 맨-위 리셋을 되돌려 위치 유지
+        items.ToggleExpand(item);   // 코어 diff → 범위 Add/Remove 통지(위쪽 행·아이콘·스크롤 보존)
         string key = item.FullPath.TrimEnd('\\', '/');
         if (willExpand)
         {
@@ -444,9 +446,9 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
-        var items = left ? _leftItems : _rightItems;
+        var items = Panel(left).Items;
         SetActivePanel(left);   // 클릭한 패널이 활성 → 반대 패널 선택은 회색(포커스아웃)
-        (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
+        Panel(left).Grid.Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
 
         // 선택은 코어(OrderedSet)에 위임: Shift=가시 범위(anchor~클릭), Ctrl=토글, 그 외=단일.
         if (IsShiftDown())
@@ -521,30 +523,22 @@ public sealed partial class MainWindow : Window
         {
             bool left = tag == "L";
             SetActivePanel(left);
-            (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);
+            Panel(left).Grid.Focus(FocusState.Programmatic);
         }
     }
 
     // ── 패널 탭 ─────────────────────────────────────────────────────
     // 각 탭 = PanelTab(경로·이동기록·펼침상태). 활성 탭이 그 패널의 현재 뷰.
 
-    /// <summary>탭 표시 이름 = 폴더명(루트/드라이브면 경로 자체).</summary>
-    private static string TabTitle(string path)
-    {
-        var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
-        return string.IsNullOrEmpty(name) ? path : name;
-    }
-
     /// <summary>지정 패널의 활성 탭을 <paramref name="tab"/>로 전환하고 그 탭의 경로/상태로 뷰를 갱신한다.</summary>
     private void SwitchToTab(bool left, PanelTab tab)
     {
-        var active = left ? _leftTab : _rightTab;
+        var active = Panel(left).Active;
         if (!ReferenceEquals(active, tab))
         {
             active.IsActive = false;
             tab.IsActive = true;
-            if (left) { _leftTab = tab; }
-            else { _rightTab = tab; }
+            Panel(left).Active = tab;
         }
         SetActivePanel(left);
         ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
@@ -576,14 +570,14 @@ public sealed partial class MainWindow : Window
     /// <summary>새 탭 추가(현재 탭 경로 기준, 없으면 홈) 후 그 탭으로 전환.</summary>
     private void AddTab(bool left)
     {
-        var basePath = (left ? _leftTab : _rightTab).Current;
+        var basePath = Panel(left).Active.Current;
         if (string.IsNullOrEmpty(basePath))
         {
             basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
-        var tab = new PanelTab { Current = basePath };
-        WireTab(tab);   // 새 탭 컬렉션에 아이콘 로드 콜백 배선
-        (left ? _leftTabs : _rightTabs).Add(tab);
+        var tab = new PanelTab();
+        tab.Nav.NavigateTo(basePath, record: false);   // 새 탭 초기 경로(기록 없음)
+        Panel(left).Tabs.Add(tab);
         SwitchToTab(left, tab);
     }
 
@@ -592,9 +586,9 @@ public sealed partial class MainWindow : Window
     {
         if (sender is FrameworkElement fe && fe.Tag is PanelTab tab)
         {
-            bool left = _leftTabs.Contains(tab);
+            bool left = _left.Tabs.Contains(tab);
             SwitchToTab(left, tab);
-            (left ? DirGrid : DirGrid2).Focus(FocusState.Programmatic);
+            Panel(left).Grid.Focus(FocusState.Programmatic);
             e.Handled = true;
         }
     }
@@ -612,13 +606,13 @@ public sealed partial class MainWindow : Window
     /// <summary>탭 닫기 — 최소 1개는 유지. 활성 탭을 닫으면 이웃 탭으로 전환.</summary>
     private void CloseTab(bool left, PanelTab tab)
     {
-        var tabs = left ? _leftTabs : _rightTabs;
+        var tabs = Panel(left).Tabs;
         int idx = tabs.IndexOf(tab);
         if (idx < 0 || tabs.Count <= 1)
         {
             return;   // 없거나 마지막 하나면 닫지 않음
         }
-        bool wasActive = ReferenceEquals(tab, left ? _leftTab : _rightTab);
+        bool wasActive = ReferenceEquals(tab, Panel(left).Active);
         tabs.RemoveAt(idx);
         tab.Items.Dispose();   // 닫힌 탭의 코어 트리 핸들 해제(캐시 메모리 회수, NFR-R)
         if (wasActive)
@@ -635,7 +629,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         e.Handled = true;   // 탭 위 더블클릭은 탭 바(추가)로 전파하지 않음
-        bool left = _leftTabs.Contains(tab);
+        bool left = _left.Tabs.Contains(tab);
         switch (AppSettings.Tab.DoubleClick)
         {
             case TabDoubleClickAction.Close:
@@ -652,8 +646,8 @@ public sealed partial class MainWindow : Window
     /// <summary>선택 항목 포커스색 갱신 — (윈도우 활성 &amp;&amp; 그 패널 활성)일 때만 파랑, 아니면 회색.</summary>
     private void RefreshSelectionFocus()
     {
-        _leftItems.SetPanelFocused(_windowActive && _activeLeft);
-        _rightItems.SetPanelFocused(_windowActive && !_activeLeft);
+        _left.Items.SetPanelFocused(_windowActive && _activeLeft);
+        _right.Items.SetPanelFocused(_windowActive && !_activeLeft);
     }
 
     private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs e)
@@ -678,7 +672,7 @@ public sealed partial class MainWindow : Window
         // Ctrl+W: 활성 패널의 활성 탭 닫기.
         if (e.Key == VirtualKey.W && IsCtrlDown())
         {
-            CloseTab(_activeLeft, _activeLeft ? _leftTab : _rightTab);
+            CloseTab(_activeLeft, Panel(_activeLeft).Active);
             e.Handled = true;
             return;
         }
@@ -691,7 +685,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool left = _activeLeft;   // 활성 패널 기준(포커스 비의존) — 탭/행 클릭이 활성 패널을 정함
-        var items = left ? _leftItems : _rightItems;
+        var items = Panel(left).Items;
 
         // Alt+방향키 네비게이션: ↑=위로, ←/→=뒤로/앞으로, ↓=활성화. **목록이 비어도 동작**(패널/탭 이동은 목록 무관).
         if (IsAltDown())
@@ -719,7 +713,7 @@ public sealed partial class MainWindow : Window
         int cur = items.CaretIndex;
         bool ctrl = IsCtrlDown();
         bool shift = IsShiftDown();
-        var grid = left ? DirGrid : DirGrid2;
+        var grid = Panel(left).Grid;
 
         if (space)
         {

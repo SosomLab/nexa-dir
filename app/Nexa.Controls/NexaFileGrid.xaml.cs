@@ -16,10 +16,38 @@ namespace Nexa.Controls;
 /// </summary>
 public sealed partial class NexaFileGrid : UserControl
 {
+    // 실체화된 요소 → 그 요소가 표시 중인 데이터. ItemsRepeater + x:Bind 템플릿은 요소 DataContext를
+    // 설정하지 않으므로, 진입 시 인덱스로 데이터를 얻어 매핑해 두고 재활용 시 되찾는다(취소 대상 식별).
+    private readonly Dictionary<UIElement, object> _rowItem = new();
+
     public NexaFileGrid()
     {
         InitializeComponent();
+        // 행 요소 수명(화면 진입/이탈)을 호스트에 노출 — 아이콘 지연 로드/취소를 뷰포트에 묶어
+        // 빠른 스크롤 시 지나간 행의 작업을 취소하게 한다(감사 P6). 도메인 비종속(item은 object).
+        Repeater.ElementPrepared += (_, e) =>
+        {
+            object? item = Repeater.ItemsSourceView?.GetAt(e.Index);
+            if (item is not null)
+            {
+                _rowItem[e.Element] = item;
+                RowRealized?.Invoke(item);
+            }
+        };
+        Repeater.ElementClearing += (_, e) =>
+        {
+            if (_rowItem.Remove(e.Element, out var item))
+            {
+                RowRecycled?.Invoke(item);
+            }
+        };
     }
+
+    /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>
+    public event Action<object>? RowRealized;
+
+    /// <summary>행 요소가 재활용(화면 이탈)될 때 그 데이터로 호출(지연 로드 취소 등). 호스트가 구독.</summary>
+    public event Action<object>? RowRecycled;
 
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();
@@ -79,8 +107,12 @@ public sealed partial class NexaFileGrid : UserControl
     /// 지정 인덱스 행을 화면에 스크롤한다. <paramref name="verticalAlignmentRatio"/> 0=맨 위, 0.5=가운데, 1=맨 아래.
     /// <para>ItemsRepeater에서 <c>GetOrCreateElement</c>+<c>StartBringIntoView</c>로 먼 인덱스를 강제
     /// 실체화하면 실체화 창과 스크롤 오프셋이 어긋나 <b>상단 공백</b>이 남는다. 이 그리드는 행 높이가
-    /// 균일하므로, **실측 행 높이로 목표 오프셋을 계산해 <c>ScrollViewer.ChangeView</c>로 정상 스크롤**한다
-    /// → 가상화가 뷰포트를 정상 채움(공백 없음). Reset 직후 확정 위해 DispatcherQueue로 지연.</para>
+    /// 균일하므로, **실측 행 높이로 목표 오프셋을 계산해 <c>ScrollViewer.ChangeView</c>로 정상 스크롤**한다.</para>
+    /// <para><b>비동기 로드/Reset 직후</b>엔 <c>ItemsRepeater</c>가 아직 새 목록을 레이아웃하지 않아
+    /// 스크롤 가능 익스텐트(<c>ScrollableHeight</c>)가 목표에 못 미친다 → <c>ChangeView</c>가 상단/하단으로
+    /// 클램프돼 대상이 가운데에 안 온다(레이아웃 진행도에 따라 위치가 들쭉날쭉). 익스텐트가 목표를 담을 만큼
+    /// 자랄 때까지 **레이아웃 패스마다 현재 최대치로 밀어 가상화 확장을 유도하며 재시도**한다(익스텐트가 더
+    /// 안 자라거나 상한 도달 시 확정).</para>
     /// </summary>
     public void ScrollIndexIntoView(int index, double verticalAlignmentRatio)
     {
@@ -88,6 +120,11 @@ public sealed partial class NexaFileGrid : UserControl
         {
             return;
         }
+        ScrollToIndexWhenReady(index, verticalAlignmentRatio, attempt: 0, prevMax: -1);
+    }
+
+    private void ScrollToIndexWhenReady(int index, double ratio, int attempt, double prevMax)
+    {
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
             var view = Repeater.ItemsSourceView;
@@ -95,10 +132,21 @@ public sealed partial class NexaFileGrid : UserControl
             {
                 return;   // 그새 목록이 바뀌었으면 무시
             }
+            // 핵심: 비동기 로드/Reset 직후엔 ItemsRepeater가 아직 새 목록을 레이아웃하지 않아 스크롤 익스텐트가
+            // 0이다(→ ChangeView가 0으로 클램프돼 최상단에 걸림). 레이아웃을 동기 강제해 가상화 익스텐트를
+            // 즉시 확정한다(동기 경로가 성공하던 그 상태를 재현). StackLayout이 (전체 개수×평균 높이)로 추정.
+            BodyScroll.UpdateLayout();
             double stride = EstimateRowStride();
             // 대상 행 상단이 (뷰포트 - 행) * ratio 위치에 오도록 오프셋 계산(균일 높이 가정). 0 이상으로 클램프.
-            double offset = index * stride - (BodyScroll.ViewportHeight - stride) * verticalAlignmentRatio;
-            BodyScroll.ChangeView(null, Math.Max(0, offset), null, disableAnimation: true);
+            double target = Math.Max(0, index * stride - (BodyScroll.ViewportHeight - stride) * ratio);
+            double max = BodyScroll.ScrollableHeight;
+            BodyScroll.ChangeView(null, target, null, disableAnimation: true);
+            // 안전망: 익스텐트가 아직 목표에 못 미쳐 클램프됐고(레이아웃이 여러 패스 필요) 계속 자라는 중이면 재시도.
+            // (끝 근처 항목이라 상한이 고정되면 중단 — 상한 클램프가 최선, 화면 하단에 완전히 표시.)
+            if (target > max + 1 && attempt < 10 && (attempt == 0 || max > prevMax + 1))
+            {
+                ScrollToIndexWhenReady(index, ratio, attempt + 1, max);
+            }
         });
     }
 

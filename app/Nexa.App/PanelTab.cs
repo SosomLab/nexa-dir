@@ -4,6 +4,7 @@ using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using Nexa.ViewModels;
 
 namespace Nexa.App;
 
@@ -13,10 +14,11 @@ namespace Nexa.App;
 /// </summary>
 public sealed class PanelTab : INotifyPropertyChanged
 {
-    // 이동 기록(F13) — 탭별.
-    public string Current = string.Empty;
-    public readonly Stack<string> Back = new();
-    public readonly Stack<string> Fwd = new();
+    // 이동 기록(F13) — 탭별. 순수 로직은 Nexa.ViewModels.NavigationHistory로 분리(감사 B-1, 테스트 대상).
+    public readonly NavigationHistory Nav = new();
+
+    /// <summary>현재 경로(이동 기록의 현재 위치). 읽기 전용 패스스루 — 변경은 <see cref="Nav"/> 메서드로.</summary>
+    public string Current => Nav.Current;
 
     // 펼침 상태 유지(F18) — 탭별(경로, 대소문자 무시).
     public readonly HashSet<string> Expanded = new(StringComparer.OrdinalIgnoreCase);
