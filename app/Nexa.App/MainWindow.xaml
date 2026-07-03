@@ -41,7 +41,8 @@
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="White" />
-                <Setter Property="Background" Value="#FF2B2B2B" />
+                <!-- 배경은 투명 — 그리드/행 배경이 그대로 비쳐 편집 영역은 테두리(border)로만 구분 -->
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="#FF4A90D9" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="SelectionHighlightColor" Value="#FF4A90D9" />
@@ -229,7 +230,7 @@
                                             <TextBox Text="{x:Bind EditName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Visibility="{x:Bind EditVisibility, Mode=OneWay}" Tag="{x:Bind}"
                                                      KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
-                                                     Style="{StaticResource RenameBox}" Margin="0,-2,0,-2" VerticalAlignment="Center" />
+                                                     Style="{StaticResource RenameBox}" Height="20" Margin="0" VerticalAlignment="Center" />
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
@@ -332,7 +333,7 @@
                                             <TextBox Text="{x:Bind EditName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Visibility="{x:Bind EditVisibility, Mode=OneWay}" Tag="{x:Bind}"
                                                      KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
-                                                     Style="{StaticResource RenameBox}" Margin="0,-2,0,-2" VerticalAlignment="Center" />
+                                                     Style="{StaticResource RenameBox}" Height="20" Margin="0" VerticalAlignment="Center" />
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
