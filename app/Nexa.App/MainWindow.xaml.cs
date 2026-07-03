@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -445,8 +446,25 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
+        if (item.IsRenaming)
+        {
+            return;   // 편집 중 — TextBox가 처리(간섭 금지)
+        }
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         var items = Panel(left).Items;
+        bool plain = !IsShiftDown() && !IsCtrlDown();
+
+        // 선택 후 재클릭(더블클릭 아님) → 인라인 이름 변경. 직전 plain 클릭으로 단독 선택된 같은 항목을
+        // 시스템 더블클릭 시간 이후 다시 클릭했을 때만 발동(빠른 재클릭=더블클릭=진입과 구분).
+        if (plain && ReferenceEquals(_renameArm, item) && item.IsSelected && items.SelectionCount == 1
+            && (DateTime.UtcNow - _renameArmAt).TotalMilliseconds > GetDoubleClickTime())
+        {
+            _renameArm = null;
+            e.Handled = true;
+            BeginRename(fe, item, left);
+            return;
+        }
+
         SetActivePanel(left);   // 클릭한 패널이 활성 → 반대 패널 선택은 회색(포커스아웃)
         Panel(left).Grid.Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
 
@@ -469,11 +487,183 @@ public sealed partial class MainWindow : Window
             items.SetCaret(idx);
         }
         UpdateSelectionCount(items);
+
+        // plain 클릭으로 단독 선택된 항목을 이름변경 후보로 장전(다음 재클릭 시 편집).
+        _renameArm = plain ? item : null;
+        _renameArmAt = DateTime.UtcNow;
+    }
+
+    // 인라인 이름변경 트리거 상태(직전 plain 클릭으로 단독 선택된 항목·시각).
+    private DirItem? _renameArm;
+    private DateTime _renameArmAt;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    /// <summary>인라인 이름변경 시작 — 이름 셀을 편집기로 전환하고 포커스 + 이름부(확장자 제외) 선택.</summary>
+    private void BeginRename(FrameworkElement row, DirItem item, bool left)
+    {
+        SetActivePanel(left);
+        item.EditName = item.Name;
+        item.IsRenaming = true;
+        // 편집기가 가시화된 뒤(같은 디스패치 후) 포커스·선택.
+        row.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (FindDescendant<TextBox>(row) is TextBox tb)
+            {
+                tb.Focus(FocusState.Programmatic);
+                tb.Select(0, NameSelectLength(item));
+            }
+        });
+    }
+
+    /// <summary>편집기에서 Enter=커밋 · Esc=취소.</summary>
+    private void OnRenameKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not TextBox tb || tb.Tag is not DirItem item)
+        {
+            return;
+        }
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            item.EditName = tb.Text;
+            CommitRename(item);
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = true;
+            CancelRename(item);
+        }
+    }
+
+    /// <summary>편집기 포커스 상실(영역 밖 클릭) = 커밋(Enter와 동일).</summary>
+    private void OnRenameLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb && tb.Tag is DirItem item && item.IsRenaming)
+        {
+            item.EditName = tb.Text;
+            CommitRename(item);
+        }
+    }
+
+    /// <summary>편집 취소 — 원래 이름 복원, 목록에 포커스 반환.</summary>
+    private void CancelRename(DirItem item)
+    {
+        item.EditName = item.Name;
+        item.IsRenaming = false;
+        Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>
+    /// 이름 변경 확정 — 디스크에서 rename 후 폴더 재로드 + 새 경로 재선택. 무변경/빈 이름은 취소와 동일.
+    /// 잘못된 문자·중복·실패는 상태바로 격리(편집 종료). (후속: nexa-ops 경유·Undo·진행률.)
+    /// </summary>
+    private void CommitRename(DirItem item)
+    {
+        if (!item.IsRenaming)
+        {
+            return;
+        }
+        bool left = _activeLeft;   // 이름변경은 활성 패널에서 일어남
+        string newName = (item.EditName ?? string.Empty).Trim();
+        item.IsRenaming = false;
+        Panel(left).Grid.Focus(FocusState.Programmatic);
+        if (string.IsNullOrEmpty(newName) || string.Equals(newName, item.Name, StringComparison.Ordinal))
+        {
+            return;   // 무변경/빈 이름 → 취소와 동일
+        }
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            StatusText.Text = $"이름에 사용할 수 없는 문자가 있습니다: {newName}";
+            return;
+        }
+        string? dir = Path.GetDirectoryName(item.FullPath);
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string newPath = Path.Combine(dir, newName);
+        // 대소문자만 바꾸는 것(같은 파일)은 허용, 그 외 이미 존재하면 거부.
+        if ((File.Exists(newPath) || Directory.Exists(newPath))
+            && !string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText.Text = $"같은 이름이 이미 있습니다: {newName}";
+            return;
+        }
+        try
+        {
+            if (item.IsDir)
+            {
+                Directory.Move(item.FullPath, newPath);
+            }
+            else
+            {
+                File.Move(item.FullPath, newPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"이름 변경 실패: {ex.Message}";
+            return;
+        }
+        StatusText.Text = $"이름 변경: {item.Name} → {newName}";
+        var tab = Panel(left).Active;
+        UpdateExpandedPaths(tab, item.FullPath, newPath);   // 펼침 경로(폴더/자식) 갱신
+        tab.Loaded = false;
+        LoadDirectory(left, tab, onLoaded: () => SelectByPath(left, newPath));   // 재로드 후 새 경로 재선택
+    }
+
+    /// <summary>이름변경으로 바뀐 경로를 탭 펼침셋에 반영(폴더 자신 + 그 하위 펼침 경로 접두사 치환).</summary>
+    private static void UpdateExpandedPaths(PanelTab tab, string oldPath, string newPath)
+    {
+        string oldTrim = oldPath.TrimEnd('\\', '/');
+        string newTrim = newPath.TrimEnd('\\', '/');
+        var affected = tab.Expanded.Where(p =>
+            p.Equals(oldTrim, StringComparison.OrdinalIgnoreCase) ||
+            p.StartsWith(oldTrim + "\\", StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var old in affected)
+        {
+            tab.Expanded.Remove(old);
+            tab.Expanded.Add(newTrim + old[oldTrim.Length..]);
+        }
+    }
+
+    /// <summary>비주얼 트리에서 첫 <typeparamref name="T"/> 자손을 찾는다(편집기 TextBox 포커스용).</summary>
+    private static T? FindDescendant<T>(DependencyObject root) where T : class
+    {
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var c = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (c is T hit)
+            {
+                return hit;
+            }
+            if (FindDescendant<T>(c) is T deep)
+            {
+                return deep;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>편집 시작 시 선택 길이 — 파일은 확장자 앞까지, 폴더/선행점 파일은 전체.</summary>
+    private static int NameSelectLength(DirItem item)
+    {
+        string n = item.Name;
+        if (item.IsDir)
+        {
+            return n.Length;
+        }
+        int dot = n.LastIndexOf('.');
+        return dot > 0 ? dot : n.Length;
     }
 
     /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
     private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
+        _renameArm = null;   // 더블클릭(진입)은 이름변경 후보 해제
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
@@ -674,6 +864,19 @@ public sealed partial class MainWindow : Window
         {
             CloseTab(_activeLeft, Panel(_activeLeft).Active);
             e.Handled = true;
+            return;
+        }
+
+        // F2: 캐럿 항목 인라인 이름 변경(표준 단축키). 캐럿 행이 실체화돼 있을 때.
+        if (e.Key == VirtualKey.F2)
+        {
+            e.Handled = true;
+            int ci = Panel(_activeLeft).Items.CaretIndex;
+            if (Panel(_activeLeft).Items.CaretItem is DirItem it && ci >= 0
+                && Panel(_activeLeft).Grid.RowElement(ci) is FrameworkElement row)
+            {
+                BeginRename(row, it, _activeLeft);
+            }
             return;
         }
 

@@ -62,6 +62,47 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>깊이별 들여쓰기 폭(px). 이름 셀 앞 여백.</summary>
     public double IndentWidth => Depth * 16;
 
+    // ── 인라인 이름 변경(선택 후 재클릭 / F2) ─────────────────────────
+    private bool _isRenaming;
+
+    /// <summary>편집 모드 여부. 참이면 이름 셀이 <c>TextBox</c>로 전환된다.</summary>
+    public bool IsRenaming
+    {
+        get => _isRenaming;
+        set
+        {
+            if (_isRenaming != value)
+            {
+                _isRenaming = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRenaming)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameVisibility)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditVisibility)));
+            }
+        }
+    }
+
+    private string _editName = string.Empty;
+
+    /// <summary>편집 중 입력값(TextBox 양방향 바인딩). 시작 시 <see cref="Name"/>으로 초기화.</summary>
+    public string EditName
+    {
+        get => _editName;
+        set
+        {
+            if (_editName != value)
+            {
+                _editName = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditName)));
+            }
+        }
+    }
+
+    /// <summary>이름 표시(비편집) 가시성.</summary>
+    public Visibility NameVisibility => _isRenaming ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>편집 TextBox 가시성.</summary>
+    public Visibility EditVisibility => _isRenaming ? Visibility.Visible : Visibility.Collapsed;
+
     private bool _isExpanded;
 
     /// <summary>폴더 펼침 여부. 변경 시 디스클로저 글리프가 갱신된다.</summary>

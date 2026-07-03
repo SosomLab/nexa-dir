@@ -15,9 +15,10 @@
 
 ```
 refactor/003-audit  (분기: 1d9d312)
-├─ E1 4축 병렬 감사 ............... (이 커밋)
-│    └ 산출: docs/journal/20260703_200457_refactor-003-audit.md
-└─ E2~ 사용자 지시 항목 진행 ...... 대기
+├─ E1 4축 병렬 감사 ............... 7997efc
+│    └ 산출: 20260703_200457_refactor-003-audit.md · 백로그 docs/TODO.md(1f20738) · BUG-001 해결(8d3d363)
+├─ E2 B-6 인라인 이름변경(1차) ..... (이 커밋)
+└─ E3~ 사용자 지시 항목 진행 ...... 대기
 ```
 
 ## 3차 백로그 요약 (실행 목록·범위 산정: [../TODO.md](../TODO.md) · 근거: [감사 리포트](20260703_200457_refactor-003-audit.md) §★)
@@ -36,5 +37,16 @@ refactor/003-audit  (분기: 1d9d312)
 - **어떻게**: `general-purpose` 4축 병렬(축1 설계부합·준비 / 축2 성능보장 / 축3 배드스멜·구조 / 축4 파일탐색기 FR·NFR) → 심각도·트랙별 통합.
 - **핵심 결론**: 설계 훼손 없음·성능 토대 우수. 그러나 **①파일 조작 계층 전무(뷰어 상태, M1 P0)** **②성능이 "실보장" 아님(`_cache` 무경계 → 선택/포커스/토글 O(방문행수)·메모리 무캡)** **③설계 계약 공백(에러/Provider/watcher, M2+ 관문)** **④인프라 부채(설정 인메모리·i18n 0·접근성 0)**. 트랙 A~E 백로그 확정.
 - **산출**: [20260703_200457_refactor-003-audit.md](20260703_200457_refactor-003-audit.md).
+
+## E2 · 2026-07-03 · 트랙 B-6 — 인라인 이름 변경(1차, 선택 후 재클릭/F2) → `(이 커밋)`
+
+- **왜/요청**: 사용자 — "클릭하면 선택, 선택된 상태에서 한 번 더 클릭하면 이름 변경. Enter=확정·ESC=취소·영역 밖 클릭=확정. 적당한 시간 간격." (감사 백로그 B-6, P2)
+- **무엇 · 파일**:
+  - [DirItem](../../app/Nexa.App/NativeInterop.cs): `IsRenaming`/`EditName` + `NameVisibility`/`EditVisibility`(편집 시 이름 TextBlock↔TextBox 전환).
+  - [MainWindow.xaml](../../app/Nexa.App/MainWindow.xaml): 이름 셀에 편집 TextBox 오버레이(좌/우) + **컴팩트 편집기 스타일 `RenameBox`**(기본 TextBox의 MinHeight 32·헤더·지우기(×) 버튼이 행을 깨서 → 최소 템플릿: 테두리+ContentElement만, 행 높이 유지).
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): **트리거** — 직전 plain 클릭으로 단독 선택된 같은 항목을 **시스템 더블클릭 시간(`GetDoubleClickTime`) 이후** 재클릭 시 편집(빠른 재클릭=더블클릭=진입과 구분, 상한 없음=Explorer식). **F2**(캐럿 항목)도 지원. `Begin/Commit/CancelRename`·`OnRenameKeyDown`(Enter/Esc)·`OnRenameLostFocus`(영역 밖=커밋). 편집 시작 시 **확장자 제외 이름부 선택**. 검증(사용 불가 문자·중복·IO 실패→상태바 격리). 커밋 = `System.IO` `File/Directory.Move` 후 **폴더 재로드 + 새 경로 재선택**, 펼침 경로 접두사 갱신.
+  - [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `RowElement(index)` 노출(F2 편집 포커스용).
+- **한계(후속·정석은 nexa-ops B-1)**: **Undo/휴지통 없음 — 즉시·불가역** · 배치 리네임(docs/25) 별도 · 예약이름/길이 미검증 · 셸 알림(SHChangeNotify) 없음 · watcher 미반영(C-3) · 커밋 시 폴더 전체 재로드(코어 rename API 인플레이스가 이상적) · 편집기 UIA 라벨 없음(D-3). 인라인 편집 컨트롤 승격은 수요 2곳+ 또는 ops 재배선 시.
+- **검증**: 로컬 `dotnet build`(app x64) green(경고 0/오류 0). 실기 QA(선택-재클릭·Enter/Esc/영역밖·더블클릭 진입 구분·F2·검증) 사용자 확인. 레이아웃 깨짐 → 컴팩트 스타일로 해소.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->

@@ -85,6 +85,9 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>본문 스크롤을 맨 위로 리셋(폴더 진입 시 첫 항목이 위에 오도록).</summary>
     public void ScrollToTop() => BodyScroll.ChangeView(null, 0, null, disableAnimation: true);
 
+    /// <summary>지정 인덱스의 실체화된 행 요소(미실체화면 null). 인라인 편집 등 행 요소 접근용.</summary>
+    public FrameworkElement? RowElement(int index) => Repeater.TryGetElement(index) as FrameworkElement;
+
     /// <summary>현재 본문 세로 스크롤 오프셋(px). 펼침/접힘 전 캡처용.</summary>
     public double VerticalOffset => BodyScroll.VerticalOffset;
 
