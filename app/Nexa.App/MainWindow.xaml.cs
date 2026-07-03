@@ -410,8 +410,8 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// 폴더 행 펼침/접힘 토글(디스클로저·키보드 공용). 코어에 위임하고, **탭별 펼침 경로셋**을
-    /// 갱신해 진입/이동에도 상태가 유지되게 한다(F18). 펼침/접힘의 Reset이 스크롤을 맨 위로
-    /// 되돌리므로, 토글 전 오프셋을 캡처해 복원한다(토글 행 아래만 바뀌므로 위쪽 행은 제자리, E18).
+    /// 갱신해 진입/이동에도 상태가 유지되게 한다(F18). 펼침/접힘은 코어 diff를 <b>범위 Add/Remove로
+    /// 통지</b>하므로 토글 행 위쪽은 제자리·스크롤도 안 튄다 → 이전 E18 오프셋 복원 핵 불요(감사 P2).
     /// </summary>
     private void ToggleExpandRow(bool left, DirItem item)
     {
@@ -420,12 +420,9 @@ public sealed partial class MainWindow : Window
             return;
         }
         var items = left ? _leftItems : _rightItems;
-        var grid = left ? DirGrid : DirGrid2;
         var set = (left ? _leftTab : _rightTab).Expanded;
         bool willExpand = !item.IsExpanded;
-        double offset = grid.VerticalOffset;   // 토글 전 스크롤 위치
-        items.ToggleExpand(item);   // 코어 위임 → diff 반영(Reset)
-        grid.RestoreVerticalOffset(offset);   // Reset의 맨-위 리셋을 되돌려 위치 유지
+        items.ToggleExpand(item);   // 코어 diff → 범위 Add/Remove 통지(위쪽 행·아이콘·스크롤 보존)
         string key = item.FullPath.TrimEnd('\\', '/');
         if (willExpand)
         {

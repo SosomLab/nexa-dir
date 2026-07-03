@@ -36,8 +36,9 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E3 트랙 A-1 [P1] 열거 백그라운드 . 4c6f74c
 ├─ E4 트랙 E 문서 스테일 일괄+ADR등재 . 6db4915
 ├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . cfecd64
-├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . (이 커밋, 미해결→BUGS.md)
-└─ E7~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
+├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . 6245622
+├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . (이 커밋)
+└─ E8~ 트랙 B~(구조)·C~(설계계약) ..... 예정
 ```
 
 ---
@@ -97,5 +98,16 @@ refactor/002-audit  (분기: b38e6b3)
 - **시도·실패**(모두 되돌림): `UpdateLayout` 강제 / `ItemsSource` null 토글 재바인딩 / `Repeater.Visibility` 토글 / `ScrollViewer.Content` detach·reattach. 마지막은 **시작 시 2–5초 행 + 간헐 크래시** 부작용까지 유발. 상세·근거·후보 해결책은 [BUGS.md](../BUGS.md) **BUG-001**.
 - **결정**: 반복 중단(사용자 지시). 실험 코드/계측을 마지막 정상 상태([cfecd64])로 되돌리고, 시도 기록을 BUG-001에 상세 정리(직접 디버깅용). 스크롤 수정(E5)은 유지·정상.
 - **무엇 · 파일**: [BUGS.md](../BUGS.md) 신설(BUG-001). 코어/앱 코드 변경 없음(되돌림 완료).
+
+## E7 · 2026-07-03 · 트랙 A-2 [P2] — 펼침/접힘 범위 diff 통지(전체 Reset 제거) → `(이 커밋)`
+
+- **왜**: 감사 P2 — 인라인 펼침/접힘이 `InvalidateAndReset`(캐시 clear + `Reset`)으로 통지해 **뷰포트 전 행 재실체화 + 아이콘 전량 재로드 + 스크롤 맨 위 튐**(E18 오프셋 복원 핵으로 완화 중) → 60fps 붕괴. 코어는 이미 `TreeRange`(Start/Removed/Inserted) diff를 주는데 C#이 버림.
+- **무엇 · 파일**:
+  - [VirtualTreeCollection](../../app/Nexa.App/VirtualTreeCollection.cs) `ToggleExpand`: 코어 diff를 살려 **범위 `Add`/`Remove` 통지**(`RaiseChange`) + `_cache`·캐럿 **인덱스 시프트**(`ApplyDiff`). 위쪽(< start) 행은 유지 → 재실체화·아이콘 재로드 없음. `CountOnlyList`(개수만, 행 미실체화)로 **대형 펼침도 무블록**. `InvalidateAndReset` 제거.
+  - 디스클로저 글리프는 **항상 토글** → **자식 0개 빈 폴더도 펼침/접힘 표시**(조기반환 회귀 수정, 실기 QA 지적). 가시 행 변경이 있을 때만 시프트+통지.
+  - [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs) `ToggleExpandRow`: **E18 오프셋 캡처/복원 핵 제거**(더는 안 튐).
+- **효과**: 펼침/접힘 시 위쪽 행·아이콘·스크롤 위치 보존, 대형 폴더도 무블록. **실기 QA 통과**(접기/펴기·스크롤 유지·빈 폴더 확장 확인).
+- **부수 확인 — BUG-001 재현 안 됨**: clean 빌드(cfecd64+A-2)에서 **빈 폴더 이탈 시 blank 미발생**. 이전 blank는 모두 실험 코드(UpdateLayout/null토글/RefreshRealization) 켜진 빌드에서만 관찰 → 그 실험들이 원인이었을 가능성. BUG-001을 "재현 안 됨(모니터링)"으로 갱신([BUGS.md](../BUGS.md)).
+- **검증**: 로컬 `dotnet build`(app x64) green. 코어 무변경. `ItemsRepeater` 범위 Add/Remove가 개수 통지로 정상 실체화됨(#1 미지수 해소, `CountOnlyList` 유효).
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->

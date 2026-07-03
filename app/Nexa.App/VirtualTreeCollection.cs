@@ -11,9 +11,9 @@ namespace Nexa.App;
 /// 보이는 인덱스의 <see cref="DirItem"/>만 지연 생성·캐시하고(전량 구체화 안 함), 펼침/접힘/선택은
 /// 코어에 위임한다(단일 진실원천 = 코어). <c>NexaFileGrid</c>(ItemsRepeater) ItemsSource로 사용.
 ///
-/// 슬라이스 3b-2 컴포넌트 — MainWindow 배선은 후속(3b-2 배선/3b-3). C1 설계: docs/29·07.
-/// 구조 변경(펼침/접힘)은 현재 <see cref="NotifyCollectionChangedAction.Reset"/>로 통지(정확·단순).
-/// 범위 diff(RangeChange) 기반 세밀 통지는 성능 슬라이스(4)에서.
+/// 슬라이스 3b-2 컴포넌트. C1 설계: docs/29·07.
+/// 펼침/접힘 구조 변경은 코어 diff(<see cref="TreeRange"/>)를 살려 <b>범위 Add/Remove</b>로 세밀 통지하고
+/// <c>_cache</c> 인덱스를 시프트한다(전체 Reset·재실체화 회피 — 감사 P2). 폴더 (재)열기만 <see cref="NotifyCollectionChangedAction.Reset"/>.
 /// </summary>
 internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INotifyCollectionChanged, IDisposable
 {
@@ -158,17 +158,32 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 
     // ── 펼침 / 접힘 (코어 위임) ───────────────────────────────────────
 
-    /// <summary>폴더면 펼침/접힘 토글. 구조가 바뀌므로 캐시 무효화 + Reset 통지.</summary>
+    /// <summary>
+    /// 폴더면 펼침/접힘을 토글한다. 코어가 돌려주는 변경 구간(<see cref="TreeRange"/>)을 그대로 살려
+    /// <b>범위 Add/Remove로 정밀 통지</b>하고 <c>_cache</c>·캐럿 인덱스를 시프트한다(전체 Reset·무효화 아님).
+    /// → 토글 행 위쪽은 재실체화·아이콘 재로드 없이 제자리, 스크롤도 안 튄다(감사 P2, 60fps).
+    /// </summary>
     public void ToggleExpand(DirItem item)
     {
         if (_handle == IntPtr.Zero || !item.IsDir)
         {
             return;
         }
-        _ = item.IsExpanded
+        bool wasExpanded = item.IsExpanded;
+        TreeRange r = wasExpanded
             ? NativeInterop.TreeCollapse(_handle, item.Id)
             : NativeInterop.TreeExpand(_handle, item.Id);
-        InvalidateAndReset();
+        // 디스클로저 글리프는 항상 토글 — 자식이 0개인 빈 폴더도 펼침/접힘 표시가 되도록(코어는 빈 폴더도
+        // expanded 상태를 유지). 가시 행 변경(자식 삽입/제거)이 있을 때만 캐시 시프트 + 범위 통지.
+        item.IsExpanded = !wasExpanded;
+        if (r.Inserted > 0 || r.Removed > 0)
+        {
+            ApplyDiff(r.Start, r.Removed, r.Inserted);   // 캐시/캐럿 인덱스 시프트(위쪽 행 DirItem·아이콘 보존)
+            RaiseChange(
+                r.Inserted > 0 ? NotifyCollectionChangedAction.Add : NotifyCollectionChangedAction.Remove,
+                r.Start,
+                r.Inserted > 0 ? r.Inserted : r.Removed);
+        }
     }
 
     private static int Depth(string path) => path.TrimEnd('\\', '/').Count(c => c is '\\' or '/');
@@ -251,10 +266,71 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         }
     }
 
-    private void InvalidateAndReset()
+    /// <summary>
+    /// 코어 변경 구간(<paramref name="start"/>에서 <paramref name="removed"/>개 제거 후 <paramref name="inserted"/>개 삽입)에
+    /// 맞춰 <c>_cache</c>(인덱스→행)와 캐럿 인덱스를 시프트한다. 위쪽(&lt; start)은 그대로 두어 실체화·아이콘을 보존.
+    /// </summary>
+    private void ApplyDiff(int start, int removed, int inserted)
     {
-        _cache.Clear();
-        RaiseReset();
+        int delta = inserted - removed;
+        if (_cache.Count > 0)
+        {
+            var rebuilt = new Dictionary<int, DirItem>(_cache.Count);
+            foreach (var (k, v) in _cache)
+            {
+                if (k < start)
+                {
+                    rebuilt[k] = v;             // 위쪽: 유지(실체화·아이콘 보존)
+                }
+                else if (k >= start + removed)
+                {
+                    rebuilt[k + delta] = v;     // 아래쪽: 시프트
+                }
+                // [start, start+removed): 제거된 행 → 버림
+            }
+            _cache.Clear();
+            foreach (var (k, v) in rebuilt)
+            {
+                _cache[k] = v;
+            }
+        }
+        if (_caretIndex >= start)
+        {
+            _caretIndex = _caretIndex < start + removed
+                ? start - 1                 // 제거된 범위 안이었으면 토글 행으로
+                : _caretIndex + delta;
+        }
+    }
+
+    /// <summary>범위 변경(Add/Remove)을 통지한다. ItemsRepeater는 인덱스·개수만 사용하고 실제 행은 소스 인덱서로 재조회한다.</summary>
+    private void RaiseChange(NotifyCollectionChangedAction action, int start, int count) =>
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, new CountOnlyList(count), start));
+
+    /// <summary>범위 통지에서 개수만 필요할 때 쓰는 경량 IList(행 실체화 회피 — 대형 펼침에도 무블록).</summary>
+    private sealed class CountOnlyList : IList
+    {
+        public CountOnlyList(int count) => Count = count;
+        public int Count { get; }
+        public bool IsFixedSize => true;
+        public bool IsReadOnly => true;
+        public bool IsSynchronized => false;
+        public object SyncRoot => this;
+        public object? this[int index] { get => null; set => throw new NotSupportedException(); }
+        public int Add(object? value) => throw new NotSupportedException();
+        public void Clear() => throw new NotSupportedException();
+        public bool Contains(object? value) => false;
+        public int IndexOf(object? value) => -1;
+        public void Insert(int index, object? value) => throw new NotSupportedException();
+        public void Remove(object? value) => throw new NotSupportedException();
+        public void RemoveAt(int index) => throw new NotSupportedException();
+        public void CopyTo(Array array, int index) { }
+        public IEnumerator GetEnumerator()
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                yield return null;
+            }
+        }
     }
 
     private void RaiseReset() =>
