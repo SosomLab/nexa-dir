@@ -16,10 +16,38 @@ namespace Nexa.Controls;
 /// </summary>
 public sealed partial class NexaFileGrid : UserControl
 {
+    // 실체화된 요소 → 그 요소가 표시 중인 데이터. ItemsRepeater + x:Bind 템플릿은 요소 DataContext를
+    // 설정하지 않으므로, 진입 시 인덱스로 데이터를 얻어 매핑해 두고 재활용 시 되찾는다(취소 대상 식별).
+    private readonly Dictionary<UIElement, object> _rowItem = new();
+
     public NexaFileGrid()
     {
         InitializeComponent();
+        // 행 요소 수명(화면 진입/이탈)을 호스트에 노출 — 아이콘 지연 로드/취소를 뷰포트에 묶어
+        // 빠른 스크롤 시 지나간 행의 작업을 취소하게 한다(감사 P6). 도메인 비종속(item은 object).
+        Repeater.ElementPrepared += (_, e) =>
+        {
+            object? item = Repeater.ItemsSourceView?.GetAt(e.Index);
+            if (item is not null)
+            {
+                _rowItem[e.Element] = item;
+                RowRealized?.Invoke(item);
+            }
+        };
+        Repeater.ElementClearing += (_, e) =>
+        {
+            if (_rowItem.Remove(e.Element, out var item))
+            {
+                RowRecycled?.Invoke(item);
+            }
+        };
     }
+
+    /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>
+    public event Action<object>? RowRealized;
+
+    /// <summary>행 요소가 재활용(화면 이탈)될 때 그 데이터로 호출(지연 로드 취소 등). 호스트가 구독.</summary>
+    public event Action<object>? RowRecycled;
 
     /// <summary>컬럼 정의(헤더 행). XAML에서 채우고, 본문 셀은 <see cref="ItemTemplate"/>이 렌더.</summary>
     public IList<NexaGridColumn> Columns { get; } = new List<NexaGridColumn>();

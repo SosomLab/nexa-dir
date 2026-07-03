@@ -40,9 +40,51 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . 19e8c79
 ├─ E8 트랙 B-2a PanelView 그룹 객체 .... 6f000cb
 ├─ E9 트랙 B-1 Nexa.ViewModels + 테스트 . 31da09e (+62543c3 크로스플랫폼 픽스)
-├─ E10 전체 문서 최신화(세션 진행분 반영) . (이 커밋)
-└─ E11~ 트랙 B-3(PanelControl)·C~ ...... 예정
+├─ E10 전체 문서 최신화(세션 진행분 반영) . f76e0ba
+├─ E11 트랙 A-4 [P6] 아이콘 캐시·로딩 큐 ... (이 커밋)
+└─ E12~ 트랙 B-3(PanelControl)·C~ ...... 예정
 ```
+
+## 진행 현황 체크리스트 (트랙별)
+
+> 2차 감사 우선순위 백로그([20260702_234558_refactor-002-audit.md](20260702_234558_refactor-002-audit.md) §★) 기준 전체 목록과 진행 여부. ✅ 완료 · ☐ 미착수 · 🚧 부분.
+
+### 트랙 A — 성능
+- [x] **A-1 [P1]** 열거·펼침 백그라운드화(UI 프리즈 제거) — E3
+- [x] **A-2 [P2]** 펼침/접힘 Reset→범위 diff + 캐시 시프트 — E7
+- [x] **A-3 [P3]** 코어 경로→NodeId 조회(per-row 마샬 제거) — E2
+- [x] **A-4 [P6]** 아이콘 LRU 캐시 + 속도 제한 로딩 큐(화면밖 드롭) — E11
+- [ ] **A-5 [P5]** arena 노드 회수 + 유휴 RSS 트림 자니터(soak 전)
+
+### 트랙 B — 구조 리팩토링
+- [x] **B-2a** `PanelView` 그룹 객체로 `bool left` 이중화 소거 — E8
+- [~] **B-1** `Nexa.ViewModels`(net8.0) + C# 테스트 — E9 (**부분**: TabTitle·NavigationHistory·IconKey 이관; 로직 대부분 아직 MainWindow)
+- [ ] **B-3** `PanelControl` UserControl로 XAML 좌/우 복붙 제거
+
+### 트랙 C — 설계 계약 동결 (M1 마감 전, 전부 미착수)
+- [ ] **C-1** nexa-ops 파일작업 엔진 설계+크레이트(에러/취소/진행률 표준 SSOT)
+- [ ] **C-2** VFS Provider 계약(list/stat/read/watch) + 트리 Provider 경유(M4 전)
+- [ ] **C-3** watcher 설계(부분 무효화·선택 pruning 훅)
+- [ ] **C-4** 에러 모델 표준(코어→호스트 코드 enum + last-error)
+- [ ] **C-5** csbindgen 도입(수동 P/Invoke 미러 대체, M2/M3 전)
+
+### 트랙 D — 배포·NFR 재보정 (전부 미착수)
+- [ ] **D-1** NFR-M2/P5 목표 실측 기반 재보정(soak/R2R Windows 실측 선행)
+- [ ] **D-2** 배포 이원화(fwk-dependent MSIX + 포터블 폴더 zip), 단일 exe 검증
+- [ ] **D-3** 상주 규율 구현(캐시 캡·EmptyWorkingSet 트림·압박 구독)
+- [ ] **D-4** "네이티브 준함" 서술 정정
+
+### 트랙 E — 저위험 퀵윈
+- [x] **E-4** 문서 스테일 일괄 + ADR-0004 등재 — E4 (+ E10 전체 최신화)
+- [ ] **E-1** interop 죽은 `nexa_dir_*` 제거
+- [ ] **E-2** `panic="abort"`(FFI 언와인딩 가드)
+- [ ] **E-3** 심링크 `symlink_metadata` + attrs 유닛테스트
+- [ ] **E-5** docs/19 커밋해시 백필(플레이스홀더 21개)
+
+### 별도 (감사 외 · QA/사용자 요청)
+- [~] **BUG-001** 빈 폴더 이탈 시 목록 blank — 재현 안 됨(모니터링, [BUGS.md](../BUGS.md))
+- [ ] **UX** 탭 복귀 시 스크롤/선택 유지(활성 탭 재클릭은 맨 위) — 사용자 요청, 접수
+- [ ] **실기 QA 회귀 점검** — 트랙 A/B가 네비·펼침·아이콘 경로 다수 변경(뒤로/앞으로/위로·탭·펼침 일괄 확인 권장)
 
 ---
 
@@ -145,5 +187,17 @@ refactor/002-audit  (분기: b38e6b3)
   - (docs/18은 B-1에서 이미 갱신 — viewmodels 잡·§2-2.)
 - **성격**: 문서만. 코드/빌드 무변경.
 - **검증**: 스테일 잔존 스캔(970·"M0 진행") 정리 확인.
+
+## E11 · 2026-07-03 · 트랙 A-4 [P6] — 아이콘 LRU 캐시 + 속도 제한 로딩 큐(화면밖 드롭) → `(이 커밋)`
+
+- **왜**: 감사 P6 — `LoadIconAsync`가 행 실체화마다 셸 썸네일 호출(캐시·상한·취소·동시성 제한 전무). 큰 폴더/빠른 스크롤 시 셸 호출 폭주·중복(같은 확장자 반복)·낭비(이동 후에도 옛 폴더 로드 진행).
+- **무엇 · 파일**:
+  - [IconKey](../../app/Nexa.ViewModels/IconKey.cs)(순수, net8.0): 캐시 키 — 폴더=`dir`·확장자없음=`file`·일반=소문자 확장자·**앱별 고유 아이콘 확장자(exe/lnk/ico…)=경로 키**. 구분자 직접 처리(크로스플랫폼). 테스트 [IconKeyTests](../../app/Nexa.ViewModels.Tests/IconKeyTests.cs) **13개**(총 C# 25).
+  - [ShellIconCache](../../app/Nexa.App/ShellIconCache.cs)(앱): LRU`<key,ImageSource>`(상한 256, NFR-M2) + **속도 제한 로딩 큐** — 요청은 큐 적재, `DispatcherQueueTimer`(80ms)가 **동시 상한 4** 내에서만 꺼내 로드. 캐시 히트 즉시, 미스는 큐잉. 이미지(사진)·아이콘(exe/파일형식/폴더) **모두 렌더**(빈 썸네일만 스킵).
+  - [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `ItemsRepeater` 요소 수명(`ElementPrepared`/`ElementClearing`)을 `RowRealized`/`RowRecycled` 이벤트로 노출(도메인 비종속). x:Bind 템플릿은 DataContext 미설정 → **인덱스+요소맵**으로 항목 식별.
+  - [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs): `LoadIconAsync`·`WireTab` 제거 → 그리드 `RowRealized`→`Request`, `RowRecycled`→`Cancel`(화면 밖 행은 큐에서 제거). `_iconCache`를 UI `DispatcherQueue`로 ctor 생성.
+- **효과**: 같은 종류 아이콘 1회 셸 호출·공유(중복 제거), **동시/신규 셸 호출이 상한을 절대 안 넘음**(빠른 스크롤에도 안정), 화면 밖 행 드롭, LRU 메모리 상한. exe/바로가기 고유 아이콘 유지.
+- **QA 여정(중요)**: ① 세마포어版(무한 대기열) → System32 **빠른 스크롤 시 네이티브 크래시**(crash.log 없음=관리 예외 아님). ② 요소 수명 취소만으론 부족(진입/취소 폭주·이미 시작된 셸 호출). ③ **속도 제한 로딩 큐**(사용자 제안, Explorer/Finder식 "스크롤 정착 후 로딩")로 동시·신규 호출을 하드 상한으로 묶어 해결. 또한 `Type==Image` 필터 탓에 exe/타입 아이콘이 안 보이던 것 → 아이콘 타입도 렌더하도록 수정.
+- **검증**: `dotnet test` **25/25** green(IconKey 13 크로스플랫폼). `dotnet build`(app x64) green. **실기 QA 통과** — 빠른 스크롤 크래시 없음 + 아이콘 정상 표시(사용자 확인).
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->

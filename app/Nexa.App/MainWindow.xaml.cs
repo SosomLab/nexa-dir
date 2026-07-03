@@ -7,9 +7,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
-using Windows.Storage.FileProperties;
 using Windows.System;
 using Windows.UI.Core;
 using Nexa.Controls;
@@ -49,9 +47,13 @@ public sealed partial class MainWindow : Window
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
-        // 초기 탭의 가상화 목록 배선(새 행 실체화 시 셸 아이콘 비동기 로드). 탭별 컬렉션마다 필요.
-        WireTab(_left.Active);
-        WireTab(_right.Active);
+        // 그리드 행 수명 → 아이콘 지연 로드/취소. 행이 화면 밖으로 나가면 큐에서 제거(빠른 스크롤 부하 제한, P6).
+        _iconCache = new ShellIconCache(DispatcherQueue);
+        foreach (var p in new[] { _left, _right })
+        {
+            p.Grid.RowRealized += it => { if (it is DirItem d) { _iconCache.Request(d); } };
+            p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
+        }
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _left.Active.IsActive = true;
         _right.Active.IsActive = true;
@@ -150,8 +152,9 @@ public sealed partial class MainWindow : Window
         return (p.Grid, p.Header, p.PathBar);
     }
 
-    /// <summary>탭의 가상화 목록에 아이콘 지연 로드 콜백을 배선(탭 생성 시 1회).</summary>
-    private void WireTab(PanelTab tab) => tab.Items.RowBuilt = it => _ = LoadIconAsync(it);
+    // 셸 아이콘 로더(전역 단일): 종류/확장자 LRU 캐시 + 속도 제한 로딩 큐(감사 P6). ctor에서 UI 큐로 생성.
+    // 로드/취소는 그리드 행 수명(RowRealized/RowRecycled, ctor에서 배선)에 연결 — 뷰포트 밖 행은 큐에서 제거.
+    private readonly ShellIconCache _iconCache;
 
     // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
@@ -365,30 +368,6 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 항목의 실제 셸 아이콘(폴더 커스텀 아이콘·파일 형식 아이콘)을 비동기로 로드한다.
-    /// 성공 시 <see cref="DirItem.IconImage"/> 설정(글리프→실제 아이콘 교체), 실패는 글리프 유지.
-    /// </summary>
-    private static async Task LoadIconAsync(DirItem item)
-    {
-        try
-        {
-            StorageItemThumbnail thumb = item.IsDir
-                ? await (await StorageFolder.GetFolderFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16)
-                : await (await StorageFile.GetFileFromPathAsync(item.FullPath)).GetThumbnailAsync(ThumbnailMode.ListView, 16);
-            if (thumb is not null && thumb.Type == ThumbnailType.Image)
-            {
-                var bmp = new BitmapImage();
-                await bmp.SetSourceAsync(thumb);
-                item.IconImage = bmp;
-            }
-        }
-        catch
-        {
-            // 접근 불가·미지원 → 글리프 폴백 유지.
-        }
-    }
-
-    /// <summary>
     /// 폴더 행의 디스클로저(▶/▼)를 눌러 인라인으로 펼치거나 접는다.
     /// 펼침: 해당 폴더의 자식을 바로 아래에 depth+1로 삽입. 접힘: 뒤따르는 더 깊은 행을 제거.
     /// </summary>
@@ -598,7 +577,6 @@ public sealed partial class MainWindow : Window
         }
         var tab = new PanelTab();
         tab.Nav.NavigateTo(basePath, record: false);   // 새 탭 초기 경로(기록 없음)
-        WireTab(tab);   // 새 탭 컬렉션에 아이콘 로드 콜백 배선
         Panel(left).Tabs.Add(tab);
         SwitchToTab(left, tab);
     }
