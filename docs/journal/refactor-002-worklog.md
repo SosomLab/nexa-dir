@@ -35,8 +35,9 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E2 트랙 A-3 [P3] 경로→NodeId ... 8db50c3 (+ faef3cc 테스트 픽스)
 ├─ E3 트랙 A-1 [P1] 열거 백그라운드 . 4c6f74c
 ├─ E4 트랙 E 문서 스테일 일괄+ADR등재 . 6db4915
-├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . (이 커밋)
-└─ E6~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
+├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . cfecd64
+├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . (이 커밋, 미해결→BUGS.md)
+└─ E7~ 트랙 A-2 [P2]·트랙 B~ ...... 예정
 ```
 
 ---
@@ -88,5 +89,13 @@ refactor/002-audit  (분기: b38e6b3)
 - **무엇 · 파일**: [NexaFileGrid](../../app/Nexa.Controls/NexaFileGrid.xaml.cs) `ScrollIndexIntoView` — 스크롤 직전 **`BodyScroll.UpdateLayout()`로 레이아웃 동기 강제** → 가상화 익스텐트(StackLayout 추정=전체개수×평균높이) 즉시 확정 후 오프셋 계산·`ChangeView`. 익스텐트가 여러 패스 필요하면 자라는 동안만 재시도(끝 근처 항목은 상한 클램프=하단 완전표시가 최선). [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs)는 임시 지연 되돌리고 주석만 정리.
 - **효과**: GoUp(F13-1)·경로바 파일 선택(F23-1) 등 로드 후 스크롤 대상이 안정적으로 위치. 실기 QA 통과(사용자 확인).
 - **검증**: 로컬 `dotnet build`(app x64) green. 실기 QA — 상위 이동 유지 동작 확인.
+
+## E6 · 2026-07-03 · P1 실기 QA#2 — 빈 폴더 blank 버그 등록(미해결) → `(이 커밋)`
+
+- **증상(QA)**: 빈(0개) 폴더 진입 후 상위/뒤로 이동 시 대상 목록이 빈 화면(헤더 개수는 정상). 한 번 발생하면 이후 이동도 고착.
+- **진단**: 임시 계측(`DebugRealization` + debug.log)으로 확인 — `viewCount=3`인데 `elem0=False`(요소 미실체화), `extH` 고착. **ItemsRepeater `EffectiveViewport` 고착**이 근본 원인(빈 소스 후 뷰포트 무변화 → 재실체화 미트리거). P1 비동기 로드가 노출.
+- **시도·실패**(모두 되돌림): `UpdateLayout` 강제 / `ItemsSource` null 토글 재바인딩 / `Repeater.Visibility` 토글 / `ScrollViewer.Content` detach·reattach. 마지막은 **시작 시 2–5초 행 + 간헐 크래시** 부작용까지 유발. 상세·근거·후보 해결책은 [BUGS.md](../BUGS.md) **BUG-001**.
+- **결정**: 반복 중단(사용자 지시). 실험 코드/계측을 마지막 정상 상태([cfecd64])로 되돌리고, 시도 기록을 BUG-001에 상세 정리(직접 디버깅용). 스크롤 수정(E5)은 유지·정상.
+- **무엇 · 파일**: [BUGS.md](../BUGS.md) 신설(BUG-001). 코어/앱 코드 변경 없음(되돌림 완료).
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
