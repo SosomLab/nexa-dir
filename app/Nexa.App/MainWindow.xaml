@@ -40,7 +40,8 @@
                 <Setter Property="Padding" Value="3,0" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="White" />
+                <!-- 편집 시에도 원래 이름 텍스트 색 유지(테마 기본 전경색 = 정상 TextBlock과 동일) -->
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
                 <!-- 배경은 투명 — 그리드/행 배경이 그대로 비쳐 편집 영역은 테두리(border)로만 구분 -->
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="#FF4A90D9" />
