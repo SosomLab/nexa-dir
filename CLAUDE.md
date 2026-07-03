@@ -7,7 +7,7 @@
 ## 1. 이 프로젝트는
 
 **Nexa Dir** = 차세대 **Windows 파일 탐색기**(Windows 기본 탐색기 대체). 네이티브 고성능 + 프로툴 UX.
-원격: `SosomLab/nexa-dir`. 현 단계: **스캐폴딩 완료, M0 진행 중**.
+원격: `SosomLab/nexa-dir`. 현 단계: **M1 진행**(M0 완료·`0.1.0` 태그). C1 코어 트리/선택 이관 main 병합 후, **2차 감사 `refactor/002-audit`** 진행 — 트랙 A 성능(P1/P2/P3)·트랙 B 구조(PanelView·Nexa.ViewModels+C# 테스트) 완료, B-3/트랙 C 예정. → [docs/STATUS.md](docs/STATUS.md).
 
 - 조직: **SosomLab** (<https://sosomlab.com>) · 상업 라이선스 문의: **kiros33@sosomlab.com**
 - 개발자(maintainer): Sangyong Bae · **kiros33@gmail.com**
@@ -35,7 +35,7 @@
 
 - **핫패스는 Rust 코어**(VFS·인덱스 tantivy·프리뷰·ops·pty·plugin 호스트 wasmtime/mlua),
   **UI는 WinUI 3(C#)**. **셸 COM/컨텍스트메뉴는 C# 계층**, 플래그십 트리는 **가시 노드 평면 스트림 + 가상화**.
-- 리포 구조(현재): `core/`(Rust 워크스페이스 ✅) · `app/Nexa.App`(WinUI ✅) · `docs/`(00~17) · `scripts/`(bootstrap.sh/ps1) · `.github/`. (예정: `tools/nexa-license-gen`)
+- 리포 구조(현재): `core/`(Rust 워크스페이스: nexa-core/vfs/tree/interop ✅) · `app/`(`Nexa.App` WinUI ✅ · `Nexa.Controls` 재사용 컨트롤 · **`Nexa.ViewModels`(net8.0 순수 로직)+`.Tests`(xUnit, 맥/Win 공통)**) · `docs/`(00~31) · `scripts/`(bootstrap.sh/ps1) · `.github/`. (예정: `tools/nexa-license-gen`)
 - 상세 구조·파일별 목적 → [docs/16](docs/16-project-structure.md). 현황 → [docs/STATUS.md](docs/STATUS.md).
 
 ## 5. 개발 환경 ([docs/11](docs/11-dev-environment.md))
@@ -69,6 +69,6 @@
 
 ## 8. 다음 단계
 
-1. **리포 스캐폴딩**: `core/`+`app/`+CI+`bootstrap.ps1`+`LICENSE`(PolyForm)+`cargo-deny.toml`+`.gitignore`.
-2. **M0 스파이크 3종**: ① 인터롭+10만 노드 가상 트리 60fps ② 교차선택→혼합작업 ③ 유휴 RSS/트림/soak.
-3. **M1 1순위 묶음**: 계층 경로 바 · 탭/듀얼 · 플래그십 · 컨텍스트 메뉴 · 퀵 런처.
+1. ~~리포 스캐폴딩~~ ✅ · ~~M0(인터롭·스트리밍 열거·가상화 렌더·CI)~~ ✅(`0.1.0`).
+2. **M1 1순위 묶음**: 계층 경로 바 ✅ · 탭/듀얼 ✅ · 플래그십(인라인 트리+교차선택, 코어 이관 C1) ✅초안 · **컨텍스트 메뉴**·**퀵 런처**(미구현).
+3. **2차 감사(`refactor/002-audit`) 남은 트랙** → [docs/STATUS.md](docs/STATUS.md)·[journal](docs/journal/refactor-002-worklog.md): 트랙 A(P1/P2/P3)·B-2a·B-1 완료. 다음 **B-3(PanelControl XAML dedup)** → 트랙 C(설계 계약: nexa-ops·VFS Provider·watcher·에러 모델 표준) → 트랙 D(NFR 재보정·배포 이원화). 알려진 이슈 [docs/BUGS.md](docs/BUGS.md).

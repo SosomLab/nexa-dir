@@ -44,7 +44,7 @@ nexa-dir/
 │  └─ Nexa.App/
 │     ├─ Nexa.App.csproj   # WinUI3, net8.0-windows, 비패키지 + cargo(nexa-interop)→dll 복사 타겟
 │     ├─ App.xaml(.cs)     # 앱 진입점·리소스
-│     ├─ MainWindow.xaml(.cs) # 메인 윈도우(듀얼 패널·탭·경로바·인라인 트리 소비·비동기 로드; 970줄, 2차 감사 F1 분리 대상)
+│     ├─ MainWindow.xaml(.cs) # 메인 윈도우(듀얼 패널·탭·경로바·인라인 트리 소비·비동기 로드; 955줄, 트랙 B로 계속 축소)
 │     ├─ VirtualTreeCollection.cs # 코어 트리 가시행 스트림을 가상화로 소비(백그라운드 OpenAndExpand + AdoptHandle)
 │     ├─ NativeInterop.cs  # 코어 cdylib P/Invoke 바인딩(nexa_abi_version/nexa_poc_add + nexa_tree_* 마샬 은닉)
 │     └─ app.manifest      # 고DPI(PerMonitorV2)·지원 OS
@@ -89,7 +89,8 @@ nexa-dir/
 | --- | --- |
 | `Nexa.App.csproj` | WinUI3 앱. `net8.0-windows10.0.22621.0`, `WindowsPackageType=None`(포터블 친화), x64/arm64. **인터롭 타겟**: `BuildNexaInterop`(cargo build) → `CopyNexaInterop`(nexa_interop.dll→출력) |
 | `App.xaml(.cs)` | 애플리케이션 객체·Fluent 리소스, 메인 윈도우 생성 |
-| `MainWindow.xaml(.cs)` | 메인 윈도우(**970줄**). 듀얼 패널·패널별 탭·계층 경로바·인라인 트리 가상화 소비·네비게이션·키보드·**비동기 디렉터리 로드**(`LoadDirectory` = `Task.Run` 백그라운드 열거+세대 가드, P1). 2차 감사 F1 = god object → `Nexa.ViewModels` 분리 대상 |
+| `MainWindow.xaml(.cs)` | 메인 윈도우(**955줄**). 듀얼 패널·패널별 탭·계층 경로바·인라인 트리 가상화 소비·네비게이션·키보드·**비동기 디렉터리 로드**(`LoadDirectory` = `Task.Run` 백그라운드 열거+세대 가드, P1). 좌/우 상태·UI는 `PanelView` 2개(`Panel(left)`, B-2a). 순수 로직은 `Nexa.ViewModels`로 이관 중(god object 축소, B-1) |
+| `PanelView.cs` | 패널 하나(좌/우)의 상태(Tabs/Active/LoadGen) + UI 참조(Grid/Header/PathBar/TabStrip) 묶음 → `bool left` 이중화 소거(B-2a) |
 | `VirtualTreeCollection.cs` | 코어 트리(`nexa-tree`) 가시행 평면 스트림을 **가상화로 소비**하는 `IList`(보이는 행만 지연 실체화·캐시). 백그라운드 `OpenAndExpand`(열거+펼침) + UI 스레드 `AdoptHandle`(핸들 채택·Reset). 선택/캐럿/펼침은 코어 위임 |
 | `NativeInterop.cs` | 코어 cdylib P/Invoke 바인딩(`nexa_abi_version`/`nexa_poc_add` + 코어 트리 `nexa_tree_*`, 마샬 은닉 `Tree*` API, `DirItem`). ABI 레이아웃 가드(`VerifyAbi`)·`NexaEntry` 미러. 런타임에 `nexa_interop.dll` 로드 (구 C# 디렉터리 열거 `nexa_dir_*`/`ReadDir`는 C1에서 코어 트리로 대체·제거, E17) |
 | `app.manifest` | PerMonitorV2 고DPI, 지원 OS(Win10/11) |

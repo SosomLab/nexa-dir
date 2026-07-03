@@ -39,8 +39,9 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . 6245622
 ├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . 19e8c79
 ├─ E8 트랙 B-2a PanelView 그룹 객체 .... 6f000cb
-├─ E9 트랙 B-1 Nexa.ViewModels + 테스트 . (이 커밋)
-└─ E10~ 트랙 B-3(PanelControl)·C~ ...... 예정
+├─ E9 트랙 B-1 Nexa.ViewModels + 테스트 . 31da09e (+62543c3 크로스플랫폼 픽스)
+├─ E10 전체 문서 최신화(세션 진행분 반영) . (이 커밋)
+└─ E11~ 트랙 B-3(PanelControl)·C~ ...... 예정
 ```
 
 ---
@@ -132,5 +133,17 @@ refactor/002-audit  (분기: b38e6b3)
 - **효과**: 순수 로직 맥/Linux/Windows 테스트 가능(첫 C# 테스트 12개). MainWindow 네비게이션 단순화(3메서드→위임+종단 1). B-3·C3의 기반.
 - **검증**: `dotnet test app/Nexa.ViewModels.Tests` 12/12 green(로컬). `dotnet build app/Nexa.App`(x64) green. 앱부 네비(뒤로/앞으로/위로)·탭 회귀는 CI(app) + 실기 QA.
 - **CI 캐치(B-1 가치 입증)**: 최초 push에서 `viewmodels` 잡(ubuntu) 4개 실패 — `Path.GetFileName`이 **리눅스에선 `\`를 구분자로 취급 안 함** → Windows 경로에서 폴더명 추출 실패(Windows에선 통과라 숨어있던 버그). `TabTitle`을 구분자(`\`·`/`) 직접 처리로 수정(플랫폼 무관). 크로스플랫폼 테스트가 실제 결함을 잡음.
+
+## E10 · 2026-07-03 · 전체 문서 최신화(세션 진행분 반영) → `(이 커밋)`
+
+- **왜**: 이번 세션에서 트랙 A(P1/P2/P3)·B-2a·B-1 완료 + 새 프로젝트(`Nexa.ViewModels`/`.Tests`)·CI 잡·C# 테스트 도입 → STATUS/CLAUDE/구조 문서가 다시 스테일. 공개 전환 대비 정합성 유지.
+- **무엇 · 파일**:
+  - [STATUS](../STATUS.md): 002 라운드 꼬리에 A-2(P2)·B-2a·B-1·C# 테스트(12)·BUG-001 반영. "다음 단위" C1 후속을 A/B 완료·B-3 예정으로. MainWindow 970→**955줄**.
+  - [CLAUDE.md](../../CLAUDE.md): 현 단계 "스캐폴딩·M0" → **M1 진행(M0 완료·0.1.0)+2차 감사 트랙 A/B 완료**. 리포 구조에 `Nexa.Controls`/`Nexa.ViewModels(+Tests)` 추가, docs 00~**31**. §8 다음 단계 현행화(B-3→트랙 C/D).
+  - [16 구조](../16-project-structure.md): MainWindow 955줄·`PanelView` 추가, 970 정정.
+  - [19 구현현황](../19-implemented-features.md): C# 테스트(`dotnet test`, xUnit 12) 요약 추가.
+  - (docs/18은 B-1에서 이미 갱신 — viewmodels 잡·§2-2.)
+- **성격**: 문서만. 코드/빌드 무변경.
+- **검증**: 스테일 잔존 스캔(970·"M0 진행") 정리 확인.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
