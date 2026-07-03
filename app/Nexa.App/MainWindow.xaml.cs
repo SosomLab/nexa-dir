@@ -660,20 +660,16 @@ public sealed partial class MainWindow : Window
         return dot > 0 ? dot : n.Length;
     }
 
-    /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
+    /// <summary>행 더블클릭 → 폴더/링크는 진입, 파일은 기본 연결 프로그램으로 실행(<see cref="ActivateItem"/>).</summary>
     private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        _renameArm = null;   // 더블클릭(진입)은 이름변경 후보 해제
+        _renameArm = null;   // 더블클릭(진입/실행)은 이름변경 후보 해제
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
         }
-        if (!item.IsDir && item.Kind != NexaFileKind.Symlink)
-        {
-            return;   // 파일: 진입 대상 아님(향후 셸 실행)
-        }
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
-        Navigate(left, item.FullPath, record: true);
+        ActivateItem(left, item);   // 폴더=진입, 파일=연결 프로그램 실행
         e.Handled = true;
     }
 
