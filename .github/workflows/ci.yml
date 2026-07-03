@@ -44,6 +44,17 @@ jobs:
           manifest-path: core/Cargo.toml
           command: check licenses bans advisories
 
+  viewmodels:
+    name: ViewModels 테스트 (크로스플랫폼)
+    runs-on: ubuntu-latest   # net8.0(플랫폼 무관) — 맥/Linux/Windows 공통 C# 로직 테스트(감사 B-1)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: test
+        run: dotnet test app/Nexa.ViewModels.Tests -c Release
+
   app:
     name: WinUI 앱 빌드 (windows)
     runs-on: windows-latest

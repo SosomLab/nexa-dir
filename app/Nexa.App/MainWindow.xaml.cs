@@ -13,6 +13,7 @@ using Windows.Storage.FileProperties;
 using Windows.System;
 using Windows.UI.Core;
 using Nexa.Controls;
+using Nexa.ViewModels;
 
 namespace Nexa.App;
 
@@ -192,39 +193,35 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void Navigate(bool left, string path, bool record, Action? onLoaded = null)
     {
-        var nav = Panel(left).Active;
-        if (record && !string.IsNullOrEmpty(nav.Current))
-        {
-            nav.Back.Push(nav.Current);
-            nav.Fwd.Clear();
-        }
-        nav.Current = path;
-        nav.Title = TabTitle(path);   // 활성 탭 이름 갱신(탭 바 표시)
-        nav.Loaded = false;           // 새 경로 → 재-Open 필요(탭 캐시 무효화)
-        LoadDirectory(left, nav, onLoaded);
-        UpdateNavButtons(left);
+        Panel(left).Active.Nav.NavigateTo(path, record);   // 이동 기록 갱신(순수 로직 위임)
+        ShowCurrent(left, onLoaded);
     }
 
     private void GoBack(bool left)
     {
-        var nav = Panel(left).Active;
-        if (nav.Back.Count == 0)
+        if (Panel(left).Active.Nav.GoBack() is not null)
         {
-            return;
+            ShowCurrent(left);
         }
-        nav.Fwd.Push(nav.Current);
-        Navigate(left, nav.Back.Pop(), record: false);
     }
 
     private void GoForward(bool left)
     {
-        var nav = Panel(left).Active;
-        if (nav.Fwd.Count == 0)
+        if (Panel(left).Active.Nav.GoForward() is not null)
         {
-            return;
+            ShowCurrent(left);
         }
-        nav.Back.Push(nav.Current);
-        Navigate(left, nav.Fwd.Pop(), record: false);
+    }
+
+    /// <summary>활성 탭의 <see cref="NavigationHistory.Current"/> 경로를 화면에 로드한다(제목·재-Open·네비버튼 갱신).
+    /// Navigate/GoBack/GoForward 공통 종단 — 이동 기록은 이미 갱신된 상태.</summary>
+    private void ShowCurrent(bool left, Action? onLoaded = null)
+    {
+        var nav = Panel(left).Active;
+        nav.Title = PathDisplay.TabTitle(nav.Current);   // 활성 탭 이름 갱신(탭 바 표시)
+        nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
+        LoadDirectory(left, nav, onLoaded);
+        UpdateNavButtons(left);
     }
 
     private void GoUp(bool left)
@@ -267,14 +264,14 @@ public sealed partial class MainWindow : Window
         bool up = !string.IsNullOrEmpty(nav.Current) && Directory.GetParent(nav.Current) is not null;
         if (left)
         {
-            BackBtnL.IsEnabled = nav.Back.Count > 0;
-            FwdBtnL.IsEnabled = nav.Fwd.Count > 0;
+            BackBtnL.IsEnabled = nav.Nav.CanGoBack;
+            FwdBtnL.IsEnabled = nav.Nav.CanGoForward;
             UpBtnL.IsEnabled = up;
         }
         else
         {
-            BackBtnR.IsEnabled = nav.Back.Count > 0;
-            FwdBtnR.IsEnabled = nav.Fwd.Count > 0;
+            BackBtnR.IsEnabled = nav.Nav.CanGoBack;
+            FwdBtnR.IsEnabled = nav.Nav.CanGoForward;
             UpBtnR.IsEnabled = up;
         }
     }
@@ -554,13 +551,6 @@ public sealed partial class MainWindow : Window
     // ── 패널 탭 ─────────────────────────────────────────────────────
     // 각 탭 = PanelTab(경로·이동기록·펼침상태). 활성 탭이 그 패널의 현재 뷰.
 
-    /// <summary>탭 표시 이름 = 폴더명(루트/드라이브면 경로 자체).</summary>
-    private static string TabTitle(string path)
-    {
-        var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
-        return string.IsNullOrEmpty(name) ? path : name;
-    }
-
     /// <summary>지정 패널의 활성 탭을 <paramref name="tab"/>로 전환하고 그 탭의 경로/상태로 뷰를 갱신한다.</summary>
     private void SwitchToTab(bool left, PanelTab tab)
     {
@@ -606,7 +596,8 @@ public sealed partial class MainWindow : Window
         {
             basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
-        var tab = new PanelTab { Current = basePath };
+        var tab = new PanelTab();
+        tab.Nav.NavigateTo(basePath, record: false);   // 새 탭 초기 경로(기록 없음)
         WireTab(tab);   // 새 탭 컬렉션에 아이콘 로드 콜백 배선
         Panel(left).Tabs.Add(tab);
         SwitchToTab(left, tab);

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- UI 비종속 순수 로직(경로 표시·네비게이션 히스토리 등). net8.0(플랫폼 무관)이라
+       macOS/Linux/Windows 어디서나 빌드·테스트 가능 → C# 로직 단위 테스트의 집(감사 B-1). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

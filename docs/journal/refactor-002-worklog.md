@@ -38,8 +38,9 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . cfecd64
 ├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . 6245622
 ├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . 19e8c79
-├─ E8 트랙 B-2a PanelView 그룹 객체 .... (이 커밋)
-└─ E9~ 트랙 B-1(ViewModels)·B-3·C~ .... 예정
+├─ E8 트랙 B-2a PanelView 그룹 객체 .... 6f000cb
+├─ E9 트랙 B-1 Nexa.ViewModels + 테스트 . (이 커밋)
+└─ E10~ 트랙 B-3(PanelControl)·C~ ...... 예정
 ```
 
 ---
@@ -118,5 +119,17 @@ refactor/002-audit  (분기: b38e6b3)
 - **성격**: **무동작 변경**(순수 배선 정리). 컴파일로 검증, 잔존 쌍 참조 0 확인.
 - **효과**: `bool left` 분기 소거, 패널 상태 응집 → 가독성·안전성↑. B-1(ViewModels)·B-3(PanelControl)·C3의 기반.
 - **검증**: 로컬 `dotnet build`(app x64) green(경고 0/오류 0). 코어 무변경. 실기 스모크(양 패널 네비/탭 전환/펼침/선택 회귀) 권장.
+
+## E9 · 2026-07-03 · 트랙 B-1 — Nexa.ViewModels(순수 로직) 추출 + C# 테스트 도입 → `(이 커밋)`
+
+- **왜**: 감사 B-1(1차 A2 이월) — 순수 로직이 MainWindow 코드비하인드에 묶여 **C# 테스트 0**(WinUI는 맥 빌드 불가). god object 축소 + 크로스플랫폼 테스트 확보.
+- **무엇 · 파일**:
+  - [Nexa.ViewModels](../../app/Nexa.ViewModels/) 신설(**net8.0**, 플랫폼 무관): `PathDisplay.TabTitle`(경로→표시명) + `NavigationHistory`(뒤/앞 스택+현재, F13 순수화).
+  - [Nexa.ViewModels.Tests](../../app/Nexa.ViewModels.Tests/) 신설(xUnit): **12 테스트**(TabTitle 6 · NavigationHistory 6) 통과 — 프로젝트 첫 C# 단위 테스트.
+  - [PanelTab](../../app/Nexa.App/PanelTab.cs): `Current`/`Back`/`Fwd` 필드 → `NavigationHistory Nav` + `Current` 읽기 패스스루(읽기 지점 무변경).
+  - [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs): `Navigate`/`GoBack`/`GoForward`를 `Nav` 위임 + 공통 종단 `ShowCurrent`로 정리. `UpdateNavButtons`는 `Nav.CanGoBack/CanGoForward`. 로컬 `TabTitle` 제거 → `PathDisplay.TabTitle`.
+  - CI: **`viewmodels` 잡 추가**(ubuntu-latest, `dotnet test`) — 크로스플랫폼 C# 로직 게이트. [docs/18](../18-build-and-test.md)·[docs/16](../16-project-structure.md) 갱신(SSOT 규약).
+- **효과**: 순수 로직 맥/Linux/Windows 테스트 가능(첫 C# 테스트 12개). MainWindow 네비게이션 단순화(3메서드→위임+종단 1). B-3·C3의 기반.
+- **검증**: `dotnet test app/Nexa.ViewModels.Tests` 12/12 green(로컬). `dotnet build app/Nexa.App`(x64) green. 앱부 네비(뒤로/앞으로/위로)·탭 회귀는 CI(app) + 실기 QA.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->

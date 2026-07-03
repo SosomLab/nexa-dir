@@ -38,6 +38,8 @@
   <!-- 재사용 컨트롤 라이브러리(NexaFileGrid 등) — ADR-0002 §9 -->
   <ItemGroup>
     <ProjectReference Include="..\Nexa.Controls\Nexa.Controls.csproj" />
+    <!-- UI 비종속 순수 로직(경로 표시·네비게이션 히스토리) — 맥/Windows 공통 테스트(감사 B-1) -->
+    <ProjectReference Include="..\Nexa.ViewModels\Nexa.ViewModels.csproj" />
   </ItemGroup>
 
   <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────

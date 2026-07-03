@@ -39,6 +39,8 @@ nexa-dir/
 ├─ app/                    # ── WinUI 3 UI 셸(Windows 전용) ──
 │  ├─ README.md            # 앱 빌드 안내(Windows)
 │  ├─ Nexa.Controls/       # 재사용 WinUI 컨트롤 라이브러리 — NexaFileGrid(ItemsRepeater 래핑·도메인 비종속) → ADR-0002 §9
+│  ├─ Nexa.ViewModels/     # UI 비종속 순수 로직(net8.0) — PathDisplay·NavigationHistory. 맥/Win 공통 테스트(B-1)
+│  ├─ Nexa.ViewModels.Tests/ # 위 순수 로직 xUnit 테스트(net8.0, 크로스플랫폼 CI)
 │  └─ Nexa.App/
 │     ├─ Nexa.App.csproj   # WinUI3, net8.0-windows, 비패키지 + cargo(nexa-interop)→dll 복사 타겟
 │     ├─ App.xaml(.cs)     # 앱 진입점·리소스
