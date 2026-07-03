@@ -131,5 +131,6 @@ refactor/002-audit  (분기: b38e6b3)
   - CI: **`viewmodels` 잡 추가**(ubuntu-latest, `dotnet test`) — 크로스플랫폼 C# 로직 게이트. [docs/18](../18-build-and-test.md)·[docs/16](../16-project-structure.md) 갱신(SSOT 규약).
 - **효과**: 순수 로직 맥/Linux/Windows 테스트 가능(첫 C# 테스트 12개). MainWindow 네비게이션 단순화(3메서드→위임+종단 1). B-3·C3의 기반.
 - **검증**: `dotnet test app/Nexa.ViewModels.Tests` 12/12 green(로컬). `dotnet build app/Nexa.App`(x64) green. 앱부 네비(뒤로/앞으로/위로)·탭 회귀는 CI(app) + 실기 QA.
+- **CI 캐치(B-1 가치 입증)**: 최초 push에서 `viewmodels` 잡(ubuntu) 4개 실패 — `Path.GetFileName`이 **리눅스에선 `\`를 구분자로 취급 안 함** → Windows 경로에서 폴더명 추출 실패(Windows에선 통과라 숨어있던 버그). `TabTitle`을 구분자(`\`·`/`) 직접 처리로 수정(플랫폼 무관). 크로스플랫폼 테스트가 실제 결함을 잡음.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
