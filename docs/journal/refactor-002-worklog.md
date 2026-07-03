@@ -37,8 +37,9 @@ refactor/002-audit  (분기: b38e6b3)
 ├─ E4 트랙 E 문서 스테일 일괄+ADR등재 . 6db4915
 ├─ E5 P1 실기 QA#1 — GoUp 스크롤 수정 . cfecd64
 ├─ E6 P1 QA#2 — 빈폴더 blank 버그 등록 . 6245622
-├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . (이 커밋)
-└─ E8~ 트랙 B~(구조)·C~(설계계약) ..... 예정
+├─ E7 트랙 A-2 [P2] 펼침/접힘 범위 diff . 19e8c79
+├─ E8 트랙 B-2a PanelView 그룹 객체 .... (이 커밋)
+└─ E9~ 트랙 B-1(ViewModels)·B-3·C~ .... 예정
 ```
 
 ---
@@ -109,5 +110,13 @@ refactor/002-audit  (분기: b38e6b3)
 - **효과**: 펼침/접힘 시 위쪽 행·아이콘·스크롤 위치 보존, 대형 폴더도 무블록. **실기 QA 통과**(접기/펴기·스크롤 유지·빈 폴더 확장 확인).
 - **부수 확인 — BUG-001 재현 안 됨**: clean 빌드(cfecd64+A-2)에서 **빈 폴더 이탈 시 blank 미발생**. 이전 blank는 모두 실험 코드(UpdateLayout/null토글/RefreshRealization) 켜진 빌드에서만 관찰 → 그 실험들이 원인이었을 가능성. BUG-001을 "재현 안 됨(모니터링)"으로 갱신([BUGS.md](../BUGS.md)).
 - **검증**: 로컬 `dotnet build`(app x64) green. 코어 무변경. `ItemsRepeater` 범위 Add/Remove가 개수 통지로 정상 실체화됨(#1 미지수 해소, `CountOnlyList` 유효).
+
+## E8 · 2026-07-03 · 트랙 B-2a — PanelView 그룹 객체로 `bool left` 이중화 소거 → `(이 커밋)`
+
+- **왜**: 감사 B-2(1차 C1 이월·악화) — 좌/우 패널 동작이 `left ? _leftX : _rightX`로 관통(25곳), 상태·UI가 쌍 필드로 흩어짐(god object 원인). C3(교차선택 UI) 얹기 전 최저비용 정리. 이후 B-1/B-3·C3의 이음새.
+- **무엇 · 파일**: [PanelView](../../app/Nexa.App/PanelView.cs) 신설 — 패널 하나의 상태(Tabs/Active/LoadGen) + UI 참조(Grid/Header/PathBar/TabStrip)를 묶음. [MainWindow](../../app/Nexa.App/MainWindow.xaml.cs): 쌍 필드(`_leftTab`/`_rightTab`·`_leftTabs`/`_rightTabs`·`_leftItems`/`_rightItems`·`_leftLoadGen`/`_rightLoadGen`) 제거 → `_left`/`_right` **PanelView 2개** + `Panel(bool left)` 헬퍼. 모든 `left ? _leftX : _rightX` → `Panel(left).X`(25곳). ctor에서 XAML 요소로 PanelView 구성.
+- **성격**: **무동작 변경**(순수 배선 정리). 컴파일로 검증, 잔존 쌍 참조 0 확인.
+- **효과**: `bool left` 분기 소거, 패널 상태 응집 → 가독성·안전성↑. B-1(ViewModels)·B-3(PanelControl)·C3의 기반.
+- **검증**: 로컬 `dotnet build`(app x64) green(경고 0/오류 0). 코어 무변경. 실기 스모크(양 패널 네비/탭 전환/펼침/선택 회귀) 권장.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
