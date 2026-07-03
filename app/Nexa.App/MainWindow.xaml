@@ -230,7 +230,7 @@
                                             <TextBox Text="{x:Bind EditName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Visibility="{x:Bind EditVisibility, Mode=OneWay}" Tag="{x:Bind}"
                                                      KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
-                                                     Style="{StaticResource RenameBox}" Height="20" Margin="0,-2,0,-2" VerticalAlignment="Center" />
+                                                     Style="{StaticResource RenameBox}" Margin="0,-2,0,-2" VerticalAlignment="Center" />
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
@@ -333,7 +333,7 @@
                                             <TextBox Text="{x:Bind EditName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Visibility="{x:Bind EditVisibility, Mode=OneWay}" Tag="{x:Bind}"
                                                      KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus"
-                                                     Style="{StaticResource RenameBox}" Height="20" Margin="0,-2,0,-2" VerticalAlignment="Center" />
+                                                     Style="{StaticResource RenameBox}" Margin="0,-2,0,-2" VerticalAlignment="Center" />
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
