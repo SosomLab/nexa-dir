@@ -141,6 +141,11 @@ internal sealed class DirItem : INotifyPropertyChanged
         ? string.Empty
         : DateTimeOffset.FromUnixTimeMilliseconds(ModifiedUnixMs).LocalDateTime.ToString("yyyy-MM-dd");
 
+    /// <summary>확장자(점 제외, 대문자). 폴더/링크/무확장자는 빈 문자열. 확장자 컬럼용(COL-1).</summary>
+    public string Extension => IsDir || Kind == NexaFileKind.Symlink
+        ? string.Empty
+        : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant();
+
     /// <summary>종류 텍스트: 폴더/링크/확장자 파일.</summary>
     public string KindText => IsDir
         ? "폴더"
