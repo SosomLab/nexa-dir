@@ -89,4 +89,12 @@ refactor/003-audit  (분기: 1d9d312)
 - **동작**: 우클릭 시 대상 미선택이면 단일 선택 후 메뉴. 붙여넣기=현재 패널 폴더로. 삭제=확인 대화상자(휴지통 아님, 불가역) 후 실행. 이름 바꾸기=B-6 `BeginRename` 재사용.
 - **검증**: 앱 빌드 PR CI. 실기 QA: 우클릭 메뉴·복사/붙여넣기·잘라내기/붙여넣기(이동)·삭제 확인창·이름 바꾸기.
 
+## B-10 · 2026-07-03 · 복사/잘라/붙여/삭제 단축키(Ctrl+C/X/V, Del) → `(이 커밋)`
+
+- **무엇 · 파일** [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs):
+  - 작업 메서드를 `(left, IReadOnlyList<string> targets)` 형태로 리팩터: `CopyPaths`/`CutPaths`/`DeletePaths` — 컨텍스트 메뉴(대상=`ContextTargets`)와 키보드(대상=`KeyboardTargets`)가 공유.
+  - `KeyboardTargets(left)`: 현재 선택 있으면 선택 전체, 없으면 캐럿 항목.
+  - `OnGridKeyDown`에 **Ctrl+C/X/V**(복사/잘라내기/붙여넣기)·**Delete**(완전삭제 확인) 추가 — 활성 패널 기준.
+- **검증**: 앱 빌드 PR CI. 실기 QA: Ctrl+C→Ctrl+V(복사)·Ctrl+X→Ctrl+V(이동)·Del(확인창).
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->

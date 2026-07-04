@@ -713,10 +713,10 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var cut = new MenuFlyoutItem { Text = "잘라내기" };
-        cut.Click += (_, _) => CutSelection(left, item);
+        cut.Click += (_, _) => CutPaths(left, ContextTargets(left, item));
         flyout.Items.Add(cut);
         var copy = new MenuFlyoutItem { Text = "복사" };
-        copy.Click += (_, _) => CopySelection(left, item);
+        copy.Click += (_, _) => CopyPaths(left, ContextTargets(left, item));
         flyout.Items.Add(copy);
         var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = FileClipboard.HasContent };
         paste.Click += (_, _) => PasteInto(left);
@@ -724,7 +724,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var del = new MenuFlyoutItem { Text = "삭제(완전)" };
-        del.Click += (_, _) => DeleteSelection(left, item);
+        del.Click += (_, _) => DeletePaths(left, ContextTargets(left, item));
         flyout.Items.Add(del);
         var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
         rename.Click += (_, _) => BeginRename(fe, item, left);
@@ -755,18 +755,36 @@ public sealed partial class MainWindow : Window
         return new[] { clicked.FullPath };
     }
 
-    /// <summary>선택(또는 클릭) 항목을 앱 클립보드에 복사 표시(붙여넣기 = 복사).</summary>
-    private void CopySelection(bool left, DirItem clicked)
+    /// <summary>키보드 단축키(Ctrl+C/X/V·Del) 대상 — 현재 선택이 있으면 선택 전체, 없으면 캐럿 항목.</summary>
+    private IReadOnlyList<string> KeyboardTargets(bool left)
     {
-        var targets = ContextTargets(left, clicked);
+        var items = Panel(left).Active.Items;
+        var sel = items.SelectedPaths();
+        if (sel.Count > 0)
+        {
+            return sel;
+        }
+        return items.CaretItem is DirItem c ? new[] { c.FullPath } : System.Array.Empty<string>();
+    }
+
+    /// <summary>대상 경로를 앱 클립보드에 복사 표시(붙여넣기 = 복사).</summary>
+    private void CopyPaths(bool left, IReadOnlyList<string> targets)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
         FileClipboard.SetCopy(targets);
         StatusText.Text = $"복사 {targets.Count}개";
     }
 
-    /// <summary>선택(또는 클릭) 항목을 앱 클립보드에 잘라내기 표시(붙여넣기 = 이동).</summary>
-    private void CutSelection(bool left, DirItem clicked)
+    /// <summary>대상 경로를 앱 클립보드에 잘라내기 표시(붙여넣기 = 이동).</summary>
+    private void CutPaths(bool left, IReadOnlyList<string> targets)
     {
-        var targets = ContextTargets(left, clicked);
+        if (targets.Count == 0)
+        {
+            return;
+        }
         FileClipboard.SetCut(targets);
         StatusText.Text = $"잘라내기 {targets.Count}개";
     }
@@ -806,10 +824,9 @@ public sealed partial class MainWindow : Window
         ReloadPanel(left);
     }
 
-    /// <summary>선택(또는 클릭) 항목을 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
-    private async void DeleteSelection(bool left, DirItem clicked)
+    /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
+    private async void DeletePaths(bool left, IReadOnlyList<string> targets)
     {
-        var targets = ContextTargets(left, clicked);
         if (targets.Count == 0)
         {
             return;
@@ -1042,6 +1059,27 @@ public sealed partial class MainWindow : Window
             {
                 BeginRename(row, it, _activeLeft);
             }
+            return;
+        }
+
+        // Ctrl+C/X/V: 복사/잘라내기/붙여넣기(활성 패널, 대상=선택 또는 캐럿).
+        if (IsCtrlDown() && (e.Key == VirtualKey.C || e.Key == VirtualKey.X || e.Key == VirtualKey.V))
+        {
+            e.Handled = true;
+            switch (e.Key)
+            {
+                case VirtualKey.C: CopyPaths(_activeLeft, KeyboardTargets(_activeLeft)); break;
+                case VirtualKey.X: CutPaths(_activeLeft, KeyboardTargets(_activeLeft)); break;
+                case VirtualKey.V: PasteInto(_activeLeft); break;
+            }
+            return;
+        }
+
+        // Delete: 선택(또는 캐럿) 항목 완전 삭제(확인 대화상자).
+        if (e.Key == VirtualKey.Delete)
+        {
+            e.Handled = true;
+            DeletePaths(_activeLeft, KeyboardTargets(_activeLeft));
             return;
         }
 
