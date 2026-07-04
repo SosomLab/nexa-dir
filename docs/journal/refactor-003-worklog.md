@@ -173,3 +173,23 @@ refactor/003-audit  (분기: 1d9d312)
 - **DnD glyph(↗ Move) 숨김 여부**(IsGlyphVisible) — 사용자 결정 대기. 폰트 크기는 OS 제어 불가(인앱 오버레이만 대안).
 - **실기 QA**(QA-003 체크리스트) 다수 미확인. B-13t 탭 hover·B-15h 폴더 hover·B-20p 경로바·COL-1a 소문자는 QA 통과.
 - **미착수(설계됨)**: COL-2/3 정렬(코어 비교자) · B-13u Undo/Redo · SHELL 셸 통합 · CLIP OS 클립보드 연동.
+
+## 세션 요약 · 2026-07-04 · 탐색기식 드래그 파리티 (DnD 마감)
+
+> 상세·시간기록: [TASKS.md](../TASKS.md)(DND-*) · 설계/검토: [docs/33 SHELL-DND](../33-file-ops-dnd-design.md).
+> "드래그를 윈도우 탐색기와 동일하게" 요청 → 관리형으로 가능한 부분까지 구현 후, **한계 항목은 셸/OLE 트랙 개선 대상으로 정리하고 이 세션에서 드래그는 일단락**.
+
+### 구현(커밋)
+- **DND-CAP(Phase 1)** `6e43010`: WinUI 기본 큰 글리프("↗ Move") 끄고(`IsGlyphVisible=false`), 연산+대상 폴더명을 시스템 폰트 **라이브 캡션**("…에 복사"/"…(으)로 이동")으로. `ApplyDragCaption`/`FolderLabel`, 행·탭·빈영역 적용. `NexaFileGrid.DropTargetName`(ArmWatcher에서 갱신).
+- **DND-SELF + DND-CAP2** `740d2da`: ① **자기 폴더 드롭 규칙** — 항목이 이미 그 폴더면 **Move=금지(None)/Copy=복제 허용(…(2))**(`BackgroundDragOp`, 커서·캡션·드롭 일관). ② **폴더 위 캡션 덮어쓰기 버그** — 드래그 이벤트 버블링(행→본문)으로 본문 핸들러가 폴더명 캡션을 배경 캡션으로 덮던 문제 → 본문은 **`AcceptedOperation==None`(행 미수락)일 때만** 처리, 폴더 행은 호스트 캡션 유지·자동스크롤은 항상. `NexaFileGrid.BodyDragOperation` 콜백 추가.
+
+### 검토/결정(문서, 구현 안 함)
+- [docs/33 SHELL-DND](../33-file-ops-dnd-design.md): 셸 드래그 통합 **성능 검토** — 드래그 런타임 0(셸/GPU 합성)·시작/드롭 1회성(지연 StorageItems+캐시 아이콘). 진짜 급소는 드래그가 아니라 **셸 컨텍스트 메뉴**(서드파티 핸들러 인프로세스 로드→느림/크래시).
+
+### Windows QA 결과 & 남은 개선 대상(🅿️ 보류)
+- ✅ 캡션 뜸. ✅ 폴더로 실제 이동/복사 정상.
+- 🔴 **DND-KEY**: 키만 눌러선 라이브 갱신 안 됨(마우스 이동 필요). WinUI `DragOver`가 포인터 이동 시만 발생 → 관리형 불가, **셸/OLE 필요**.
+- 🔴 **DND-FONT**: 캡션 폰트가 파일목록보다 큼(= Windows 표준 드래그 크기, API 없음). 축소하려면 커스텀 비트맵/셸.
+- **DND-STACK**: 개수 스택 아이콘 — (2a)커스텀 비트맵 권장/(2b)COM 비권장.
+- **결론**: DND-KEY/FONT/STACK은 관리형 한계로 **양립 불가**(작은 폰트=정적 ↔ 라이브=마우스이동) → **셸/OLE 트랙 착수 시 일괄 해결**. 드래그 기능 자체는 마감.
+- **재검증 대기(2차 수정)**: DND-CAP2(폴더명 캡션)·DND-SELF(자기폴더 Move 금지/Copy 복제) Windows QA.
