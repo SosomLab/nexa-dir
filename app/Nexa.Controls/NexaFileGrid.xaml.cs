@@ -62,12 +62,22 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>본문 빈 영역(행이 소비하지 않은 곳)에 드롭됨 — 호스트가 현재 폴더로 이동/복사 처리(수정키 전달, B-12/B-14dnd).</summary>
     public event Action<DragDropModifiers>? BodyDropped;
 
+    /// <summary>빈 영역 드롭 캡션에 쓸 대상 폴더 표시명(호스트가 현재 폴더 변경 시 갱신). 비면 일반 "복사/이동" 캡션.</summary>
+    public string? DropTargetName { get; set; }
+
     /// <summary>본문 위 드래그 → 드롭 수락(Ctrl=복사/Shift=이동 근사 커서, 실제 연산은 드롭 시 호스트 확정) + 가장자리 자동 스크롤.</summary>
     private void OnBodyDragOver(object sender, DragEventArgs e)
     {
         // 컨트롤은 볼륨을 모르므로 표준 수정키만 반영한 근사 커서(호스트 드롭이 디스크별로 최종 결정).
         e.AcceptedOperation = e.Modifiers.HasFlag(DragDropModifiers.Control)
             ? DataPackageOperation.Copy : DataPackageOperation.Move;
+        // 탐색기식 드래그 캡션: 큰 글리프 숨기고 연산 텍스트만(대상 폴더명은 호스트가 아는 행/탭에서 표시).
+        e.DragUIOverride.IsGlyphVisible = false;
+        e.DragUIOverride.IsContentVisible = true;
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.Caption = string.IsNullOrEmpty(DropTargetName)
+            ? (e.AcceptedOperation == DataPackageOperation.Copy ? "복사" : "이동")
+            : (e.AcceptedOperation == DataPackageOperation.Copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
         const double edge = 32;   // 가장자리 감지 폭(px)
         const double speed = 20;  // 틱당 스크롤(px)
         var p = e.GetPosition(BodyScroll);

@@ -36,8 +36,13 @@ public sealed partial class MainWindow : Window
     private FolderWatcher _rightWatcher = null!;
     private FolderWatcher Watcher(bool left) => left ? _leftWatcher : _rightWatcher;
 
-    /// <summary>지정 패널의 현재 폴더를 감시 대상으로 설정(폴더 표시/전환 시 호출).</summary>
-    private void ArmWatcher(bool left) => Watcher(left).Watch(Panel(left).Active.Current);
+    /// <summary>지정 패널의 현재 폴더를 감시 대상으로 설정 + 빈 영역 드롭 캡션용 폴더명 갱신(폴더 표시/전환 시 호출).</summary>
+    private void ArmWatcher(bool left)
+    {
+        string cur = Panel(left).Active.Current;
+        Watcher(left).Watch(cur);
+        Panel(left).Grid.DropTargetName = FolderLabel(cur);   // 빈 영역 드롭 캡션 "…에 복사/이동"(SHELL-DND)
+    }
 
     public MainWindow()
     {
@@ -1113,9 +1118,7 @@ public sealed partial class MainWindow : Window
             && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
         {
             e.AcceptedOperation = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Ctrl/Shift 강제(B-14dnd)
-            // 캡션 텍스트 폰트 크기는 OS가 그려 API로 조절 불가 → 큰 텍스트 대신 OS 연산 배지(+복사/이동)만 사용.
-            // 파일 폰트에 맞춘 텍스트가 필요하면 커스텀 드래그 비트맵(직접 렌더)이 필요(후속).
-            e.DragUIOverride.IsCaptionVisible = false;
+            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(item.FullPath));  // 탐색기식 라이브 캡션(SHELL-DND)
             // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
             if (!ReferenceEquals(_folderDwellTarget, item))
             {
@@ -1128,6 +1131,7 @@ public sealed partial class MainWindow : Window
         else
         {
             e.AcceptedOperation = DataPackageOperation.None;
+            ApplyDragCaption(e.DragUIOverride, DataPackageOperation.None, null);   // 금지 대상 → 캡션 숨김
             CancelFolderDwell();
         }
     }
@@ -1190,6 +1194,7 @@ public sealed partial class MainWindow : Window
         if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0)
         {
             e.AcceptedOperation = DragOp(tab.Current, e.Modifiers);
+            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(tab.Current));   // 탐색기식 라이브 캡션(SHELL-DND)
             if (!ReferenceEquals(_tabDwellTarget, tab))
             {
                 _tabDwellTarget = tab;
@@ -1200,6 +1205,7 @@ public sealed partial class MainWindow : Window
         else
         {
             e.AcceptedOperation = DataPackageOperation.None;
+            ApplyDragCaption(e.DragUIOverride, DataPackageOperation.None, null);
         }
     }
 
@@ -1232,6 +1238,39 @@ public sealed partial class MainWindow : Window
     /// <b>Ctrl=복사 강제 · Shift=이동 강제</b>, 없으면 기본(<b>같은 볼륨=이동 / 다른 볼륨=복사</b>).
     /// (Alt는 OS 메뉴 활성화에 가로채여 신뢰 불가 → 표준 Ctrl/Shift 채택.)
     /// </summary>
+    /// <summary>
+    /// 드래그 UI를 <b>탐색기 방식</b>으로 — WinUI 기본 큰 글리프("↗ Move")는 숨기고, 연산·대상 폴더명을
+    /// 시스템 폰트 <b>라이브 캡션</b>("…에 복사"/"…(으)로 이동")으로 표시. Ctrl/Shift 변경 시 DragOver가
+    /// 다시 발생하며 캡션이 갱신된다(SHELL-DND, docs/33). 항목 고스트(IsContentVisible)는 유지.
+    /// </summary>
+    private static void ApplyDragCaption(Microsoft.UI.Xaml.DragUIOverride ui, DataPackageOperation op, string? destName)
+    {
+        ui.IsGlyphVisible = false;   // 탐색기엔 없는 큰 글리프 제거(예전 "Move 글자 큼" 원인)
+        if (op == DataPackageOperation.None)
+        {
+            ui.IsCaptionVisible = false;   // 금지 대상 → 캡션 없음(불가 커서만)
+            return;
+        }
+        ui.IsContentVisible = true;   // 드래그한 행 고스트 유지
+        ui.IsCaptionVisible = true;
+        bool copy = op.HasFlag(DataPackageOperation.Copy) && !op.HasFlag(DataPackageOperation.Move);
+        string label = string.IsNullOrEmpty(destName) ? "" : destName;
+        ui.Caption = copy
+            ? (label.Length == 0 ? "복사" : $"{label}에 복사")
+            : (label.Length == 0 ? "이동" : $"{label}(으)로 이동");
+    }
+
+    /// <summary>드롭 대상 폴더의 표시 이름(캡션용) — 리프 폴더명, 드라이브 루트면 경로 자체.</summary>
+    private static string FolderLabel(string dir)
+    {
+        if (string.IsNullOrEmpty(dir))
+        {
+            return "";
+        }
+        string leaf = System.IO.Path.GetFileName(dir.TrimEnd('\\', '/'));
+        return leaf.Length > 0 ? leaf : dir;   // "C:\\" 등 루트는 경로 그대로
+    }
+
     private DataPackageOperation DragOp(string destDir, DragDropModifiers mods)
     {
         if (mods.HasFlag(DragDropModifiers.Control))

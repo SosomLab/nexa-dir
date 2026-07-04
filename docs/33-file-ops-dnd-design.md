@@ -114,7 +114,22 @@
   3. **커스텀 드래그 비트맵** — 폰트 제어 O, **동적 X**(정적). 성능 무난하나 기능 손실로 **비권장**(고정 "Move" 텍스트가 Ctrl 시 틀림).
 - **권장**: 텍스트 라벨이 꼭 필요하면 **2안(인앱 오버레이)** 이 폰트 제어+동적을 모두 만족(성능도 무난). 3안(커스텀 비트맵)은 성능이 아니라 정적 한계 때문에 부적합.
 
-## SHELL-DND · 셸 드래그 통합(탐색기 동일) — 성능 검토
+## SHELL-DND · 탐색기 동일 드래그 — 단계별 구현
+
+탐색기 드래그의 "느낌"은 세 요소로 분해된다: ① **연산 캡션**(…에 복사 / …(으)로 이동, Ctrl/Shift 라이브) ② **항목 고스트**(드래그 대상의 반투명 이미지) ③ **개수 스택 아이콘**(N개 겹침 + 카운트 배지). ①②는 WinUI 관리형 API로 탐색기와 동일하게 가능하고, ③만 커스텀 비트맵 또는 셸 COM이 필요하다.
+
+### Phase 1 — 관리형 캡션 파리티 ✅ (2026-07-04 구현, Windows QA 대기)
+- WinUI 기본 큰 글리프("↗ Move")를 **끄고**(`DragUIOverride.IsGlyphVisible=false`), **연산·대상 폴더명 캡션**을 켠다(`IsCaptionVisible=true`). 캡션 폰트는 OS가 그리는 시스템 폰트 = **탐색기와 동일 크기**. (예전 "Move 글자 큼"은 캡션이 아니라 글리프였음.)
+- **라이브 갱신**: Ctrl/Shift 변경 시 DragOver 재발생 → 캡션이 "…에 복사"↔"…(으)로 이동"으로 즉시 바뀜.
+- 코드: `ApplyDragCaption(DragUIOverride, op, destName)` + `FolderLabel(dir)` (MainWindow). 적용 지점 = 행(`OnRowDragOver`)·탭(`OnTabDragOver`)·본문 빈영역(`NexaFileGrid.OnBodyDragOver`, 대상명은 `DropTargetName`을 `ArmWatcher`에서 갱신). 항목 고스트(`IsContentVisible`)는 유지.
+- **효과**: 개수 스택을 제외한 탐색기 드래그 표시(고스트 + "…에 복사/이동" 캡션 + 라이브 전환)가 동일해짐. COM 불필요.
+
+### Phase 2 — 개수 스택 아이콘 (보류, 택1)
+- **(2a) 커스텀 비트맵(관리형)**: `DragStartingEventArgs.DragUI.SetContentFromSoftwareBitmap(...)`으로 "아이콘 N겹 + 카운트 배지"를 직접 렌더. COM 불필요. 한계: 비트맵은 **시작 시 1회 고정**(Ctrl/Shift로 라이브 변경 불가) — 단 탐색기의 스택 이미지도 고정이고 **캡션만 바뀌므로**(Phase 1이 이미 처리) 실사용 동등. 비용: 시작 시 아이콘 취득·합성(썸네일 대신 타입 아이콘 캐시 사용). 맥 빌드 불가 → Windows 반복 검증 필요(비주얼).
+- **(2b) 셸 `IDragSourceHelper`(COM)**: 탐색기 네이티브 스택. 단 WinUI는 드래그 루프를 프레임워크가 소유 → `IDragSourceHelper` 주입이 곤란(Win32 `DoDragDrop` 직접 구동해야 하며 WinUI 드롭 타깃과의 상호운용 리스크). **비권장** — (2a) 대비 이득 대비 규모·리스크 큼.
+- **권장**: 필요 시 **(2a)**. 성능은 아래 검토대로 무난.
+
+### 셸 통합 성능 검토(참고 — (2b)/컨텍스트 메뉴 대비)
 
 > 목표: 탐색기와 **동일한** 드래그(개수 스택·"Copy to X" 캡션·Ctrl/Shift 라이브·탐색기 상호운용). 방법: `DataPackage.SetStorageItems`(실제 파일 항목) + 셸 `IDragSourceHelper`(COM). **성능 검토(구현 전)**.
 
