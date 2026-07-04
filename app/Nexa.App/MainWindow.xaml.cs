@@ -761,6 +761,7 @@ public sealed partial class MainWindow : Window
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         SetActivePanel(left);
 
+        // 폴더/파일에 따라 항목 차등(B-10c): 폴더=열기+그 폴더로 붙여넣기 / 파일=실행(붙여넣기 없음).
         var flyout = new MenuFlyout();
         var open = new MenuFlyoutItem { Text = item.IsDir ? "열기" : "실행" };
         open.Click += (_, _) => ActivateItem(left, item);
@@ -773,9 +774,12 @@ public sealed partial class MainWindow : Window
         var copy = new MenuFlyoutItem { Text = "복사" };
         copy.Click += (_, _) => CopyPaths(left, ContextTargets(left, item));
         flyout.Items.Add(copy);
-        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = FileClipboard.HasContent };
-        paste.Click += (_, _) => PasteInto(left);
-        flyout.Items.Add(paste);
+        if (item.IsDir)
+        {
+            var pasteInto = new MenuFlyoutItem { Text = "폴더에 붙여넣기", IsEnabled = FileClipboard.HasContent };
+            pasteInto.Click += (_, _) => PasteIntoDir(left, item.FullPath);
+            flyout.Items.Add(pasteInto);
+        }
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var del = new MenuFlyoutItem { Text = "삭제(휴지통)" };
@@ -787,6 +791,38 @@ public sealed partial class MainWindow : Window
         var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
         rename.Click += (_, _) => BeginRename(fe, item, left);
         flyout.Items.Add(rename);
+
+        if (e.TryGetPosition(fe, out var pos))
+        {
+            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
+        }
+        else
+        {
+            flyout.ShowAt(fe);
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → 빈영역 컨텍스트 메뉴(붙여넣기·새로고침). B-10c.</summary>
+    private void OnPanelContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe)
+        {
+            return;
+        }
+        bool left = ReferenceEquals(sender, DirGrid) ? true
+            : ReferenceEquals(sender, DirGrid2) ? false
+            : PanelUnderPointer(fe) ?? _activeLeft;
+        SetActivePanel(left);
+
+        var flyout = new MenuFlyout();
+        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = FileClipboard.HasContent };
+        paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
+        flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+        var refresh = new MenuFlyoutItem { Text = "새로고침(F5)" };
+        refresh.Click += (_, _) => ReloadPanel(left);
+        flyout.Items.Add(refresh);
 
         if (e.TryGetPosition(fe, out var pos))
         {
@@ -847,15 +883,13 @@ public sealed partial class MainWindow : Window
         StatusText.Text = $"잘라내기 {targets.Count}개";
     }
 
-    /// <summary>클립보드 내용을 지정 패널의 현재 폴더에 붙여넣는다(cut=이동·copy=복사). 완료 후 재로드.</summary>
-    private void PasteInto(bool left)
+    /// <summary>클립보드 내용을 지정 패널의 <b>현재 폴더</b>에 붙여넣는다(cut=이동·copy=복사).</summary>
+    private void PasteInto(bool left) => PasteIntoDir(left, Panel(left).Active.Current);
+
+    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더). 완료 후 재로드.</summary>
+    private void PasteIntoDir(bool left, string destDir)
     {
-        if (!FileClipboard.HasContent)
-        {
-            return;
-        }
-        string destDir = Panel(left).Active.Current;
-        if (string.IsNullOrEmpty(destDir))
+        if (!FileClipboard.HasContent || string.IsNullOrEmpty(destDir))
         {
             return;
         }
@@ -879,7 +913,7 @@ public sealed partial class MainWindow : Window
             FileClipboard.Clear();
         }
         StatusText.Text = err is null ? $"{(cut ? "이동" : "복사")} {ok}개 완료" : $"붙여넣기 일부 실패: {err}";
-        ReloadPanel(left);
+        ReloadBothPanels();   // 양쪽 갱신(다른 패널이 같은 폴더를 볼 때 반영, BUG-006 임시 — watcher 전까지)
     }
 
     /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
@@ -923,7 +957,7 @@ public sealed partial class MainWindow : Window
         }
         string kind = permanent ? "완전 삭제" : "휴지통";
         StatusText.Text = err is null ? $"{kind} {ok}개 완료" : $"{kind} 일부 실패: {err}";
-        ReloadPanel(left);
+        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
     }
 
     /// <summary>지정 패널을 현재 경로로 재로드한다(파일 작업 후 반영). 펼침 상태 유지.</summary>
@@ -1089,11 +1123,7 @@ public sealed partial class MainWindow : Window
             }
         }
         StatusText.Text = err is null ? $"이동 {ok}개" : $"이동 일부 실패: {err}";
-        ReloadPanel(sourceLeft);
-        if (destLeft != sourceLeft)
-        {
-            ReloadPanel(destLeft);
-        }
+        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지). destLeft는 향후 정밀 갱신용 유지.
     }
 
     private bool _activeLeft = true;
@@ -1278,6 +1308,14 @@ public sealed partial class MainWindow : Window
             {
                 BeginRename(row, it, _activeLeft);
             }
+            return;
+        }
+
+        // F5: 활성 패널 수동 새로고침(watcher 자동 갱신 전까지 수동 갱신 수단, B-12w 부분).
+        if (e.Key == VirtualKey.F5)
+        {
+            e.Handled = true;
+            ReloadPanel(_activeLeft);
             return;
         }
 
