@@ -1087,7 +1087,8 @@ public sealed partial class MainWindow : Window
             : new List<string> { item.FullPath };
         _dragSourceLeft = left;
         args.Data.SetText(string.Join("\n", _dragPaths));   // 시각 피드백/외부 호환용
-        args.Data.RequestedOperation = DataPackageOperation.Move;
+        // 이동·복사 둘 다 허용해야 대상이 Ctrl=복사/Shift=이동을 수락할 수 있음(둘 중 하나만이면 나머지는 금지=None).
+        args.Data.RequestedOperation = DataPackageOperation.Move | DataPackageOperation.Copy;
     }
 
     /// <summary>드래그 종료(드롭 성공 또는 <b>ESC 취소</b>) — 상태 정리. 취소(결과 None)면 아무것도 이동 안 하고 알림(B-14).</summary>
