@@ -124,6 +124,13 @@
 - 코드: `ApplyDragCaption(DragUIOverride, op, destName)` + `FolderLabel(dir)` (MainWindow). 적용 지점 = 행(`OnRowDragOver`)·탭(`OnTabDragOver`)·본문 빈영역(`NexaFileGrid.OnBodyDragOver`, 대상명은 `DropTargetName`을 `ArmWatcher`에서 갱신). 항목 고스트(`IsContentVisible`)는 유지.
 - **효과**: 개수 스택을 제외한 탐색기 드래그 표시(고스트 + "…에 복사/이동" 캡션 + 라이브 전환)가 동일해짐. COM 불필요.
 
+#### Windows QA(2026-07-04) 결과 & 개선 대상(부자연스러운 동작)
+- ✅ 캡션은 뜬다.
+- 🔴 **DND-KEY**: 키(Ctrl/Shift)만 눌러선 캡션/연산이 안 바뀌고 **마우스를 움직여야** 반영. 원인: WinUI `DragOver`는 포인터 이동 시에만 발생하고 `DragUIOverride`는 그 이벤트 안에서만 접근 가능 → 키 단독 갱신 **통로 없음**. 탐색기는 OLE `DoDragDrop`이라 키 상태 변경 시 드롭 타깃을 재호출 → 즉시 반영. **관리형 우회 불가, 셸/OLE 필요.**
+- 🔴 **DND-FONT**: 캡션 폰트가 고밀도 파일목록 폰트보다 **큼**. 원인: `DragUIOverride`에 폰트 크기 API 없음(프레임워크 고정 = Windows 표준 드래그 캡션 크기 = 탐색기와 동일). 우리 UI에 맞춰 축소하려면 **커스텀 비트맵(Phase 2a)** 으로 직접 렌더하거나 셸 경로.
+- **딜레마**: 작은 폰트(커스텀 비트맵) ↔ 라이브 갱신(마우스 이동)은 관리형에서 **양립 불가**(비트맵은 정적). 둘 다(탐색기 그대로) = **셸/OLE**뿐.
+- **결정(2026-07-04)**: 이번 세션은 **기능 검증까지만**. DND-KEY/DND-FONT/DND-STACK은 [TASKS.md](TASKS.md) 개선 대상(🅿️ 보류)으로 등록, 셸/OLE 트랙 착수 시 일괄 해결.
+
 ### Phase 2 — 개수 스택 아이콘 (보류, 택1)
 - **(2a) 커스텀 비트맵(관리형)**: `DragStartingEventArgs.DragUI.SetContentFromSoftwareBitmap(...)`으로 "아이콘 N겹 + 카운트 배지"를 직접 렌더. COM 불필요. 한계: 비트맵은 **시작 시 1회 고정**(Ctrl/Shift로 라이브 변경 불가) — 단 탐색기의 스택 이미지도 고정이고 **캡션만 바뀌므로**(Phase 1이 이미 처리) 실사용 동등. 비용: 시작 시 아이콘 취득·합성(썸네일 대신 타입 아이콘 캐시 사용). 맥 빌드 불가 → Windows 반복 검증 필요(비주얼).
 - **(2b) 셸 `IDragSourceHelper`(COM)**: 탐색기 네이티브 스택. 단 WinUI는 드래그 루프를 프레임워크가 소유 → `IDragSourceHelper` 주입이 곤란(Win32 `DoDragDrop` 직접 구동해야 하며 WinUI 드롭 타깃과의 상호운용 리스크). **비권장** — (2a) 대비 이득 대비 규모·리스크 큼.

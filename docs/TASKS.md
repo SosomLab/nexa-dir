@@ -55,7 +55,10 @@
 | COL-4 | 컬럼 조정 **모달**(표시/순서/너비) | ✨ | P2 | 2026-07-04 | [docs/23 §6-1](23-column-system.md) | — | — | ☐ | COL-1/2/3 이후 |
 | B-17c | **빈 영역 클릭 → 선택 취소** | ✨ | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | OnGridPressed·RowUnderPointer |
 | B-18t | **이름변경 타이밍** — 더블클릭 실행 시 오발동(지연 트리거) | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | ScheduleRename(더블클릭시간 지연·DoubleTapped 취소) |
-| B-19c | 드래그 캡션 **영어화**(Move/Copy)·i18n 일괄 예정 | ✨ | P2 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | 폰트 크기는 OS 드래그 비주얼(불가) |
+| DND-CAP | **탐색기식 드래그 캡션**(큰 글리프 끄고 "…에 복사/이동" 라이브·행/탭/빈영역) | ✨ | P1 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | 2026-07-04 (ApplyDragCaption/FolderLabel) | **QA: 캡션 뜸✓** | 🚧 부분 | Phase 1(관리형). 아래 DND-KEY·DND-FONT는 관리형 한계 |
+| DND-KEY | 🔴 **키만 눌러선 캡션/연산 라이브 갱신 안 됨**(마우스 움직여야 반영) | 🐞📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류(관리형 불가) | WinUI DragOver는 포인터 이동 시만 발생 → **셸/OLE(DoDragDrop) 필요**. 탐색기는 OLE라 키 즉시 반영 |
+| DND-FONT | 🔴 **드래그 캡션 폰트가 파일목록보다 큼**(고밀도 UI와 불일치) | 🐞📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류(관리형 불가) | DragUIOverride 폰트 API 없음(프레임워크 고정=Windows 표준 드래그 크기). 축소하려면 **커스텀 비트맵(Phase 2a) 또는 셸** |
+| DND-STACK | **드래그 개수 스택 아이콘**(N겹 + 카운트 배지) | ✨📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND Phase2](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류 | (2a) 커스텀 비트맵 권장 / (2b) IDragSourceHelper COM 비권장 |
 | CLIP | **OS 클립보드 연동 옵션**(텍스트 복사 시 파일 붙여넣기 무효화) | 📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 CLIP](33-file-ops-dnd-design.md) | — | — | 📐 설계완료 | ViewOptions.UseSystemClipboard(자리만) |
 | B-20p | **경로바 편집 박스 높이** — 편집 시 커져 화면 늘어남 | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | **QA 통과(사용자)** | ✅ | PathEditor 컴팩트 스타일 |
 | COL-1a | 확장자 컬럼 값 **소문자** 표시 | 🐞 | P2 | 2026-07-04 | — | 2026-07-04 | **QA 통과(사용자)** | ✅ | ToUpper→ToLower |
