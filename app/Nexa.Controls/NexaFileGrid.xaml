@@ -26,10 +26,15 @@
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="local:NexaGridColumn">
                         <Grid Width="{x:Bind Width, Mode=OneWay}">
-                            <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당) -->
-                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF">
-                                <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
-                                           TextTrimming="CharacterEllipsis" />
+                            <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당). 클릭=3상태 정렬(▲/▼) -->
+                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
+                                    Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
+                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                    <TextBlock Text="{x:Bind Header}" FontWeight="SemiBold" Opacity="0.9"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind SortGlyph, Mode=OneWay}" FontSize="9" Opacity="0.85"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
                             </Border>
                             <!-- 리사이즈 핸들(우측 8px). 오버 시 SizeWestEast 커서(ColumnResizeGrip). PointerMove 캡처로 Width 조절 -->
                             <local:ColumnResizeGrip Width="8" HorizontalAlignment="Right" Background="Transparent"

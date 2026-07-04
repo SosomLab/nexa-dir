@@ -284,6 +284,53 @@ public sealed partial class NexaFileGrid : UserControl
         _resizingCol = null;
     }
 
+    // ── 헤더 클릭 정렬 (3상태 순환 + SortRequested) — COL-2c ────────────
+
+    /// <summary>헤더 정렬 요청 — 현재 활성 정렬 서술자 목록(순번 순). 호스트가 코어에 적용(도메인 비종속).</summary>
+    public event Action<IReadOnlyList<SortDescriptor>>? SortRequested;
+
+    /// <summary>헤더 셀 클릭 → 그 컬럼 정렬 3상태 순환(없음→오름→내림→없음). 단일 컬럼(다른 컬럼 해제).</summary>
+    private void OnHeaderTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not NexaGridColumn col || !col.Sortable)
+        {
+            return;
+        }
+        ColumnSort next = col.SortDirection switch
+        {
+            ColumnSort.None => ColumnSort.Ascending,
+            ColumnSort.Ascending => ColumnSort.Descending,
+            _ => ColumnSort.None,
+        };
+        // 단일 컬럼 정렬(COL-2c): 나머지 컬럼 해제. (Alt+클릭 다중 정렬은 COL-3.)
+        foreach (var c in Columns)
+        {
+            if (!ReferenceEquals(c, col))
+            {
+                c.SortDirection = ColumnSort.None;
+                c.SortOrder = 0;
+            }
+        }
+        col.SortDirection = next;
+        col.SortOrder = next == ColumnSort.None ? 0 : 1;
+        e.Handled = true;
+        RaiseSortRequested();
+    }
+
+    private void RaiseSortRequested()
+    {
+        var list = new List<SortDescriptor>();
+        foreach (var c in Columns)
+        {
+            if (c.SortDirection != ColumnSort.None)
+            {
+                list.Add(new SortDescriptor(c.Key, c.SortDirection == ColumnSort.Descending, c.SortOrder));
+            }
+        }
+        list.Sort((a, b) => a.Order.CompareTo(b.Order));
+        SortRequested?.Invoke(list);
+    }
+
     /// <summary>행 데이터 컬렉션. 내부 <c>ItemsRepeater.ItemsSource</c>로 전달(가상화).</summary>
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(

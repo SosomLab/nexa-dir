@@ -255,7 +255,7 @@ internal static class NativeInterop
     private const string Dll = "nexa_interop";
 
     /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
-    public const uint ExpectedAbi = 5;
+    public const uint ExpectedAbi = 6;
 
     /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -272,6 +272,10 @@ internal static class NativeInterop
     /// <summary>코어의 <c>NexaRange</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     public static extern ulong nexa_range_size();
+
+    /// <summary>코어의 <c>NexaSortKey</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ulong nexa_sort_key_size();
 
     /// <summary>
     /// 로드된 네이티브 dll의 <b>ABI 호환성</b>을 검사한다(감사 A2/A3 정정):
@@ -290,6 +294,7 @@ internal static class NativeInterop
         CheckLayout("NexaEntry", Marshal.SizeOf<NexaEntry>(), nexa_entry_size());
         CheckLayout("NexaRow", Marshal.SizeOf<NexaRow>(), nexa_row_size());
         CheckLayout("NexaRange", Marshal.SizeOf<NexaRange>(), nexa_range_size());
+        CheckLayout("NexaSortKey", Marshal.SizeOf<NexaSortKey>(), nexa_sort_key_size());
     }
 
     /// <summary>C# 마샬 크기와 코어 크기를 대조(불일치 시 예외). <see cref="VerifyAbi"/> 내부용.</summary>
@@ -352,6 +357,20 @@ internal static class NativeInterop
         public ulong Inserted;
     }
 
+    /// <summary>C ABI <c>NexaSortKey</c> 미러(정렬 서술자). <c>Key</c>: 0=Name 1=Ext 2=Size 3=Modified 4=Kind 5=None, <c>Desc</c>: 0=오름/1=내림.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NexaSortKey
+    {
+        public uint Key;
+        public uint Desc;
+
+        public NexaSortKey(uint key, bool desc)
+        {
+            Key = key;
+            Desc = desc ? 1u : 0u;
+        }
+    }
+
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr nexa_tree_open(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte showHidden, byte showDotFiles);
@@ -384,6 +403,9 @@ internal static class NativeInterop
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern int nexa_tree_collapse(IntPtr handle, ulong id, ref NexaRange range);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_set_sort(IntPtr handle, NexaSortKey[]? keys, ulong count, int foldersFirst);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern void nexa_tree_select(IntPtr handle, ulong id, uint mode);
@@ -469,6 +491,16 @@ internal static class NativeInterop
         var rg = default(NexaRange);
         nexa_tree_collapse(handle, id, ref rg);
         return new TreeRange((int)rg.Start, (int)rg.Removed, (int)rg.Inserted);
+    }
+
+    /// <summary>정렬 사양 설정 — 로드된 모든 폴더 자식 + 가시목록 재정렬(펼침 보존, COL-2b). <paramref name="keys"/>가 비면 열거 순서.</summary>
+    internal static void TreeSetSort(IntPtr handle, NexaSortKey[] keys, bool foldersFirst)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+        nexa_tree_set_sort(handle, keys, (ulong)keys.Length, foldersFirst ? 1 : 0);
     }
 
     /// <summary>선택: <paramref name="mode"/> 0=단일, 1=토글.</summary>

@@ -69,13 +69,14 @@ ColumnLayout
 - **"없음(None)" = 원래 열거 순서**: children에 **원본 열거 순서 보존**(별도 인덱스 or 재열거) → None이면 그 순서로.
 - `set_sort(spec)`: **로드된 모든 폴더의 children 재정렬** + `visible` 재구축(펼침 상태 보존) → 변경 통지(전체 Reset 또는 범위). 단위테스트(정렬 키별·방향·다중키·None 복원·펼친 상태 유지).
 
-**COL-2b · ABI + 관리형** (맥 라운드트립 테스트) [규모 소]
-- `nexa_tree_set_sort(handle, keys_ptr, key_count)` 또는 단일 `nexa_tree_set_sort(handle, key:u32, dir:u32)`(0=none/1=asc/2=desc) — 다중은 목록 전달. ABI 버전 범프. 관리형 `TreeSetSort(spec)`.
+**COL-2b · ABI + 관리형** (맥 라운드트립 테스트) [규모 소] — ✅ 구현(2026-07-04)
+- `nexa_tree_set_sort(handle, keys: *const NexaSortKey, count, folders_first)` — `NexaSortKey{key:u32, desc:u32}` **배열**(다중키 대비). ABI **v5→v6** 범프(+`nexa_sort_key_size` 레이아웃 가드). 관리형 `NativeInterop.TreeSetSort` + `VirtualTreeCollection.SetSort`(Reset 통지). 맥 라운드트립 테스트(크기 내림·count0 열거복원·널 방어).
 
-**COL-2c · UI/앱** (Windows 빌드·실기) [규모 중]
-- `NexaGridColumn`에 `SortDirection`(None/Asc/Desc) + `SortOrder`(다중 순번) 추가.
-- `NexaFileGrid` 헤더 셀에 **정렬 표시**(▲/▼/무 + 다중 순번) + **헤더 클릭 핸들러**(리사이즈 핸들과 영역 분리) → **3상태 순환**(asc→desc→none) → **`SortRequested`(SortDescriptor 목록)** 이벤트(컨트롤은 도메인 비종속).
-- 앱: `SortRequested` → `TreeSetSort` → 재로드(펼침 유지). **패널별 독립**(각 패널 트리의 sort 별도).
+**COL-2c · UI/앱** (Windows 빌드·실기) [규모 중] — ✅ 구현(2026-07-04, 실기 QA 대기)
+- `NexaGridColumn`에 `SortDirection`(None/Asc/Desc) + `SortOrder` + `SortGlyph`(▲/▼) 추가.
+- `NexaFileGrid` 헤더 셀에 **정렬 글리프**(▲/▼) + **헤더 클릭(`OnHeaderTapped`)**(리사이즈 핸들과 영역 분리) → **3상태 순환**(asc→desc→none, 단일 컬럼=나머지 해제) → **`SortRequested`(`SortDescriptor` 목록)** 이벤트.
+- 앱: `SortRequested` → 코어 키 매핑(`SortKeyCode`) → `Items.SetSort` + `_sortKeys` 지속(LoadDirectory에서 새 핸들에 재적용).
+- ⚠ **MVP 제약(패널별 독립 미구현)**: 컬럼 인스턴스가 좌/우 공유(너비 동기) → **정렬 표시도 공유** → 헤더 클릭이 **양쪽 패널을 동일 정렬**로 적용. 패널별 독립 정렬(§3-1)은 **per-panel `ColumnLayout`(§6-3) 도입 후속**.
 
 **COL-3 · 다중 컬럼(Alt+헤더)** [규모 소~중, COL-2 위]
 - 코어 비교자는 이미 키 목록 지원(COL-2a). UI: **Alt+헤더 클릭 = 키 추가/토글**(순번 부여), 단순 클릭 = 단일 리셋. 헤더에 순번 배지.
