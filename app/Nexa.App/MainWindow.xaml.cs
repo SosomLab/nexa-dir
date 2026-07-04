@@ -688,8 +688,10 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>항목 활성화: 폴더/심볼릭링크는 진입(더블클릭 동작), 파일은 연결 프로그램으로 실행한다.</summary>
-    private async void ActivateItem(bool left, DirItem item)
+    /// <summary>항목 활성화: 폴더/심볼릭링크는 진입(더블클릭 동작), 파일은 기본 연결 프로그램으로 실행한다.
+    /// 파일 실행은 셸 실행(ShellExecute)을 사용 — StorageFile 브로커가 시스템/숨김 파일(desktop.ini 등)에
+    /// 대해 "unauthorized"로 실패하던 문제를 피하고 더 많은 형식을 처리한다.</summary>
+    private void ActivateItem(bool left, DirItem item)
     {
         if (item.IsDir || item.Kind == NexaFileKind.Symlink)
         {
@@ -698,8 +700,10 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            var file = await StorageFile.GetFileFromPathAsync(item.FullPath);
-            await Launcher.LaunchFileAsync(file);   // 확장자 연결 프로그램으로 실행
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(item.FullPath)
+            {
+                UseShellExecute = true,   // 셸이 확장자 기본 프로그램으로 연다
+            });
         }
         catch (Exception ex)
         {
@@ -1115,6 +1119,7 @@ public sealed partial class MainWindow : Window
         }
         var tab = new PanelTab();
         tab.Nav.NavigateTo(basePath, record: false);   // 새 탭 초기 경로(기록 없음)
+        tab.Title = PathDisplay.TabTitle(basePath);     // 탭 이름 즉시 설정(전환 전 공백 방지, 버그 수정)
         Panel(left).Tabs.Add(tab);
         SwitchToTab(left, tab);
     }
