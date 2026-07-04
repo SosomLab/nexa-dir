@@ -1112,11 +1112,10 @@ public sealed partial class MainWindow : Window
         if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir
             && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
         {
-            var op = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Alt=반전(B-14dnd)
-            e.AcceptedOperation = op;
-            // 캡션은 영어로 통일(i18n 일괄 예정). 폰트 크기는 OS 드래그 비주얼이 그려 API로 못 바꿈(후속: 커스텀 드래그 비트맵).
-            e.DragUIOverride.Caption = $"{(op == DataPackageOperation.Copy ? "Copy" : "Move")} to {item.Name}";
-            e.DragUIOverride.IsCaptionVisible = true;
+            e.AcceptedOperation = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Ctrl/Shift 강제(B-14dnd)
+            // 캡션 텍스트 폰트 크기는 OS가 그려 API로 조절 불가 → 큰 텍스트 대신 OS 연산 배지(+복사/이동)만 사용.
+            // 파일 폰트에 맞춘 텍스트가 필요하면 커스텀 드래그 비트맵(직접 렌더)이 필요(후속).
+            e.DragUIOverride.IsCaptionVisible = false;
             // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
             if (!ReferenceEquals(_folderDwellTarget, item))
             {
