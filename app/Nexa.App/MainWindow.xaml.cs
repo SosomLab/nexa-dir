@@ -1227,15 +1227,23 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>드롭 기본 연산: 같은 볼륨=이동 / 다른 볼륨=복사, **Alt**=반전(B-14dnd).</summary>
+    /// <summary>
+    /// 드롭 연산 결정(B-14dnd) — Windows 표준 수정키:
+    /// <b>Ctrl=복사 강제 · Shift=이동 강제</b>, 없으면 기본(<b>같은 볼륨=이동 / 다른 볼륨=복사</b>).
+    /// (Alt는 OS 메뉴 활성화에 가로채여 신뢰 불가 → 표준 Ctrl/Shift 채택.)
+    /// </summary>
     private DataPackageOperation DragOp(string destDir, DragDropModifiers mods)
     {
-        bool move = _dragPaths.Count == 0 || VolumeEq(_dragPaths[0], destDir);
-        if (mods.HasFlag(DragDropModifiers.Alt))
+        if (mods.HasFlag(DragDropModifiers.Control))
         {
-            move = !move;   // Alt = 이동↔복사 반전
+            return DataPackageOperation.Copy;   // Ctrl = 복사 강제
         }
-        return move ? DataPackageOperation.Move : DataPackageOperation.Copy;
+        if (mods.HasFlag(DragDropModifiers.Shift))
+        {
+            return DataPackageOperation.Move;   // Shift = 이동 강제
+        }
+        bool sameVol = _dragPaths.Count == 0 || VolumeEq(_dragPaths[0], destDir);
+        return sameVol ? DataPackageOperation.Move : DataPackageOperation.Copy;   // 기본: 디스크별
     }
 
     /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(같은 디스크=이동 취급, 보수적).</summary>

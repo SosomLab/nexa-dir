@@ -5,17 +5,17 @@
 
 ---
 
-## B-14dnd · DnD 디스크별 기본 동작 + Alt 반전
+## B-14dnd · DnD 디스크별 기본 동작 + 표준 수정키(Ctrl/Shift)
 
 ### 요구
 - **같은 디스크(볼륨)**: 이동(Move)을 기본.
 - **다른 디스크**: 복사(Copy)를 기본.
-- **Alt 키**: 드래그 중 기본 동작을 **반전**(이동↔복사).
+- **수정키(Windows 표준)**: **Ctrl=복사 강제 · Shift=이동 강제**(기본 동작 override). ~~Alt 반전~~은 Alt가 OS 메뉴 활성화에 가로채여 신뢰 불가 → 표준 채택(사용자 결정 2026-07-04).
 
 ### 설계
 - **볼륨 판정**: `Path.GetPathRoot(GetFullPath(src))` vs `dest` 루트 비교(대소문자 무시). 같으면 동일 볼륨. UNC/네트워크는 루트(`\\server\share`) 기준. 판정 실패 시 **이동**(같은 디스크 취급, 보수적).
-- **수정키**: 드래그 중 키 상태는 `DragEventArgs.Modifiers`(`DragDropModifiers.Alt`) 사용 — OS 드래그 루프에서 신뢰 가능(일반 `IsAltDown`은 드래그 중 부정확).
-- **연산 결정**: `op = sameVolume ? Move : Copy; if (Alt) op = invert(op);`
+- **수정키**: `DragEventArgs.Modifiers`의 `Control`/`Shift` 사용(OS 드래그 루프에서 신뢰 가능·가로채임 없음).
+- **연산 결정**: `if (Ctrl) Copy; else if (Shift) Move; else (sameVolume ? Move : Copy)`.
 - **반영 지점**(전 드롭 경로 일관):
   - `OnRowDragOver`(폴더): `e.AcceptedOperation = op`, 캡션 "…(으)로 이동/복사".
   - `OnTabDragOver`(탭): dest=`tab.Current`로 op 계산.
