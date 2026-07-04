@@ -153,3 +153,23 @@ refactor/003-audit  (분기: 1d9d312)
 - **구현 단위 확정(5단계)**: 코어 `find_prefix`(A/B/C) → `TypeAheadBuffer` → `EphemeralOverlay` → 설정 → 앱 배선. **다음 지시 시 1부터 순차 구현.** 여전히 설계만, 코드 없음.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
+
+## 세션 요약 · 2026-07-04 · 파일 조작 UX 심화 배치 (B-7~B-15h·버그·컬럼·설계)
+
+> 상세·시간기록: [TASKS.md](../TASKS.md) · 버그: [BUGS.md](../BUGS.md) · QA: [QA-003-checklist.md](../QA-003-checklist.md).
+> CI는 결제 문제로 중단 → 이번 배치는 **사용자 Windows PC 빌드**로 검증(코어/ViewModels는 맥 테스트).
+
+### 구현(커밋)
+- **버그**: BUG-003 파일 실행 ShellExecute(desktop.ini 오류) · BUG-004 비활성 패널 클릭 활성화 · BUG-005 새 탭 이름 공백 · BUG-002 이름변경 드래그/우클릭 오발동 · **B-18t 이름변경 타이밍**(더블클릭 실행 시 오발동 → 지연 트리거) · **B-20p 경로바 편집 높이**(QA통과) · 빈 영역 클릭=선택취소(B-17c).
+- **기능**: B-7 더블클릭 실행 · B-8/B-9m 마우스 재정비+다중선택 드래그 · B-10c 컨텍스트 메뉴 폴더/파일/빈영역 분리+F5 · B-11r 휴지통 삭제(Del=휴지통/Shift+Del=완전) · **B-14dnd 디스크별 DnD**(같은=이동/다른=복사, **Ctrl=복사/Shift=이동 강제** — Alt는 OS 가로채여 표준 채택) · B-15h 폴더 hover 진입+전환시간 설정(Tab/FolderDwellMs) · **B-12w watcher 1차**(FolderWatcher 자동 갱신) · COL-1 확장자 컬럼(소문자).
+- **DnD 세부**: RequestedOperation=Move|Copy(Ctrl 복사 금지아이콘 해소·키 라이브 인식) · 캡션 텍스트 숨김(폰트 크기 OS 제어 불가).
+
+### 설계(문서)
+- [docs/32](../32-typeahead-find.md) 타입어헤드(A/B/C 설정·EphemeralOverlay).
+- [docs/33](../33-file-ops-dnd-design.md) DnD 정책·폴더 hover·watcher Pub/Sub·Undo/Redo·**클립보드 개념+OS 연동 옵션**·**커스텀 드래그 비주얼 성능 검토**(런타임 0·정적 한계).
+- [docs/23 §4-1](../23-column-system.md) 컬럼 정렬 구현 계획(COL-2a 코어→2b ABI→2c UI→COL-3, 3상태·Alt 다중키).
+
+### 미결/대기
+- **DnD glyph(↗ Move) 숨김 여부**(IsGlyphVisible) — 사용자 결정 대기. 폰트 크기는 OS 제어 불가(인앱 오버레이만 대안).
+- **실기 QA**(QA-003 체크리스트) 다수 미확인. B-13t 탭 hover·B-15h 폴더 hover·B-20p 경로바·COL-1a 소문자는 QA 통과.
+- **미착수(설계됨)**: COL-2/3 정렬(코어 비교자) · B-13u Undo/Redo · SHELL 셸 통합 · CLIP OS 클립보드 연동.
