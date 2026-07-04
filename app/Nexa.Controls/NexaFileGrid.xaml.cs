@@ -3,15 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.DataTransfer.DragDrop;
-using Windows.System;
-using Windows.UI.Core;
 
 namespace Nexa.Controls;
 
@@ -409,8 +406,8 @@ public sealed partial class NexaFileGrid : UserControl
             : n.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static bool IsShiftDown() =>
-        (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & CoreVirtualKeyStates.Down)
-            == CoreVirtualKeyStates.Down;
+        (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+            & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
 
     private void RaiseSortRequested()
     {
