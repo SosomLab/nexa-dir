@@ -19,7 +19,7 @@
 - **반영 지점**(전 드롭 경로 일관):
   - `OnRowDragOver`(폴더): `e.AcceptedOperation = op`, 캡션 "…(으)로 이동/복사".
   - `OnTabDragOver`(탭): dest=`tab.Current`로 op 계산.
-  - `OnBodyDragOver`(빈영역, 컨트롤): 볼륨 미인지 → **Alt만 반영**(Alt=Copy/없음=Move)한 근사 커서, 실제 연산은 드롭 시 호스트가 확정.
+  - `OnBodyDragOver`(빈영역, 컨트롤): 볼륨 미인지 → **Ctrl만 반영**(Ctrl=Copy/없음=Move)한 근사 커서, 실제 연산은 드롭 시 호스트가 확정.
   - **드롭**: 각 핸들러가 op 재계산 → `TransferPathsInto(paths, destDir, op)`(copy/move 분기, 제자리 이동 제외, 양쪽 재로드).
 - **구조**: 기존 `MovePathsInto` → **`TransferPathsInto(sourceLeft, paths, destDir, op)`**(FileOps.CopyInto/MoveInto 위임). `BodyDropped` 이벤트에 `DragDropModifiers` 전달(빈영역 드롭의 op 계산용).
 - **캡션**: `DragUIOverride.Caption`에 "복사"/"이동" 명시(사용자 예측성).
