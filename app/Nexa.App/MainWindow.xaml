@@ -206,7 +206,7 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3"
@@ -314,7 +314,7 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3"

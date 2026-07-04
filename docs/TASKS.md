@@ -51,6 +51,11 @@
 | COL-2 | 컬럼 정렬 **3상태**(오름→내림→없음)+헤더 화살표 | ✨📐 | P1 | 2026-07-04 | [docs/23 §4](23-column-system.md)(3상태로 갱신) | — | — | 📐 | 클릭 순환 |
 | COL-3 | **다중 컬럼 정렬** — **Alt+헤더 클릭**으로 키 추가 | ✨📐 | P2 | 2026-07-04 | [docs/23 §4](23-column-system.md)(Alt로 확정) | — | — | 📐 | 순번 표시 |
 | COL-4 | 컬럼 조정 **모달**(표시/순서/너비) | ✨ | P2 | 2026-07-04 | [docs/23 §6-1](23-column-system.md) | — | — | ☐ | COL-1/2/3 이후 |
+| B-17c | **빈 영역 클릭 → 선택 취소** | ✨ | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | OnGridPressed·RowUnderPointer |
+| B-18t | **이름변경 타이밍** — 더블클릭 실행 시 오발동(지연 트리거) | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | ScheduleRename(더블클릭시간 지연·DoubleTapped 취소) |
+| B-19c | 드래그 캡션 **영어화**(Move/Copy)·i18n 일괄 예정 | ✨ | P2 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | 폰트 크기는 OS 드래그 비주얼(불가) |
+| CLIP | **OS 클립보드 연동 옵션**(텍스트 복사 시 파일 붙여넣기 무효화) | 📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 CLIP](33-file-ops-dnd-design.md) | — | — | 📐 설계완료 | ViewOptions.UseSystemClipboard(자리만) |
+| B-14dnd-alt | DnD **Alt 반전 미동작** 조사 | 🐞 | P1 | 2026-07-04 | — | 조사중 | — | 🚧 | Alt가 OS 메뉴에 가로채질 가능·DragOver 미재발화. 드롭은 e.Modifiers 사용 |
 | SHELL | **셸 컨텍스트 메뉴 통합**(`IContextMenu`/`IExplorerCommand`) | 📐 | P0 | 2026-07-04 | — | — | — | 📐 | TODO §2 B-2 · COM ADR 후보 |
 
 ## 4. 착수 권장 순서(이 배치)

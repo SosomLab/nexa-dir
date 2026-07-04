@@ -92,6 +92,17 @@ public sealed partial class MainWindow : Window
                 Navigate(_folderDwellLeft, f.FullPath, record: true);   // 그 폴더로 진입(계속 드래그해 하위에 드롭)
             }
         };
+        // 이름변경 지연 트리거: 더블클릭 시간 경과(그 사이 더블클릭 없음) → 이름변경 시작(더블클릭 실행과 구분).
+        _renameDelayTimer.Tick += (_, _) =>
+        {
+            _renameDelayTimer.Stop();
+            if (_renamePendingItem is DirItem it && _renamePendingRow is FrameworkElement row && !it.IsRenaming)
+            {
+                BeginRename(row, it, _renamePendingLeft);
+            }
+            _renamePendingItem = null;
+            _renamePendingRow = null;
+        };
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _left.Active.IsActive = true;
         _right.Active.IsActive = true;
@@ -482,6 +493,40 @@ public sealed partial class MainWindow : Window
     // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) — 코어(OrderedSet) 위임 ─────
     // 선택 상태는 DirItem.IsSelected(행 배경). 범위 기준점(anchor)은 패널별.
 
+    /// <summary>포인터 원본이 속한 행의 <see cref="DirItem"/>(행 밖이면 null). 빈 영역 클릭 판정용.</summary>
+    private static DirItem? RowUnderPointer(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is FrameworkElement fe && fe.Tag is DirItem d)
+            {
+                return d;
+            }
+            node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+        }
+        return null;
+    }
+
+    /// <summary>그리드 빈 영역(행 아님) 좌클릭 → 그 패널 선택 해제(빈 영역 클릭 = 선택 취소).</summary>
+    private void OnGridPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var pp = e.GetCurrentPoint((UIElement)sender).Properties;
+        if (!pp.IsLeftButtonPressed)
+        {
+            return;   // 좌클릭만(우클릭=컨텍스트 메뉴)
+        }
+        if (RowUnderPointer(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;   // 행 위 클릭은 행 핸들러가 처리
+        }
+        bool left = ReferenceEquals(sender, DirGrid);
+        var items = Panel(left).Items;
+        items.ClearSelection();
+        items.SetCaret(-1);
+        UpdateSelectionCount(items);
+        CancelPendingRename();
+    }
+
     private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         // 마우스 뒤로/앞으로(XButton)·우클릭은 여기서 선택/이름변경 관여 금지
@@ -508,6 +553,7 @@ public sealed partial class MainWindow : Window
         //  · 미선택 항목 → 즉시 단일 선택(+이름변경 후보 장전)
         //  · 이미 선택된 항목 → 선택을 바꾸지 않고 릴리스까지 보류(_deferredClickItem)
         //    → 다중 선택 드래그 보존(B-9m) + 이름변경은 드래그 없이 릴리스했을 때만(B-8).
+        CancelPendingRename();   // 새 press → 대기 중인 이름변경 취소(더블클릭이면 DoubleTapped가 실행)
         _deferredClickItem = null;
         if (IsShiftDown())
         {
@@ -524,8 +570,6 @@ public sealed partial class MainWindow : Window
         else
         {
             items.Select(item, 0);       // 새 항목 → 즉시 단일
-            _renameArm = item;           // 이름변경 후보 장전(다음 재클릭)
-            _renameArmAt = DateTime.UtcNow;
         }
         int idx = items.IndexOf(item);
         if (idx >= 0)
@@ -547,16 +591,15 @@ public sealed partial class MainWindow : Window
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         var items = Panel(left).Items;
 
-        // 단독 선택 상태에서 재클릭(더블클릭 시간 이후) → 인라인 이름 변경.
-        if (ReferenceEquals(_renameArm, item) && items.SelectionCount == 1 && item.IsSelected
-            && (DateTime.UtcNow - _renameArmAt).TotalMilliseconds > GetDoubleClickTime())
+        if (items.SelectionCount == 1 && item.IsSelected)
         {
-            _renameArm = null;
-            BeginRename(fe, item, left);
+            // 이미 단독 선택된 항목의 클릭 → 이름변경 후보. 단, 곧 더블클릭(실행/진입)일 수 있으므로
+            // 더블클릭 시간만큼 기다렸다가(그 사이 DoubleTapped가 오면 취소) 이름변경 시작(타이밍 버그 수정).
+            ScheduleRename(fe, item, left);
             return;
         }
 
-        // 다중 선택 중 한 항목을 클릭(드래그 아님) → 그 항목으로 단일 축소(Explorer식) + 이름변경 후보 장전.
+        // 다중 선택 중 한 항목을 클릭(드래그 아님) → 그 항목으로 단일 축소(Explorer식).
         items.Select(item, 0);
         int idx = items.IndexOf(item);
         if (idx >= 0)
@@ -564,13 +607,32 @@ public sealed partial class MainWindow : Window
             items.SetCaret(idx);
         }
         UpdateSelectionCount(items);
-        _renameArm = item;
-        _renameArmAt = DateTime.UtcNow;
     }
 
-    // 인라인 이름변경 트리거 상태(직전 plain 클릭으로 단독 선택된 항목·시각).
-    private DirItem? _renameArm;
-    private DateTime _renameArmAt;
+    // ── 이름변경 지연 트리거(더블클릭 실행과 구분) ─────────────────────
+    private readonly DispatcherTimer _renameDelayTimer = new();
+    private DirItem? _renamePendingItem;
+    private FrameworkElement? _renamePendingRow;
+    private bool _renamePendingLeft;
+
+    /// <summary>더블클릭 시간 후 이름변경을 시작하도록 예약(그 사이 더블클릭이 오면 <see cref="CancelPendingRename"/>로 취소).</summary>
+    private void ScheduleRename(FrameworkElement row, DirItem item, bool left)
+    {
+        _renamePendingRow = row;
+        _renamePendingItem = item;
+        _renamePendingLeft = left;
+        _renameDelayTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime() + 60);   // 더블클릭 판정 여유
+        _renameDelayTimer.Stop();
+        _renameDelayTimer.Start();
+    }
+
+    /// <summary>대기 중인 이름변경 취소(더블클릭 실행/진입·새 클릭·드래그 시).</summary>
+    private void CancelPendingRename()
+    {
+        _renameDelayTimer.Stop();
+        _renamePendingItem = null;
+        _renamePendingRow = null;
+    }
 
     // 이미 선택된 항목을 평범하게 눌렀을 때 선택 변경을 릴리스까지 보류(다중 드래그 보존·이름변경 판정, B-8/B-9m).
     private DirItem? _deferredClickItem;
@@ -741,7 +803,7 @@ public sealed partial class MainWindow : Window
     /// <summary>행 더블클릭 → 폴더/링크는 진입, 파일은 기본 연결 프로그램으로 실행(<see cref="ActivateItem"/>).</summary>
     private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        _renameArm = null;   // 더블클릭(진입/실행)은 이름변경 후보 해제
+        CancelPendingRename();   // 더블클릭(진입/실행) → 대기 중 이름변경 취소
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
@@ -1016,7 +1078,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         _deferredClickItem = null;   // 드래그 시작 → 보류된 클릭 취소(선택 유지, B-9m)
-        _renameArm = null;           // 드래그 중엔 이름변경 후보 해제(오발동 방지, B-8)
+        CancelPendingRename();       // 드래그 중엔 대기 중 이름변경 취소(오발동 방지, B-8)
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         var items = Panel(left).Active.Items;
         var sel = items.SelectedPaths();
@@ -1051,7 +1113,8 @@ public sealed partial class MainWindow : Window
         {
             var op = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Alt=반전(B-14dnd)
             e.AcceptedOperation = op;
-            e.DragUIOverride.Caption = $"{item.Name}(으)로 {(op == DataPackageOperation.Copy ? "복사" : "이동")}";
+            // 캡션은 영어로 통일(i18n 일괄 예정). 폰트 크기는 OS 드래그 비주얼이 그려 API로 못 바꿈(후속: 커스텀 드래그 비트맵).
+            e.DragUIOverride.Caption = $"{(op == DataPackageOperation.Copy ? "Copy" : "Move")} to {item.Name}";
             e.DragUIOverride.IsCaptionVisible = true;
             // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
             if (!ReferenceEquals(_folderDwellTarget, item))

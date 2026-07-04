@@ -54,6 +54,13 @@ internal sealed class ViewOptions
 
     /// <summary>드래그 중 폴더 위에 머물러 그 폴더로 진입(spring-load)되기까지 시간(ms, 기본 3000). 설정 UI 예정(B-15h).</summary>
     public int FolderDwellMs { get; set; } = 3000;
+
+    /// <summary>
+    /// 복사/잘라내기/붙여넣기를 <b>OS 클립보드</b>와 연동할지(기본 <c>false</c>=앱 내부 클립보드).
+    /// <para>true면 셸 상호운용(탐색기에서 복사→우리 앱 붙여넣기, 그 반대)이 되고, 다른 앱이 텍스트 등을
+    /// 복사하면 파일 붙여넣기가 무효화된다(탐색기와 동일). 구현은 후속(설계: docs/33), 지금은 옵션 자리만.</para>
+    /// </summary>
+    public bool UseSystemClipboard { get; set; }
 }
 
 /// <summary>
