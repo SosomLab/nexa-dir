@@ -748,9 +748,12 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(paste);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var del = new MenuFlyoutItem { Text = "삭제(완전)" };
-        del.Click += (_, _) => DeletePaths(left, ContextTargets(left, item));
+        var del = new MenuFlyoutItem { Text = "삭제(휴지통)" };
+        del.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: false);
         flyout.Items.Add(del);
+        var delPerm = new MenuFlyoutItem { Text = "완전 삭제(Shift+Del)" };
+        delPerm.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: true);
+        flyout.Items.Add(delPerm);
         var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
         rename.Click += (_, _) => BeginRename(fe, item, left);
         flyout.Items.Add(rename);
@@ -850,24 +853,28 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
-    private async void DeletePaths(bool left, IReadOnlyList<string> targets)
+    /// <summary>대상 삭제. <paramref name="permanent"/>=true면 완전삭제(확인 대화상자), false면 휴지통(되돌리기 가능).</summary>
+    private async void DeletePaths(bool left, IReadOnlyList<string> targets, bool permanent)
     {
         if (targets.Count == 0)
         {
             return;
         }
-        var dialog = new ContentDialog
+        if (permanent)
         {
-            Title = "완전 삭제",
-            Content = $"{targets.Count}개 항목을 완전히 삭제합니다.\n휴지통으로 가지 않으며 되돌릴 수 없습니다.",
-            PrimaryButtonText = "삭제",
-            CloseButtonText = "취소",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = RootGrid.XamlRoot,
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
+            var dialog = new ContentDialog
+            {
+                Title = "완전 삭제",
+                Content = $"{targets.Count}개 항목을 완전히 삭제합니다.\n휴지통으로 가지 않으며 되돌릴 수 없습니다.",
+                PrimaryButtonText = "삭제",
+                CloseButtonText = "취소",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = RootGrid.XamlRoot,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
         }
         int ok = 0;
         string? err = null;
@@ -875,7 +882,8 @@ public sealed partial class MainWindow : Window
         {
             try
             {
-                FileOps.DeletePermanent(p);
+                if (permanent) { FileOps.DeletePermanent(p); }
+                else { FileOps.DeleteToRecycleBin(p); }
                 ok++;
             }
             catch (Exception ex)
@@ -883,7 +891,8 @@ public sealed partial class MainWindow : Window
                 err = ex.Message;
             }
         }
-        StatusText.Text = err is null ? $"삭제 {ok}개 완료" : $"삭제 일부 실패: {err}";
+        string kind = permanent ? "완전 삭제" : "휴지통";
+        StatusText.Text = err is null ? $"{kind} {ok}개 완료" : $"{kind} 일부 실패: {err}";
         ReloadPanel(left);
     }
 
@@ -1253,11 +1262,11 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Delete: 선택(또는 캐럿) 항목 완전 삭제(확인 대화상자).
+        // Delete=휴지통(되돌리기 가능), Shift+Delete=완전 삭제(확인). 선택(또는 캐럿) 대상.
         if (e.Key == VirtualKey.Delete)
         {
             e.Handled = true;
-            DeletePaths(_activeLeft, KeyboardTargets(_activeLeft));
+            DeletePaths(_activeLeft, KeyboardTargets(_activeLeft), permanent: IsShiftDown());
             return;
         }
 
