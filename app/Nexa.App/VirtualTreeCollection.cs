@@ -143,6 +143,14 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
     public int IndexOfPath(string fullPath) =>
         _handle == IntPtr.Zero ? -1 : NativeInterop.TreeIndexOfPath(_handle, fullPath);
 
+    /// <summary>
+    /// 타입어헤드 접두사 매칭(docs/32) — <paramref name="prefix"/>로 시작하는 가시 행 인덱스(없으면 -1).
+    /// <paramref name="caret"/>=현재 캐럿(-1=없음), <paramref name="scope"/>=0 GlobalFirst/1 CurrentLevel/2 VisibleStream(기본).
+    /// 코어가 마샬 없이 가시 스트림을 스캔(2단계 버퍼·5단계 앱 배선이 소비).
+    /// </summary>
+    public int FindPrefix(int caret, string prefix, uint scope) =>
+        _handle == IntPtr.Zero ? -1 : NativeInterop.TreeFindPrefix(_handle, caret, prefix, scope);
+
     /// <summary>현재 가시 행 수(코어 질의).</summary>
     public int Count => _handle == IntPtr.Zero ? 0 : NativeInterop.TreeVisibleLen(_handle);
 

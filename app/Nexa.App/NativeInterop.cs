@@ -255,7 +255,7 @@ internal static class NativeInterop
     private const string Dll = "nexa_interop";
 
     /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
-    public const uint ExpectedAbi = 6;
+    public const uint ExpectedAbi = 7;
 
     /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -408,6 +408,10 @@ internal static class NativeInterop
     private static extern int nexa_tree_set_sort(IntPtr handle, NexaSortKey[]? keys, ulong count, int foldersFirst);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern long nexa_tree_find_prefix(
+        IntPtr handle, long caret, [MarshalAs(UnmanagedType.LPUTF8Str)] string prefix, uint scope);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern void nexa_tree_select(IntPtr handle, ulong id, uint mode);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -502,6 +506,13 @@ internal static class NativeInterop
         }
         nexa_tree_set_sort(handle, keys, (ulong)keys.Length, foldersFirst ? 1 : 0);
     }
+
+    /// <summary>
+    /// 타입어헤드 접두사 매칭(docs/32) — <paramref name="prefix"/>로 시작하는 가시 행 인덱스(없으면 -1).
+    /// <paramref name="caret"/>=현재 캐럿 가시 인덱스(-1=없음), <paramref name="scope"/>=0 GlobalFirst/1 CurrentLevel/2 VisibleStream.
+    /// </summary>
+    internal static int TreeFindPrefix(IntPtr handle, int caret, string prefix, uint scope) =>
+        handle == IntPtr.Zero ? -1 : (int)nexa_tree_find_prefix(handle, caret, prefix, scope);
 
     /// <summary>선택: <paramref name="mode"/> 0=단일, 1=토글.</summary>
     internal static void TreeSelect(IntPtr handle, ulong id, uint mode) => nexa_tree_select(handle, id, mode);

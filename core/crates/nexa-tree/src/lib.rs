@@ -20,8 +20,7 @@ pub type NodeId = u64;
 #[derive(Debug, Clone)]
 struct Node {
     id: NodeId,
-    /// 부모(최상위는 `None`). 슬라이스 2/3(ABI·경로변동 추적)에서 사용.
-    #[allow(dead_code)]
+    /// 부모(최상위는 `None`). 타입어헤드 `CurrentLevel`(형제 스코프)·경로변동 추적에 사용.
     parent: Option<NodeId>,
     path: PathBuf,
     name: String,
@@ -117,6 +116,17 @@ impl Default for SortSpec {
     fn default() -> Self {
         SortSpec::name_asc()
     }
+}
+
+/// 타입어헤드 찾기 범위(docs/32 §5·§8). 하나의 매칭 함수를 파라미터화한다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FindScope {
+    /// A: 가시 스트림 처음부터 첫 매치(캐럿 무시).
+    GlobalFirst,
+    /// B: 캐럿의 같은 부모(형제)인 가시 행만, 위치상대+wrap.
+    CurrentLevel,
+    /// C(기본): 캐럿 다음부터 가시 스트림 starts-with, 끝이면 wrap.
+    VisibleStream,
 }
 
 /// Windows 숨김 속성 비트(FILE_ATTRIBUTE_HIDDEN).
@@ -324,6 +334,41 @@ impl Tree {
             }
         }
         self.visible = vis;
+    }
+
+    // ── 타입어헤드 찾기 (docs/32) ───────────────────────────────
+
+    /// 타입어헤드 접두사 매칭 — `prefix`(대소문자 무시)로 시작하는 **가시 행**의 인덱스(없으면 `None`).
+    /// 이름 starts-with만(경로 아님, 정렬 `cmp_ci`와 동일 규약). `caret`=현재 캐럿 가시 인덱스(범위 밖/`None`=처음부터).
+    /// - `VisibleStream`(C): `caret+1`부터 앞으로, 끝이면 `0..=caret`로 wrap(계속 입력 시 다음 매치로 cycle).
+    /// - `GlobalFirst`(A): 0부터 첫 매치(캐럿 무시).
+    /// - `CurrentLevel`(B): 캐럿과 **같은 부모(형제)** 인 가시 행만 대상으로 C 규칙.
+    pub fn find_prefix(&self, caret: Option<usize>, prefix: &str, scope: FindScope) -> Option<usize> {
+        let n = self.visible.len();
+        if prefix.is_empty() || n == 0 {
+            return None;
+        }
+        let lower = prefix.to_lowercase();
+        let starts = |idx: usize| -> bool {
+            let id = self.visible[idx];
+            self.nodes[id as usize].name.to_lowercase().starts_with(&lower)
+        };
+        let caret = caret.filter(|&c| c < n);
+        match scope {
+            FindScope::GlobalFirst => (0..n).find(|&i| starts(i)),
+            FindScope::VisibleStream => {
+                let start = caret.map_or(0, |c| c + 1); // caret+1..n → 0..start(=0..=caret) wrap
+                (start..n).chain(0..start).find(|&i| starts(i))
+            }
+            FindScope::CurrentLevel => {
+                // 캐럿의 부모(없으면 최상위=None) 형제만. C 규칙(caret+1부터 wrap).
+                let parent = caret.and_then(|c| self.nodes[self.visible[c] as usize].parent);
+                let start = caret.map_or(0, |c| c + 1);
+                (start..n).chain(0..start).find(|&i| {
+                    self.nodes[self.visible[i] as usize].parent == parent && starts(i)
+                })
+            }
+        }
     }
 
     // ── 가시 스트림 ─────────────────────────────────────────────
@@ -1084,6 +1129,74 @@ mod tests {
         let ns = names(&t);
         let ai = ns.iter().position(|n| n == "adir").unwrap();
         assert_eq!(ns[ai + 1], "inner.txt", "펼친 자식이 부모 바로 뒤에 유지: {ns:?}");
+    }
+
+    // ── 타입어헤드 find_prefix (docs/32) ────────────────────────────
+
+    /// 타입어헤드 픽스처: 최상위 apple/apricot/banana.txt + 폴더 sub{avocado.txt}.
+    /// 기본 정렬(폴더우선·이름오름) 가시(접힘): [sub, apple.txt, apricot.txt, banana.txt].
+    fn make_ta_fixture(tag: &str) -> PathBuf {
+        let base = std::env::temp_dir().join(format!("nexa_tree_ta_{}_{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("sub")).unwrap();
+        fs::write(base.join("sub/avocado.txt"), b"a").unwrap();
+        fs::write(base.join("apple.txt"), b"a").unwrap();
+        fs::write(base.join("apricot.txt"), b"a").unwrap();
+        fs::write(base.join("banana.txt"), b"b").unwrap();
+        base
+    }
+
+    #[test]
+    fn find_prefix_visible_stream_wrap_and_cycle() {
+        let base = make_ta_fixture("c");
+        let t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // [sub(0), apple(1), apricot(2), banana(3)]
+        assert_eq!(names(&t), vec!["sub", "apple.txt", "apricot.txt", "banana.txt"]);
+        // 캐럿 없음 → 처음부터 첫 'a' = apple(1)
+        assert_eq!(t.find_prefix(None, "a", FindScope::VisibleStream), Some(1));
+        // apple(1)에서 다음 'a' = apricot(2)
+        assert_eq!(t.find_prefix(Some(1), "a", FindScope::VisibleStream), Some(2));
+        // apricot(2)에서 다음 'a' → banana 아님, wrap → apple(1)
+        assert_eq!(t.find_prefix(Some(2), "a", FindScope::VisibleStream), Some(1));
+        // 'ap' 접두사 → apple(1)
+        assert_eq!(t.find_prefix(None, "ap", FindScope::VisibleStream), Some(1));
+        // 'b' → banana(3), 대소문자 무시
+        assert_eq!(t.find_prefix(None, "B", FindScope::VisibleStream), Some(3));
+        // 없는 접두사 → None, 빈 접두사 → None
+        assert_eq!(t.find_prefix(None, "z", FindScope::VisibleStream), None);
+        assert_eq!(t.find_prefix(Some(1), "", FindScope::VisibleStream), None);
+    }
+
+    #[test]
+    fn find_prefix_global_first_ignores_caret() {
+        let base = make_ta_fixture("a");
+        let t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // 캐럿 무관하게 항상 0부터 첫 'a' = apple(1)
+        assert_eq!(t.find_prefix(None, "a", FindScope::GlobalFirst), Some(1));
+        assert_eq!(t.find_prefix(Some(2), "a", FindScope::GlobalFirst), Some(1));
+        assert_eq!(t.find_prefix(Some(3), "a", FindScope::GlobalFirst), Some(1));
+    }
+
+    #[test]
+    fn find_prefix_current_level_siblings_only() {
+        let base = make_ta_fixture("b");
+        let mut t = Tree::open(&base).unwrap();
+        // sub 펼침 → [sub(0), avocado(1), apple(2), apricot(3), banana(4)]
+        let sub = t.row(0).unwrap().id;
+        t.expand(sub).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        assert_eq!(
+            names(&t),
+            vec!["sub", "avocado.txt", "apple.txt", "apricot.txt", "banana.txt"]
+        );
+        // 최상위 apple(2)에서 'a' 형제 검색 → avocado(자식) 건너뛰고 apricot(3)
+        assert_eq!(t.find_prefix(Some(2), "a", FindScope::CurrentLevel), Some(3));
+        // avocado(1, sub 자식)에서 'a' 형제 → 형제는 avocado뿐 → wrap으로 자신(1)
+        assert_eq!(t.find_prefix(Some(1), "a", FindScope::CurrentLevel), Some(1));
+        // 비교: 같은 상황 C(가시 스트림)는 형제 무시하고 apricot(3)
+        assert_eq!(t.find_prefix(Some(1), "a", FindScope::VisibleStream), Some(2)); // apple(2)
     }
 
     #[test]

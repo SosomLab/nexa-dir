@@ -121,10 +121,10 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 - **휘발성 검색어 표시** = **활성 패널 목록 위 플로팅 오버레이 HUD**(상태바 아님) + **전용 재사용 컨트롤 `Nexa.Controls.EphemeralOverlay`** 신규 개발. 표시 소거 = 타임아웃 동기.
 
 **구현 단위(순차, 각 커밋)**:
-1. 코어 `nexa-tree.find_prefix(caret, prefix, scope, wrap)` + ABI + 관리형 — A/B/C 3범위, 맥 단위테스트.
+1. ✅ 코어 `nexa-tree.find_prefix(caret, prefix, scope)` + ABI(`nexa_tree_find_prefix`, **v6→v7**) + 관리형(`TreeFindPrefix`/`VirtualTreeCollection.FindPrefix`) — A/B/C 3범위, **맥 단위테스트**(코어 3·인터롭 1). `FindScope` enum, `Node.parent` 실사용 승격. (2026-07-04)
 2. `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — 맥 단위테스트.
 3. `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — 페이드·자동소거.
 4. `ViewOptions.TypeAheadScope`/`TypeAheadTimeoutMs` + 설정 배선.
 5. 앱 배선(문자 수신·가드·오버레이·코어 조회·선택/스크롤) + 실기 QA.
 
-> 전 항목 방향 확정 — **다음 지시 시 구현 단위 1부터 순차 진행**.
+> 1단계 완료(코어/ABI/관리형). **다음 = 2단계 `TypeAheadBuffer`(맥 테스트 가능).**
