@@ -31,6 +31,14 @@ public sealed partial class MainWindow : Window
     /// <summary>지정 측 패널 반환(좌/우 이중화 분기 소거).</summary>
     private PanelView Panel(bool left) => left ? _left : _right;
 
+    // 패널별 폴더 변경 감시(외부/타 패널 변경 자동 갱신, B-12w). ctor에서 생성.
+    private FolderWatcher _leftWatcher = null!;
+    private FolderWatcher _rightWatcher = null!;
+    private FolderWatcher Watcher(bool left) => left ? _leftWatcher : _rightWatcher;
+
+    /// <summary>지정 패널의 현재 폴더를 감시 대상으로 설정(폴더 표시/전환 시 호출).</summary>
+    private void ArmWatcher(bool left) => Watcher(left).Watch(Panel(left).Active.Current);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -51,6 +59,9 @@ public sealed partial class MainWindow : Window
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
+        // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
+        _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
+        _rightWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(false));
         // 그리드 행 수명 → 아이콘 지연 로드/취소. 행이 화면 밖으로 나가면 큐에서 제거(빠른 스크롤 부하 제한, P6).
         _iconCache = new ShellIconCache(DispatcherQueue);
         foreach (var p in new[] { _left, _right })
@@ -168,6 +179,10 @@ public sealed partial class MainWindow : Window
             : $"디렉터리 열기 실패: {path}";
         if (ok)
         {
+            if (ReferenceEquals(Panel(left).Active, tab))
+            {
+                ArmWatcher(left);   // 활성 탭 폴더 변경 감시(B-12w)
+            }
             onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등). 스크롤 타이밍은 ScrollIndexIntoView가 자체 처리.
         }
     }
@@ -1265,6 +1280,7 @@ public sealed partial class MainWindow : Window
             pathBar.Path = tab.Current;
             header.Text = $"{tab.Current} — {tab.DirectChildCount}개 항목";
             UpdateSelectionCount(tab.Items);
+            ArmWatcher(left);   // 캐시된 탭으로 전환 → 그 폴더 감시로 갱신(B-12w)
         }
         else
         {
