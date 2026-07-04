@@ -31,13 +31,14 @@
                             <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
                                     Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <!-- 정렬 화살표(▲/▼) — 컬럼명 앞. 정렬 없으면 접힘 -->
+                                    <TextBlock Text="{x:Bind Glyph, Mode=OneWay}" Visibility="{x:Bind GlyphVisibility, Mode=OneWay}"
+                                               FontSize="9" Opacity="0.85" VerticalAlignment="Center" />
                                     <TextBlock Text="{x:Bind Column.Header}" FontWeight="SemiBold" Opacity="0.9"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{x:Bind Glyph, Mode=OneWay}" FontSize="9" Opacity="0.85"
-                                               VerticalAlignment="Center" Margin="1,0,0,0" />
-                                    <!-- 다중열 정렬 순번(1,2…). 단일 정렬이면 빈 문자열 -->
-                                    <TextBlock Text="{x:Bind OrderText, Mode=OneWay}" FontSize="8" Opacity="0.7"
-                                               VerticalAlignment="Center" />
+                                    <!-- 정렬 순번 원문자(①②③) — 컬럼명 뒤. 정렬 없으면 접힘 -->
+                                    <TextBlock Text="{x:Bind OrderText, Mode=OneWay}" Visibility="{x:Bind OrderVisibility, Mode=OneWay}"
+                                               FontSize="10" Opacity="0.8" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>
                             <!-- 리사이즈 핸들(우측 8px). 오버 시 SizeWestEast 커서(ColumnResizeGrip). PointerMove 캡처로 Width 조절 -->

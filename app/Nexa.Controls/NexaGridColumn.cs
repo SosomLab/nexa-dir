@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Microsoft.UI.Xaml;
 
 namespace Nexa.Controls;
 
@@ -75,6 +76,7 @@ public sealed class HeaderCell : INotifyPropertyChanged
                 _sort = value;
                 Raise(nameof(Sort));
                 Raise(nameof(Glyph));
+                Raise(nameof(GlyphVisibility));
             }
         }
     }
@@ -84,7 +86,7 @@ public sealed class HeaderCell : INotifyPropertyChanged
 
     private string _orderText = string.Empty;
 
-    /// <summary>헤더에 표시할 정렬 순번 텍스트(다중열 2개 이상일 때만 "1"/"2"…, 단일 정렬은 빈 문자열).</summary>
+    /// <summary>컬럼명 뒤에 표시할 정렬 순번 원문자(①②③…). 정렬 안 됐으면 빈 문자열.</summary>
     public string OrderText
     {
         get => _orderText;
@@ -94,17 +96,26 @@ public sealed class HeaderCell : INotifyPropertyChanged
             {
                 _orderText = value;
                 Raise(nameof(OrderText));
+                Raise(nameof(OrderVisibility));
             }
         }
     }
 
-    /// <summary>헤더에 표시할 정렬 글리프(▲ 오름 / ▼ 내림 / 없으면 빈 문자열).</summary>
+    /// <summary>컬럼명 <b>앞</b>에 표시할 정렬 화살표(▲ 오름 / ▼ 내림 / 없으면 빈 문자열).</summary>
     public string Glyph => _sort switch
     {
         ColumnSort.Ascending => "▲",
         ColumnSort.Descending => "▼",
         _ => string.Empty,
     };
+
+    /// <summary>화살표 표시 여부(정렬 없으면 접어 간격 제거).</summary>
+    public Visibility GlyphVisibility =>
+        _sort == ColumnSort.None ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>순번 원문자 표시 여부(빈 문자열이면 접어 간격 제거).</summary>
+    public Visibility OrderVisibility =>
+        string.IsNullOrEmpty(_orderText) ? Visibility.Collapsed : Visibility.Visible;
 
     private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 

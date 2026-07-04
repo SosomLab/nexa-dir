@@ -393,17 +393,20 @@ public sealed partial class NexaFileGrid : UserControl
         _ => ColumnSort.None,
     };
 
-    /// <summary>정렬 컬럼이 2개 이상일 때만 헤더에 순번(1,2…)을 표시(단일 정렬은 화살표만).</summary>
+    /// <summary>정렬된 각 컬럼의 순번을 <b>원문자</b>(①②③…)로 컬럼명 뒤에 표시(정렬 안 된 컬럼은 빈 문자열).</summary>
     private void UpdateSortOrderBadges()
     {
-        int sortedCount = _headerCells.Count(h => h.Sort != ColumnSort.None);
         foreach (var hc in _headerCells)
         {
-            hc.OrderText = sortedCount > 1 && hc.Sort != ColumnSort.None
-                ? hc.Order.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                : string.Empty;
+            hc.OrderText = hc.Sort != ColumnSort.None ? CircledNumber(hc.Order) : string.Empty;
         }
     }
+
+    /// <summary>1→① … 20→⑳(U+2460~). 범위 밖은 평문 숫자.</summary>
+    private static string CircledNumber(int n) =>
+        n is >= 1 and <= 20
+            ? ((char)('①' + (n - 1))).ToString()
+            : n.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static bool IsShiftDown() =>
         (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & CoreVirtualKeyStates.Down)
