@@ -916,6 +916,20 @@ public sealed partial class MainWindow : Window
         args.Data.RequestedOperation = DataPackageOperation.Move;
     }
 
+    /// <summary>드래그 종료(드롭 성공 또는 <b>ESC 취소</b>) — 상태 정리. 취소(결과 None)면 아무것도 이동 안 하고 알림(B-14).</summary>
+    private void OnRowDropCompleted(UIElement sender, DropCompletedEventArgs args)
+    {
+        _tabDwellTimer.Stop();
+        _tabDwellTarget = null;
+        DirGrid.StopDragAutoScroll();
+        DirGrid2.StopDragAutoScroll();
+        if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
+        {
+            StatusText.Text = "드래그 취소";   // ESC 등으로 취소 → 이동 없음
+        }
+        _dragPaths.Clear();
+    }
+
     /// <summary>폴더 행 위 드래그 → 자기 자신이 아닌 폴더면 이동 수락(캡션 표시).</summary>
     private void OnRowDragOver(object sender, DragEventArgs e)
     {

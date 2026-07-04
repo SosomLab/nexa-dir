@@ -94,6 +94,9 @@ public sealed partial class NexaFileGrid : UserControl
         _autoScroll.Stop();
     }
 
+    /// <summary>드래그 취소/종료 시 자동 스크롤을 강제 정지(호스트가 <c>DropCompleted</c>에서 호출, B-14).</summary>
+    public void StopDragAutoScroll() => StopAutoScroll();
+
     /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>
     public event Action<object>? RowRealized;
 

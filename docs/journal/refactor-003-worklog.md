@@ -127,4 +127,15 @@ refactor/003-audit  (분기: 1d9d312)
 
 7개 기능 단위 순차 구현 완료(각 개별 커밋): 더블클릭 실행·FileOps(맥 테스트)·컨텍스트 메뉴·복사/잘라/붙여/삭제 단축키·DnD 패널 내 이동+자동스크롤·좌우 패널 DnD·탭 hover 전환. **파일 작업은 C# `FileOps`에 중앙화**(향후 nexa-ops 이관 seam, 감사 C-1). 삭제=완전삭제(확인창). **전 기능 Windows 실기 QA 필요**(맥 빌드 불가, 상호작용 다수). 후속: OS 클립보드 연동·진행률/취소·Undo(nexa-ops).
 
+## B-14 · 2026-07-03 · 드래그 중 ESC 취소 → `(이 커밋)`
+
+- **요청**: 사용자 — "드래그 중 ESC로 동작 취소."
+- **원리**: WinUI `CanDrag` 드래그는 OS 드래그 루프가 관장 → **ESC가 네이티브로 드래그를 취소**(드롭 미발생, `DropResult=None`). 앱은 종료 시 상태만 정리하면 된다.
+- **무엇 · 파일**:
+  - [NexaFileGrid.xaml.cs](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): `StopDragAutoScroll()` 공개(취소 시 자동 스크롤 강제 정지).
+  - [MainWindow.xaml](../../app/Nexa.App/MainWindow.xaml): 행에 `DropCompleted="OnRowDropCompleted"`.
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `OnRowDropCompleted` — dwell 타이머·자동 스크롤 정지 + `_dragPaths` 정리. 결과가 `None`(ESC 취소 등)이면 이동 없이 "드래그 취소" 표시.
+- **효과**: ESC로 드래그를 취소하면 파일 이동이 일어나지 않고 hover 전환 타이머·자동 스크롤도 즉시 멈춤(잔여 상태 없음).
+- **검증**: 앱 빌드 PR CI. 실기 QA: 드래그 중 ESC → 이동 취소·상태바 표시·타이머 정지.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->
