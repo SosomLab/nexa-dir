@@ -72,4 +72,13 @@ refactor/003-audit  (분기: 1d9d312)
 - **무엇 · 파일** [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `OnRowDoubleTapped`가 파일이면 return하던 것을 **`ActivateItem(left,item)` 호출로 교체** — 폴더/링크=진입, 파일=`Launcher.LaunchFileAsync`(연결 프로그램). `ActivateItem`은 기존에 이미 존재(키보드 Alt+↓ 경로에서만 쓰이던 것)라 로직 재사용, 더블클릭에 배선만.
 - **검증**: 빌드(CI). 실기 QA: 파일 더블클릭 실행·폴더 더블클릭 진입.
 
+## B-8 · 2026-07-03 · 파일 작업 헬퍼 FileOps + 앱 클립보드 모델(맥 테스트) → `(이 커밋)`
+
+- **왜**: B-9~B-13(컨텍스트 메뉴·클립보드·DnD)의 공용 기반. 복사/이동/삭제를 흩뿌리지 않고 한 곳에 중앙화(향후 nexa-ops 이관 seam).
+- **무엇 · 파일**(순수 `System.IO` → **`Nexa.ViewModels`(net8.0)** 배치, 맥 테스트 가능):
+  - [FileOps](../../app/Nexa.ViewModels/FileOps.cs): `CopyInto`(파일/폴더 재귀, 충돌 시 " (2)"…)·`MoveInto`(제자리=무동작, 폴더 자기/하위 이동 방지)·`DeletePermanent`(완전삭제, 폴더 재귀)·`UniqueDest`/`LeafName`.
+  - [FileClipboard](../../app/Nexa.ViewModels/FileClipboard.cs): 앱 내부 클립보드(경로 목록 + cut/copy 모드). 붙여넣기 시 cut=이동·copy=복사. (OS 클립보드 연동은 후속.)
+  - [FileOpsTests](../../app/Nexa.ViewModels.Tests/FileOpsTests.cs): 복사(파일/재귀/충돌)·이동(제자리/자기이동)·삭제 7 테스트.
+- **검증**: `dotnet test`(net10 roll-forward) **32 통과**(FileOps 7 포함). UI 배선은 B-9/B-10. 앱 빌드는 PR CI.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->
