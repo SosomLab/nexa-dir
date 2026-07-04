@@ -193,3 +193,22 @@ refactor/003-audit  (분기: 1d9d312)
 - **DND-STACK**: 개수 스택 아이콘 — (2a)커스텀 비트맵 권장/(2b)COM 비권장.
 - **결론**: DND-KEY/FONT/STACK은 관리형 한계로 **양립 불가**(작은 폰트=정적 ↔ 라이브=마우스이동) → **셸/OLE 트랙 착수 시 일괄 해결**. 드래그 기능 자체는 마감.
 - **재검증 대기(2차 수정)**: DND-CAP2(폴더명 캡션)·DND-SELF(자기폴더 Move 금지/Copy 복제) Windows QA.
+
+## 세션 요약 · 2026-07-04 · 헤더 정렬(COL-2/3) 전 계층 + Alt 메뉴
+
+> 상세·시간기록: [TASKS.md](../TASKS.md)(COL-2a~2d·COL-3) · 설계 [docs/23 §4-1](../23-column-system.md).
+> "헤더 정렬 개발" 요청 → 코어 비교자→ABI→관리형→UI→다중열→표시까지 순차 구현. 코어/ABI는 맥 단위테스트, UI는 사용자 Windows 빌드 검증.
+
+### 구현(커밋)
+- **COL-2a** `03bb90a`: 코어 `nexa-tree` 정렬 비교자 — `SortKey`(Name/Ext/Size/Modified/Kind/None)+`SortSpec{keys, folders_first}`, `set_sort`(로드 폴더 재정렬+가시목록 재구성, 펼침 보존). 실제 필드 비교(크기/날짜=숫자), 폴더 Size=0 정규화. **맥 테스트 7(17 green)**.
+- **Alt 메뉴** `4e42db2`: `NexaMenuBar`에서 Alt 단독 탭 `OpenMenu(0)` 제거 → **Alt+문자 단축키로만** 메뉴 열림(열려 있으면 Alt로 닫기만).
+- **COL-2b/2c** `3f7e7ee`: ABI `nexa_tree_set_sort`(`NexaSortKey` 배열·folders_first, **ABI v5→v6**)+관리형 `TreeSetSort`/`VirtualTreeCollection.SetSort`. UI: `NexaGridColumn`→`HeaderCell`, 헤더 클릭 3상태 순환→`SortRequested`→호스트 매핑→`SetSort`. **인터롭 테스트 6 green**.
+- **COL-2d(좌/우 독립)** `7a80077`: 정렬 상태를 공유 컬럼→**패널별 `HeaderCell` 래퍼**로 이관(좌/우 독립 ▲▼). `OnSortRequested(bool left,…)` 클릭 패널만 적용. `PanelView.SortKeys`(null=코어기본/빈=열거/그외=지정)로 폴더 이동·탭 전환 지속. 너비는 여전히 공유(리사이즈 동기).
+- **COL-3(다중열)** `8fb7f9f`: **Shift+헤더**(이미 정렬된 컬럼 ≥1일 때만) — `ApplyMultiSort`(추가/방향순환/제거+순번당김), 아니면 단일 리셋. 코어 다중키 재사용. 트리거 **Alt→Shift**(사용자 확정).
+- **정렬 표시** `fc0f4a5`: 화살표(▲▼)를 **컬럼명 앞**, 순번을 **컬럼명 뒤 원문자**(①②③, `CircledNumber`). 빈 배지 `Collapsed`로 간격 제거.
+- **빌드 정정** `4634d1a`: `using Windows.System` 제거(`DispatcherQueuePriority` CS0104 모호성) → `IsShiftDown` 타입 완전 정규화. 사용자 Windows 빌드 오류 리포트 반영.
+
+### 상태
+- **코어/ABI(COL-2a·2b)**: 맥 단위테스트 green(코어 17·인터롭 6). **ABI v6** — Windows에서 코어 cdylib 재빌드 필요(VerifyAbi가 v5 dll 거부).
+- **UI(COL-2c·2d·3·표시)**: Windows 빌드 오류 1건 수정 후 재빌드 요청 상태. **실기 QA 대기**: 헤더 클릭 정렬·화살표 앞/원문자 뒤·Shift 다중열·좌우 독립·폴더 이동 지속·리사이즈 동기.
+- **미착수**: COL-4(컬럼 조정 모달: 표시/순서/너비). 패널별 정렬은 HeaderCell로 달성, per-panel ColumnLayout(§6-3) 전면 도입은 COL-4와 함께 후속.
