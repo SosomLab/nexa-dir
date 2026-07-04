@@ -44,8 +44,8 @@
 | B-11r | **휴지통 삭제**(일반) 배선 · Del=휴지통/Shift+Del=완전 | ✨ | P1 | 2026-07-04 | — | 2026-07-04 (배선 완료) | 실기QA 대기 | 🚧 | 컨텍스트 2종·단축키 완료, CI/QA |
 | B-12w | **자동 갱신 watcher**(Pub/Sub)+수동 새로고침(F5)+성능 | 📐 | P0 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | — | — | 📐 설계완료 | 1차 앱 FileSystemWatcher(BUG-006 근본) |
 | B-13u | **Undo/Redo**(Ctrl+Z/Y) 복사·이동·일반삭제+히스토리 클래스 | 📐 | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | — | — | 📐 설계완료 | OperationHistory·nexa-ops(B-1) |
-| B-14dnd | **DnD 디스크별 기본**(같은=이동/다른=복사)+**Alt 반전** | 📐 | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | — | — | 📐 설계완료(구현대기) | TransferPathsInto·DragDropModifiers |
-| B-15h | 드래그 **폴더 3초 hover 진입**+전환시간 설정(탭2초/폴더3초) | ✨📐 | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | — | — | 📐 설계완료(구현대기) | ViewOptions.TabDwellMs/FolderDwellMs |
+| B-14dnd | **DnD 디스크별 기본**(같은=이동/다른=복사)+**Alt 반전** | ✨ | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | 2026-07-04 | 실기QA 대기 | 🚧 | TransferPathsInto·DragOp/VolumeEq·DragDropModifiers |
+| B-15h | 드래그 **폴더 3초 hover 진입**+전환시간 설정(탭2초/폴더3초) | ✨ | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | 2026-07-04 | 실기QA 대기 | 🚧 | ViewOptions.TabDwellMs(2000)/FolderDwellMs(3000)·spring-load 진입 |
 | B-16 | Ctrl+좌클릭 다중선택 | ✨ | P2 | 2026-07-04 | — | 🚧(이미 토글 존재) | — | 🚧 | B-9m 재정비 시 검증 |
 | COL-1 | **확장자 컬럼**(기본 표시) | ✨ | P1 | 2026-07-04 | [docs/23 §2-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | ColExt 컬럼·`DirItem.Extension`·행 셀(양쪽) |
 | COL-2 | 컬럼 정렬 **3상태**(오름→내림→없음)+헤더 화살표 | ✨📐 | P1 | 2026-07-04 | [docs/23 §4](23-column-system.md)(3상태로 갱신) | — | — | 📐 | 클릭 순환 |

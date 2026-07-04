@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.ApplicationModel.DataTransfer.DragDrop;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Core;
@@ -35,7 +36,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         // 좌/우 패널이 같은 컬럼 인스턴스를 공유 → 리사이즈가 헤더·본문·양쪽 패널에 동시 반영(A3/A4).
         // 표시 순서 = 이름 · 수정한 날짜 · 종류 · 크기(Finder 스타일).
-        foreach (var key in new[] { "ColName", "ColDate", "ColKind", "ColSize" })
+        foreach (var key in new[] { "ColName", "ColExt", "ColDate", "ColKind", "ColSize" })
         {
             var col = (NexaGridColumn)RootGrid.Resources[key];
             DirGrid.Columns.Add(col);
@@ -58,16 +59,26 @@ public sealed partial class MainWindow : Window
             p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
         }
         // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
-        DirGrid.BodyDropped += () => OnPanelBackgroundDrop(true);
-        DirGrid2.BodyDropped += () => OnPanelBackgroundDrop(false);
-        // 드래그 중 탭 위 2초 머물면 그 탭으로 전환(폴더가 보이게, B-13).
-        _tabDwellTimer.Interval = TimeSpan.FromSeconds(2);
+        DirGrid.BodyDropped += m => OnPanelBackgroundDrop(true, m);
+        DirGrid2.BodyDropped += m => OnPanelBackgroundDrop(false, m);
+        // 드래그 중 탭 위에 머물면 그 탭으로 전환(폴더가 보이게, B-13 · 시간=설정 TabDwellMs, B-15h).
+        _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
         _tabDwellTimer.Tick += (_, _) =>
         {
             _tabDwellTimer.Stop();
             if (_tabDwellTarget is PanelTab t)
             {
                 SwitchToTab(_left.Tabs.Contains(t), t);
+            }
+        };
+        // 드래그 중 폴더 위에 머물면 그 폴더로 진입(spring-load, 시간=설정 FolderDwellMs, B-15h).
+        _folderDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.FolderDwellMs);
+        _folderDwellTimer.Tick += (_, _) =>
+        {
+            _folderDwellTimer.Stop();
+            if (_folderDwellTarget is DirItem f && f.IsDir)
+            {
+                Navigate(_folderDwellLeft, f.FullPath, record: true);   // 그 폴더로 진입(계속 드래그해 하위에 드롭)
             }
         };
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
@@ -1007,6 +1018,7 @@ public sealed partial class MainWindow : Window
     {
         _tabDwellTimer.Stop();
         _tabDwellTarget = null;
+        CancelFolderDwell();
         DirGrid.StopDragAutoScroll();
         DirGrid2.StopDragAutoScroll();
         if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
@@ -1022,30 +1034,49 @@ public sealed partial class MainWindow : Window
         if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir
             && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
         {
-            e.AcceptedOperation = DataPackageOperation.Move;
-            e.DragUIOverride.Caption = $"{item.Name}(으)로 이동";
+            var op = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Alt=반전(B-14dnd)
+            e.AcceptedOperation = op;
+            e.DragUIOverride.Caption = $"{item.Name}(으)로 {(op == DataPackageOperation.Copy ? "복사" : "이동")}";
             e.DragUIOverride.IsCaptionVisible = true;
+            // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
+            if (!ReferenceEquals(_folderDwellTarget, item))
+            {
+                _folderDwellTarget = item;
+                _folderDwellLeft = PanelUnderPointer(fe) ?? _activeLeft;
+                _folderDwellTimer.Stop();
+                _folderDwellTimer.Start();
+            }
         }
         else
         {
             e.AcceptedOperation = DataPackageOperation.None;
+            CancelFolderDwell();
         }
     }
 
-    /// <summary>폴더 행에 드롭 → 그 폴더로 이동(소비). 파일/빈 영역 드롭은 소비하지 않아 본문으로 버블(현재 폴더로, B-12).</summary>
+    /// <summary>드래그가 폴더 행에서 벗어나면 spring-load dwell 취소(B-15h).</summary>
+    private void OnRowDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && ReferenceEquals(_folderDwellTarget, item))
+        {
+            CancelFolderDwell();
+        }
+    }
+
+    /// <summary>폴더 행에 드롭 → 그 폴더로 이동/복사(디스크·Alt에 따라). 파일/빈 영역은 본문으로 버블(현재 폴더로, B-12).</summary>
     private void OnRowDrop(object sender, DragEventArgs e)
     {
+        CancelFolderDwell();
         if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir && _dragPaths.Count > 0)
         {
-            bool destLeft = PanelUnderPointer(fe) ?? _activeLeft;
-            MovePathsInto(_dragSourceLeft, _dragPaths, item.FullPath, destLeft);
+            TransferPathsInto(_dragSourceLeft, _dragPaths, item.FullPath, DragOp(item.FullPath, e.Modifiers));
             _dragPaths.Clear();
             e.Handled = true;   // 폴더 드롭만 소비
         }
     }
 
-    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동(좌우 겸용, B-12).</summary>
-    private void OnPanelBackgroundDrop(bool destLeft)
+    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동/복사(좌우 겸용, B-12/B-14dnd).</summary>
+    private void OnPanelBackgroundDrop(bool destLeft, DragDropModifiers mods)
     {
         if (_dragPaths.Count == 0)
         {
@@ -1054,7 +1085,7 @@ public sealed partial class MainWindow : Window
         string destDir = Panel(destLeft).Active.Current;
         if (!string.IsNullOrEmpty(destDir))
         {
-            MovePathsInto(_dragSourceLeft, _dragPaths, destDir, destLeft);
+            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, DragOp(destDir, mods));
         }
         _dragPaths.Clear();
     }
@@ -1064,15 +1095,33 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherTimer _tabDwellTimer = new();
     private PanelTab? _tabDwellTarget;   // 현재 드래그가 머무는 탭
 
-    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동 수락.</summary>
+    // 드래그 중 폴더 위 dwell 진입(spring-load, B-15h).
+    private readonly DispatcherTimer _folderDwellTimer = new();
+    private DirItem? _folderDwellTarget;
+    private bool _folderDwellLeft;
+
+    private void CancelFolderDwell()
+    {
+        _folderDwellTimer.Stop();
+        _folderDwellTarget = null;
+    }
+
+    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(디스크·Alt).</summary>
     private void OnTabDragOver(object sender, DragEventArgs e)
     {
-        e.AcceptedOperation = _dragPaths.Count > 0 ? DataPackageOperation.Move : DataPackageOperation.None;
-        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && !ReferenceEquals(_tabDwellTarget, tab))
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0)
         {
-            _tabDwellTarget = tab;
-            _tabDwellTimer.Stop();
-            _tabDwellTimer.Start();   // 이 탭에 2초 머물면 전환(Tick에서 SwitchToTab)
+            e.AcceptedOperation = DragOp(tab.Current, e.Modifiers);
+            if (!ReferenceEquals(_tabDwellTarget, tab))
+            {
+                _tabDwellTarget = tab;
+                _tabDwellTimer.Stop();
+                _tabDwellTimer.Start();   // 이 탭에 2초 머물면 전환(Tick에서 SwitchToTab)
+            }
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
         }
     }
 
@@ -1094,36 +1143,73 @@ public sealed partial class MainWindow : Window
         if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0
             && !string.IsNullOrEmpty(tab.Current))
         {
-            MovePathsInto(_dragSourceLeft, _dragPaths, tab.Current, _left.Tabs.Contains(tab));
+            TransferPathsInto(_dragSourceLeft, _dragPaths, tab.Current, DragOp(tab.Current, e.Modifiers));
         }
         _dragPaths.Clear();
         e.Handled = true;
     }
 
-    /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 이동하고 관련 패널을 재로드한다(제자리 제외).</summary>
-    private void MovePathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, bool destLeft)
+    /// <summary>드롭 기본 연산: 같은 볼륨=이동 / 다른 볼륨=복사, **Alt**=반전(B-14dnd).</summary>
+    private DataPackageOperation DragOp(string destDir, DragDropModifiers mods)
     {
+        bool move = _dragPaths.Count == 0 || VolumeEq(_dragPaths[0], destDir);
+        if (mods.HasFlag(DragDropModifiers.Alt))
+        {
+            move = !move;   // Alt = 이동↔복사 반전
+        }
+        return move ? DataPackageOperation.Move : DataPackageOperation.Copy;
+    }
+
+    /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(같은 디스크=이동 취급, 보수적).</summary>
+    private static bool VolumeEq(string a, string b)
+    {
+        try
+        {
+            string ra = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(a.TrimEnd('\\', '/'))) ?? string.Empty;
+            string rb = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(b.TrimEnd('\\', '/'))) ?? string.Empty;
+            return string.Equals(ra, rb, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 <paramref name="op"/>(이동/복사)한다. 제자리 이동 제외, 양쪽 재로드.</summary>
+    private void TransferPathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, DataPackageOperation op)
+    {
+        bool copy = op == DataPackageOperation.Copy;
         int ok = 0;
         string? err = null;
         foreach (var p in paths)
         {
             try
             {
-                string? parent = System.IO.Path.GetDirectoryName(p.TrimEnd('\\', '/'));
-                if (parent is not null && PathEq(parent, destDir))
+                if (copy)
                 {
-                    continue;   // 제자리 이동
+                    FileOps.CopyInto(p, destDir);
+                    ok++;
                 }
-                FileOps.MoveInto(p, destDir);
-                ok++;
+                else
+                {
+                    string? parent = System.IO.Path.GetDirectoryName(p.TrimEnd('\\', '/'));
+                    if (parent is not null && PathEq(parent, destDir))
+                    {
+                        continue;   // 제자리 이동
+                    }
+                    FileOps.MoveInto(p, destDir);
+                    ok++;
+                }
             }
             catch (Exception ex)
             {
                 err = ex.Message;
             }
         }
-        StatusText.Text = err is null ? $"이동 {ok}개" : $"이동 일부 실패: {err}";
-        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지). destLeft는 향후 정밀 갱신용 유지.
+        string verb = copy ? "복사" : "이동";
+        _ = sourceLeft;   // 향후 정밀 갱신용(현재는 양쪽 재로드)
+        StatusText.Text = err is null ? $"{verb} {ok}개" : $"{verb} 일부 실패: {err}";
+        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
     }
 
     private bool _activeLeft = true;

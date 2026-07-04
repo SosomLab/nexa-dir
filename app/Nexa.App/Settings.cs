@@ -48,6 +48,12 @@ internal sealed class ViewOptions
 
     /// <summary>그리드 상단 헤더 정보란(경로 — N개 항목) 표시 여부(기본 <c>true</c>). 설정 UI 토글 예정(TODO).</summary>
     public bool ShowHeaderInfo { get; set; } = true;
+
+    /// <summary>드래그 중 탭 위에 머물러 그 탭으로 전환되기까지 시간(ms, 기본 2000). 설정 UI 예정(B-15h).</summary>
+    public int TabDwellMs { get; set; } = 2000;
+
+    /// <summary>드래그 중 폴더 위에 머물러 그 폴더로 진입(spring-load)되기까지 시간(ms, 기본 3000). 설정 UI 예정(B-15h).</summary>
+    public int FolderDwellMs { get; set; } = 3000;
 }
 
 /// <summary>
