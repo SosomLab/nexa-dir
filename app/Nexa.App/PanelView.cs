@@ -35,6 +35,12 @@ internal sealed class PanelView
     /// <summary>비동기 로드 재진입 가드 세대(로드 중 재이동 시 이전 결과 폐기, 감사 P1).</summary>
     public int LoadGen;
 
+    /// <summary>
+    /// 이 패널의 정렬 키(좌/우 <b>독립</b>, COL-2c). <c>null</c>=미설정(코어 기본 폴더우선·이름오름),
+    /// 빈 배열=명시적 "없음"(열거 순서), 그 외=지정 정렬. 폴더 이동/탭 전환 시 새 핸들에 재적용해 지속.
+    /// </summary>
+    public NativeInterop.NexaSortKey[]? SortKeys;
+
     /// <summary>활성 탭의 가상화 목록(코어 트리 가시행 스트림).</summary>
     public VirtualTreeCollection Items => Active.Items;
 }

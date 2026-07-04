@@ -55,9 +55,9 @@ public sealed partial class MainWindow : Window
             DirGrid.Columns.Add(col);
             DirGrid2.Columns.Add(col);
         }
-        // 헤더 클릭 정렬(COL-2c). 컬럼이 좌/우 공유(표시도 공유)이므로 어느 헤더를 눌러도 양쪽 동일 적용.
-        DirGrid.SortRequested += OnSortRequested;
-        DirGrid2.SortRequested += OnSortRequested;
+        // 헤더 클릭 정렬(COL-2c) — 좌/우 독립. 각 그리드는 자기 패널에만 적용(표시도 패널별 HeaderCell).
+        DirGrid.SortRequested += d => OnSortRequested(true, d);
+        DirGrid2.SortRequested += d => OnSortRequested(false, d);
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -150,10 +150,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ── 헤더 정렬 (COL-2c) ──────────────────────────────────────────────
-
-    /// <summary>현재 정렬 키(좌/우 공유 — 컬럼 인스턴스 공유). 폴더 로드 시 새 핸들에도 적용해 지속.</summary>
-    private NativeInterop.NexaSortKey[] _sortKeys = System.Array.Empty<NativeInterop.NexaSortKey>();
+    // ── 헤더 정렬 (COL-2c) — 좌/우 독립 ──────────────────────────────────
 
     /// <summary>컬럼 키 문자열 → 코어 정렬 키 코드(0=Name 1=Ext 2=Size 3=Modified 4=Kind 5=None).</summary>
     private static uint SortKeyCode(string key) => key switch
@@ -167,16 +164,17 @@ public sealed partial class MainWindow : Window
     };
 
     /// <summary>
-    /// 헤더 클릭 정렬 요청 → 코어 정렬 키로 매핑하고 <b>양쪽 패널 활성 탭</b>에 적용(컬럼·표시가 좌/우 공유).
-    /// 이후 폴더 이동에도 <see cref="_sortKeys"/>로 지속(LoadDirectory). 패널별 독립은 후속(docs/23 §6-3).
+    /// 헤더 클릭 정렬 요청 → 코어 정렬 키로 매핑하고 <b>클릭한 패널에만</b> 적용(좌/우 독립).
+    /// 패널별 <see cref="PanelView.SortKeys"/>에 저장해 폴더 이동/탭 전환 시 그 패널 핸들에 재적용(지속).
+    /// 빈 목록(3상태 "없음") = 빈 배열 저장 → 열거 순서. (컬럼은 공유하나 정렬 상태는 HeaderCell·패널별.)
     /// </summary>
-    private void OnSortRequested(IReadOnlyList<SortDescriptor> descs)
+    private void OnSortRequested(bool left, IReadOnlyList<SortDescriptor> descs)
     {
-        _sortKeys = descs
+        var keys = descs
             .Select(d => new NativeInterop.NexaSortKey(SortKeyCode(d.Key), d.Descending))
             .ToArray();
-        Panel(true).Active.Items.SetSort(_sortKeys, foldersFirst: true);
-        Panel(false).Active.Items.SetSort(_sortKeys, foldersFirst: true);
+        Panel(left).SortKeys = keys;   // 빈 배열=명시적 "없음"(열거 순서), null과 구분
+        Panel(left).Active.Items.SetSort(keys, foldersFirst: true);
     }
 
     /// <summary>
@@ -200,7 +198,7 @@ public sealed partial class MainWindow : Window
         try
         {
             // 열거+펼침(전체 read_dir + metadata syscall + 정렬)을 백그라운드로 오프로드 → UI 무블록.
-            var sortKeys = _sortKeys;   // 현재 정렬 스냅샷(백그라운드에 넘겨 새 핸들에 적용, COL-2c 지속)
+            var sortKeys = Panel(left).SortKeys;   // 이 패널 정렬 스냅샷(null=코어 기본, 배열=지정/열거)
             result = await Task.Run(() =>
                 VirtualTreeCollection.OpenAndExpand(path, v.ShowHiddenFiles, v.ShowDotFiles, expanded, sortKeys));
         }
@@ -1450,6 +1448,10 @@ public sealed partial class MainWindow : Window
         if (tab.Loaded && tab.Items.Handle != IntPtr.Zero)
         {
             var (grid, header, pathBar) = PanelUi(left);
+            if (Panel(left).SortKeys is { } sk)
+            {
+                tab.Items.SetSort(sk, foldersFirst: true);   // 이 패널 정렬을 캐시 탭에도 반영(전환 일관, 바인딩 전이라 무플래시)
+            }
             grid.ItemsSource = tab.Items;   // 열린 핸들 재사용 — 재열거·재펼침 없음
             grid.ScrollToTop();             // ItemsSource 교체 후 뷰포트 확정(잔존 오프셋으로 빈 화면 방지)
             pathBar.Path = tab.Current;

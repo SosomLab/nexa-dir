@@ -53,6 +53,26 @@ public sealed partial class NexaFileGrid : UserControl
             }
             BodyScroll.ChangeView(null, BodyScroll.VerticalOffset + _autoScrollDelta, null, disableAnimation: true);
         };
+        // 헤더 셀(패널별 정렬 상태 래퍼)은 호스트가 Columns를 채운 뒤(생성자 이후) 구성 → Loaded에서 1회 빌드.
+        Loaded += (_, _) => BuildHeaderCells();
+    }
+
+    // 이 패널(그리드)만의 헤더 셀 — 정렬 표시(▲/▼)가 좌/우 독립(공유 컬럼은 너비만 공유).
+    private readonly List<HeaderCell> _headerCells = new();
+    private bool _headerBuilt;
+
+    private void BuildHeaderCells()
+    {
+        if (_headerBuilt || Columns.Count == 0)
+        {
+            return;
+        }
+        foreach (var col in Columns)
+        {
+            _headerCells.Add(new HeaderCell(col));
+        }
+        HeaderRepeater.ItemsSource = _headerCells;
+        _headerBuilt = true;
     }
 
     // ── 드래그 중 가장자리 자동 스크롤 (B-11) ────────────────────────
@@ -289,30 +309,30 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>헤더 정렬 요청 — 현재 활성 정렬 서술자 목록(순번 순). 호스트가 코어에 적용(도메인 비종속).</summary>
     public event Action<IReadOnlyList<SortDescriptor>>? SortRequested;
 
-    /// <summary>헤더 셀 클릭 → 그 컬럼 정렬 3상태 순환(없음→오름→내림→없음). 단일 컬럼(다른 컬럼 해제).</summary>
+    /// <summary>헤더 셀 클릭 → 그 컬럼 정렬 3상태 순환(없음→오름→내림→없음). 단일 컬럼(다른 셀 해제). 이 패널만.</summary>
     private void OnHeaderTapped(object sender, TappedRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.Tag is not NexaGridColumn col || !col.Sortable)
+        if (sender is not FrameworkElement fe || fe.Tag is not HeaderCell cell || !cell.Column.Sortable)
         {
             return;
         }
-        ColumnSort next = col.SortDirection switch
+        ColumnSort next = cell.Sort switch
         {
             ColumnSort.None => ColumnSort.Ascending,
             ColumnSort.Ascending => ColumnSort.Descending,
             _ => ColumnSort.None,
         };
-        // 단일 컬럼 정렬(COL-2c): 나머지 컬럼 해제. (Alt+클릭 다중 정렬은 COL-3.)
-        foreach (var c in Columns)
+        // 단일 컬럼 정렬(COL-2c): 이 패널의 나머지 헤더 셀 해제. (Alt+클릭 다중 정렬은 COL-3.)
+        foreach (var hc in _headerCells)
         {
-            if (!ReferenceEquals(c, col))
+            if (!ReferenceEquals(hc, cell))
             {
-                c.SortDirection = ColumnSort.None;
-                c.SortOrder = 0;
+                hc.Sort = ColumnSort.None;
+                hc.Order = 0;
             }
         }
-        col.SortDirection = next;
-        col.SortOrder = next == ColumnSort.None ? 0 : 1;
+        cell.Sort = next;
+        cell.Order = next == ColumnSort.None ? 0 : 1;
         e.Handled = true;
         RaiseSortRequested();
     }
@@ -320,11 +340,11 @@ public sealed partial class NexaFileGrid : UserControl
     private void RaiseSortRequested()
     {
         var list = new List<SortDescriptor>();
-        foreach (var c in Columns)
+        foreach (var hc in _headerCells)
         {
-            if (c.SortDirection != ColumnSort.None)
+            if (hc.Sort != ColumnSort.None)
             {
-                list.Add(new SortDescriptor(c.Key, c.SortDirection == ColumnSort.Descending, c.SortOrder));
+                list.Add(new SortDescriptor(hc.Column.Key, hc.Sort == ColumnSort.Descending, hc.Order));
             }
         }
         list.Sort((a, b) => a.Order.CompareTo(b.Order));

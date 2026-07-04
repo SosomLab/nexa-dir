@@ -50,7 +50,8 @@
 | COL-1 | **확장자 컬럼**(기본 표시) | ✨ | P1 | 2026-07-04 | [docs/23 §2-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | ColExt 컬럼·`DirItem.Extension`·행 셀(양쪽) |
 | COL-2a | 정렬 **코어 비교자**(SortKey/SortSpec·다중키·None=열거순서·set_sort 재정렬) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 (cmp_nodes/set_sort) | **맥 단위테스트 7 green(17)** | ✅(코어) | 폴더 Size=0 정규화·펼침 보존. 다음 COL-2b ABI |
 | COL-2b | 정렬 **ABI**(nexa_tree_set_sort·NexaSortKey·ABI v6)+관리형 TreeSetSort | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | **맥 라운드트립 테스트 green(6)** | ✅(코어) | 키 배열(다중키 대비)·folders_first |
-| COL-2c | 정렬 **UI**(3상태 헤더 클릭·▲/▼/무 표시·SortRequested→SetSort) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | OnHeaderTapped·SortGlyph·양쪽패널 적용(컬럼 공유)·로드시 지속 |
+| COL-2c | 정렬 **UI**(3상태 헤더 클릭·▲/▼/무 표시·SortRequested→SetSort) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | OnHeaderTapped·HeaderCell·로드/전환시 지속 |
+| COL-2d | 정렬 **좌/우 패널 독립**(HeaderCell 래퍼·PanelView.SortKeys) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | 정렬 상태를 컬럼→패널별 이관, 너비만 공유(리사이즈 동기 유지) |
 | COL-3 | **다중 컬럼 정렬** — Alt+헤더 클릭 키 추가(순번) | ✨📐 | P2 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 | 소~중 · COL-2 위 |
 | COL-4 | 컬럼 조정 **모달**(표시/순서/너비) | ✨ | P2 | 2026-07-04 | [docs/23 §6-1](23-column-system.md) | — | — | ☐ | COL-1/2/3 이후 |
 | B-17c | **빈 영역 클릭 → 선택 취소** | ✨ | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | OnGridPressed·RowUnderPointer |

@@ -42,16 +42,17 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
     /// </summary>
     public static (IntPtr Handle, int DirectCount) OpenAndExpand(
         string path, bool showHidden, bool showDotFiles, IReadOnlyList<string> expandedPaths,
-        NativeInterop.NexaSortKey[] sortKeys)
+        NativeInterop.NexaSortKey[]? sortKeys)
     {
         IntPtr handle = NativeInterop.TreeOpen(path, showHidden, showDotFiles);
         if (handle == IntPtr.Zero)
         {
             return (IntPtr.Zero, 0);
         }
-        if (sortKeys.Length > 0)
+        if (sortKeys is not null)
         {
-            NativeInterop.TreeSetSort(handle, sortKeys, foldersFirst: true);   // 현재 정렬을 새 핸들에 적용(COL-2c 지속)
+            // null=미설정(코어 기본 이름오름 유지). 배열(빈 포함)=지정 정렬/명시적 없음(열거)을 새 핸들에 적용(COL-2c 지속).
+            NativeInterop.TreeSetSort(handle, sortKeys, foldersFirst: true);
         }
         int direct = NativeInterop.TreeVisibleLen(handle);   // 펼침 재적용 전 직접 자식 수
         // 얕은→깊은 순(부모 먼저 펼쳐야 자식이 가시화되어 다음 경로가 매칭됨). 경로당 단일 호출(P3).

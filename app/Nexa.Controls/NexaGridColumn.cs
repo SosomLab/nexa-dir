@@ -11,10 +11,9 @@ public enum ColumnSort
 }
 
 /// <summary>
-/// <see cref="NexaFileGrid"/> 컬럼 정의(도메인 비종속). 헤더/너비/키/정렬가능 여부·정렬 상태를 안다.
+/// <see cref="NexaFileGrid"/> 컬럼 정의(도메인 비종속). 헤더/너비/키/정렬가능 여부를 안다.
 /// 하나의 인스턴스를 헤더·본문·좌/우가 공유하면 <b>너비 리사이즈가 동시에 반영</b>된다(A3/A4).
-/// COL-2c(MVP): 컬럼이 좌/우 공유이므로 <b>정렬 표시(▲/▼)도 공유</b> — 헤더 클릭은 양쪽 패널을 동일
-/// 정렬로 적용한다. 패널별 독립 정렬(docs/23 §3-1)은 per-panel ColumnLayout(§6-3) 도입 후속.
+/// <b>정렬 상태는 컬럼이 아니라 패널별 <see cref="HeaderCell"/>이 보유</b> → 좌/우 독립 정렬 표시(docs/23 §3-1).
 /// </summary>
 public sealed class NexaGridColumn : INotifyPropertyChanged
 {
@@ -26,47 +25,6 @@ public sealed class NexaGridColumn : INotifyPropertyChanged
 
     /// <summary>헤더 클릭 정렬 허용 여부.</summary>
     public bool Sortable { get; set; } = true;
-
-    private ColumnSort _sortDirection = ColumnSort.None;
-
-    /// <summary>현재 정렬 방향(없음/오름/내림). 변경 시 헤더 글리프(<see cref="SortGlyph"/>)가 갱신된다.</summary>
-    public ColumnSort SortDirection
-    {
-        get => _sortDirection;
-        set
-        {
-            if (_sortDirection != value)
-            {
-                _sortDirection = value;
-                Raise(nameof(SortDirection));
-                Raise(nameof(SortGlyph));
-            }
-        }
-    }
-
-    private int _sortOrder;
-
-    /// <summary>다중 컬럼 정렬 순번(1차=1…, 없음=0). COL-3(Alt+헤더)에서 사용.</summary>
-    public int SortOrder
-    {
-        get => _sortOrder;
-        set
-        {
-            if (_sortOrder != value)
-            {
-                _sortOrder = value;
-                Raise(nameof(SortOrder));
-            }
-        }
-    }
-
-    /// <summary>헤더에 표시할 정렬 글리프(▲ 오름 / ▼ 내림 / 없으면 빈 문자열).</summary>
-    public string SortGlyph => _sortDirection switch
-    {
-        ColumnSort.Ascending => "▲",   // ▲
-        ColumnSort.Descending => "▼",  // ▼
-        _ => string.Empty,
-    };
 
     private double _width = 120;
 
@@ -91,3 +49,48 @@ public sealed class NexaGridColumn : INotifyPropertyChanged
 
 /// <summary>헤더 정렬 클릭이 만든 정렬 서술자(컨트롤→호스트). 호스트가 <see cref="NexaGridColumn.Key"/>를 코어 키로 매핑.</summary>
 public readonly record struct SortDescriptor(string Key, bool Descending, int Order);
+
+/// <summary>
+/// 헤더 셀 뷰모델(<b>패널별</b>). 공유 <see cref="NexaGridColumn"/>(너비·헤더·키)을 참조하되 <b>정렬 상태는
+/// 이 셀만</b> 보유 → 좌/우 패널이 독립된 정렬 표시(▲/▼)를 가진다(docs/23 §3-1, per-panel). 너비는 공유
+/// 컬럼에 바인딩하므로 리사이즈는 여전히 좌/우 동기.
+/// </summary>
+public sealed class HeaderCell : INotifyPropertyChanged
+{
+    public HeaderCell(NexaGridColumn column) => Column = column;
+
+    /// <summary>공유 컬럼 정의(너비 동기·헤더·키·정렬가능).</summary>
+    public NexaGridColumn Column { get; }
+
+    private ColumnSort _sort = ColumnSort.None;
+
+    /// <summary>이 패널에서의 정렬 방향(없음/오름/내림). 변경 시 <see cref="Glyph"/> 갱신.</summary>
+    public ColumnSort Sort
+    {
+        get => _sort;
+        set
+        {
+            if (_sort != value)
+            {
+                _sort = value;
+                Raise(nameof(Sort));
+                Raise(nameof(Glyph));
+            }
+        }
+    }
+
+    /// <summary>다중 컬럼 정렬 순번(1차=1…, 없음=0). COL-3(Alt+헤더)에서 사용.</summary>
+    public int Order { get; set; }
+
+    /// <summary>헤더에 표시할 정렬 글리프(▲ 오름 / ▼ 내림 / 없으면 빈 문자열).</summary>
+    public string Glyph => _sort switch
+    {
+        ColumnSort.Ascending => "▲",
+        ColumnSort.Descending => "▼",
+        _ => string.Empty,
+    };
+
+    private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}

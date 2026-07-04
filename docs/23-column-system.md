@@ -75,8 +75,8 @@ ColumnLayout
 **COL-2c · UI/앱** (Windows 빌드·실기) [규모 중] — ✅ 구현(2026-07-04, 실기 QA 대기)
 - `NexaGridColumn`에 `SortDirection`(None/Asc/Desc) + `SortOrder` + `SortGlyph`(▲/▼) 추가.
 - `NexaFileGrid` 헤더 셀에 **정렬 글리프**(▲/▼) + **헤더 클릭(`OnHeaderTapped`)**(리사이즈 핸들과 영역 분리) → **3상태 순환**(asc→desc→none, 단일 컬럼=나머지 해제) → **`SortRequested`(`SortDescriptor` 목록)** 이벤트.
-- 앱: `SortRequested` → 코어 키 매핑(`SortKeyCode`) → `Items.SetSort` + `_sortKeys` 지속(LoadDirectory에서 새 핸들에 재적용).
-- ⚠ **MVP 제약(패널별 독립 미구현)**: 컬럼 인스턴스가 좌/우 공유(너비 동기) → **정렬 표시도 공유** → 헤더 클릭이 **양쪽 패널을 동일 정렬**로 적용. 패널별 독립 정렬(§3-1)은 **per-panel `ColumnLayout`(§6-3) 도입 후속**.
+- 앱: `SortRequested(left, descs)` → 코어 키 매핑(`SortKeyCode`) → **클릭한 패널만** `Items.SetSort` + `PanelView.SortKeys`(패널별)로 폴더 이동/탭 전환 시 재적용(지속).
+- ★ **패널별 독립(구현)**: 정렬 상태를 컬럼이 아니라 **패널별 `HeaderCell` 래퍼**가 보유 → 좌/우가 **독립된 정렬·표시(▲/▼)**. 공유 `NexaGridColumn`은 **너비만** 참조(리사이즈는 여전히 좌/우 동기). `SortKeys`: `null`=코어 기본(이름오름), 빈 배열=명시적 "없음"(열거), 그 외=지정.
 
 **COL-3 · 다중 컬럼(Alt+헤더)** [규모 소~중, COL-2 위]
 - 코어 비교자는 이미 키 목록 지원(COL-2a). UI: **Alt+헤더 클릭 = 키 추가/토글**(순번 부여), 단순 클릭 = 단일 리셋. 헤더에 순번 배지.
