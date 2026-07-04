@@ -59,6 +59,33 @@ ColumnLayout
 - 실제 비교는 **도메인**이 수행: `NexaFileGrid`는 헤더 클릭 시 **`SortRequested`(SortDescriptor 목록)** 이벤트만 발생 → 앱이 정렬 후 `ItemsSource` 갱신(컨트롤은 도메인 비종속 유지).
 - 그룹화(종류/날짜 등)는 후속.
 
+### 4-1. 정렬 구현 계획 (COL-2/COL-3 · 다레벨 트리 · 코어 소유)
+
+> **핵심 난점**: 정렬 대상이 **코어 `nexa-tree`의 가시행**(다레벨 DFS). 현재 코어는 **폴더우선+이름 고정**(`sort_ids`)이라, 사용자 정렬은 **코어 비교자를 설정 가능**하게 바꾸고 **각 부모의 자식을 그 규칙으로 재정렬**해야 한다. 표시 텍스트가 아닌 **실제 필드**로 비교(크기/날짜=숫자).
+
+**COL-2a · 코어(`nexa-tree`) — 설정 가능 비교자** (맥 단위테스트 가능) [규모 중]
+- `SortKey` enum: `Name`·`Ext`·`Size`·`Modified`·`Kind`(+`None`=열거 순서). `SortSpec{ keys: Vec<(SortKey, desc)>, folders_first: bool }`.
+- `sort_ids`를 spec 기반으로: 키 순서대로 비교(1차 같으면 2차…), 각 키 asc/desc. `folders_first`(기본 on) 우선.
+- **"없음(None)" = 원래 열거 순서**: children에 **원본 열거 순서 보존**(별도 인덱스 or 재열거) → None이면 그 순서로.
+- `set_sort(spec)`: **로드된 모든 폴더의 children 재정렬** + `visible` 재구축(펼침 상태 보존) → 변경 통지(전체 Reset 또는 범위). 단위테스트(정렬 키별·방향·다중키·None 복원·펼친 상태 유지).
+
+**COL-2b · ABI + 관리형** (맥 라운드트립 테스트) [규모 소]
+- `nexa_tree_set_sort(handle, keys_ptr, key_count)` 또는 단일 `nexa_tree_set_sort(handle, key:u32, dir:u32)`(0=none/1=asc/2=desc) — 다중은 목록 전달. ABI 버전 범프. 관리형 `TreeSetSort(spec)`.
+
+**COL-2c · UI/앱** (Windows 빌드·실기) [규모 중]
+- `NexaGridColumn`에 `SortDirection`(None/Asc/Desc) + `SortOrder`(다중 순번) 추가.
+- `NexaFileGrid` 헤더 셀에 **정렬 표시**(▲/▼/무 + 다중 순번) + **헤더 클릭 핸들러**(리사이즈 핸들과 영역 분리) → **3상태 순환**(asc→desc→none) → **`SortRequested`(SortDescriptor 목록)** 이벤트(컨트롤은 도메인 비종속).
+- 앱: `SortRequested` → `TreeSetSort` → 재로드(펼침 유지). **패널별 독립**(각 패널 트리의 sort 별도).
+
+**COL-3 · 다중 컬럼(Alt+헤더)** [규모 소~중, COL-2 위]
+- 코어 비교자는 이미 키 목록 지원(COL-2a). UI: **Alt+헤더 클릭 = 키 추가/토글**(순번 부여), 단순 클릭 = 단일 리셋. 헤더에 순번 배지.
+
+**COL-4 · 컬럼 조정 모달**(표시/순서/너비) [별도, §6-1] — COL-1~3 이후.
+
+**부가(후속)**: 폴더별 정렬 상태 저장·복원(§3-1) · 그룹화 · 정렬 안정성(동률 시 이름 tie-break).
+
+**의존/순서**: COL-2a(코어) → COL-2b(ABI) → COL-2c(UI) → COL-3(다중) → COL-4(모달). 코어(2a/2b)는 맥에서 완전 검증 가능.
+
 ## 5. 컴포넌트 요구 (구조가 지원해야 할 것)
 - 컬럼 추가/제거/재정렬/리사이즈/표시토글 **런타임** + 직렬화.
 - 셀 값은 `ICellValueProvider`로 위임(기본/수식/플러그인 동일 취급).
