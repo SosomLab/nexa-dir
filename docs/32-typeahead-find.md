@@ -1,6 +1,7 @@
 # 32 · 타입어헤드 찾기(Type-ahead find) — 설계 방향
 
-> 상태: **설계(구현 전)**. 사용자 요청 — "Windows 탐색기의 키보드 Start-with 찾기를 이 앱에 도입하되, **단레벨(탐색기) vs 다레벨(이 앱)** 차이 때문에 유용성/의미가 달라지는 지점을 먼저 설계로 정리."
+> 상태: **설계 확정(구현 대기)** — 사용자 결정 반영(2026-07-03): 범위 A/B/C 설정선택(기본 C)·Space 제외·IME 확정문자·타임아웃 1000ms 설정화·**휘발성 검색어 표시 전용 컨트롤 `EphemeralOverlay`**.
+> 원 요청 — "탐색기 키보드 Start-with 찾기를 도입하되 **단레벨 vs 다레벨** 차이를 설계로 정리."
 > 관련: [26 커맨드팔레트/키바인딩](26-command-palette.md) · [24 검색](24-search.md) · [29 코어 트리 모델](29-adr-0004-core-tree-model.md) · [STATUS](STATUS.md).
 
 ## 1. 문제 정의
@@ -43,7 +44,7 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 - **"보이는 것 = 검색 대상"** 원칙이 다레벨 평면 스트림에 가장 직관적. "현재 레벨" 같은 추상 개념 불필요(옵션 B의 부모 스코핑 복잡도 회피).
 - **역할 분리**: 타입어헤드는 *경량 이동*으로 고정. 접힌 것까지 포함한 *전역 탐색*은 명시적 검색(사용자가 의도를 갖고 켜는 기능)에 맡겨 각각 명확. → 이 앱에서 타입어헤드는 "탐색기만큼"이 아니라 **"TreeView만큼" 유용**(다레벨에 맞는 정답).
 
-> 옵션 B(레벨 한정)도 방어 가능한 선택지다. 만약 실사용에서 "형제만"이 더 낫다고 판단되면 **범위를 설정값**(`ViewOptions.TypeAheadScope = VisibleStream | CurrentLevel`)으로 노출해 전환 가능하게 둔다. 기본값 = **VisibleStream(C)**.
+> **확정(사용자 결정)**: 기본은 **C(가시 스트림)**, 그리고 **A/B/C를 설정에서 선택**할 수 있게 노출한다 — `ViewOptions.TypeAheadScope ∈ { VisibleStream(C), CurrentLevel(B), GlobalFirst(A) }`, 기본 `VisibleStream`. 세 방식을 다 지원하되 매칭 함수 하나로 파라미터화(§8).
 
 ## 6. 동작 규약(권장안 C 기준)
 
@@ -56,19 +57,55 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 - **결과 반영**: 매치 시 **단일 선택(코어 OrderedSet) + 캐럿 이동 + 스크롤로 보이게**(`ScrollIndexIntoView`/`BringIndexIntoView` 재사용). 매치 없으면 무동작(+선택적 소리/상태바).
 - **트리거 조건**: 그리드에 포커스, **이름 편집 모드 아님**, 수정키(Ctrl/Alt) 없음, 인쇄 가능 문자.
 
-## 7. 결정 필요 사항(구현 전 확정)
+## 7. 결정 사항(확정 — 사용자 결정 2026-07-03)
 
-1. **Space 충돌**: 현재 Space = 선택 토글(캐럿 항목). 탐색기는 Space도 타입어헤드 문자로 씀. → **권장**: 기본 Space=선택 토글 유지, 타입어헤드에서 Space 제외(문서화). 대안: 버퍼 활성 중(타임아웃 내)일 때만 Space를 버퍼에 포함. 실사용 후 재검토.
-2. **IME/한글 조합**: 한글은 조합 중(composition) 문자가 확정 전엔 안정적이지 않음. → **권장**: **확정된 문자(commit) 기준** 매칭. 조합 중 미리보기는 범위 밖(후속). 첫 자음만으로의 초성 검색은 별도 고급 기능(후속, 한글 특화).
-3. **범위 기본값**: **VisibleStream(C)**. 설정 노출 여부는 선택(초기엔 하드코딩, 요청 시 설정화).
-4. **타임아웃 값**: 1000ms 기본, 설정화.
-5. **매치 없음 피드백**: 무음+무동작 vs 상태바 "‘X’ 없음". → 상태바 경량 표기 권장.
+1. **Space 충돌 → 확정**: **Space = 선택 토글 유지, 타입어헤드에서 제외**(제안대로). 타입어헤드 트리거 문자에서 Space 배제.
+2. **IME/한글 → 확정**: **확정된 문자(commit) 기준** 매칭(제안대로). 조합 중 미리보기·한글 초성 검색은 범위 밖(후속).
+3. **범위 → 확정**: 기본 **C(가시 스트림)**, **A/B/C 설정 선택 지원**(§5·§8). 설정: `ViewOptions.TypeAheadScope`.
+4. **타임아웃 → 확정**: **1000ms 기본, 설정화**(`ViewOptions.TypeAheadTimeoutMs`). 버퍼 리셋과 표시 소거 모두 이 값 사용.
+5. **매치 없음 피드백**: 무동작 + **휘발성 표시(§7-A)에 현재 버퍼는 유지**(사용자가 오타를 인지). 선택적 소리는 후속.
+
+## 7-A. 휘발성 검색어 표시 — 영역 검토 & 전용 컨트롤(사용자 요청)
+
+입력 중인 검색어를 **특정 영역에 표시**하고 **타임아웃 후 자동 소거**한다. 이런 *휘발성 임시 텍스트*에 맞는 **전용 재사용 컨트롤**을 개발한다.
+
+### 표시 영역 후보 비교
+
+| 후보 | 장점 | 단점 | 적합성 |
+|---|---|---|---|
+| **하단 상태바**(기존 `StatusText`) | 이미 존재, 구현 최소 | **시선에서 멂**(목록 위쪽 보는데 맨 아래), 다른 상태 메시지와 **충돌/덮어씀**, 전역(패널 구분 X) | 낮음 |
+| 상단 헤더/경로바 인근 | 눈에 잘 띔 | 레이아웃 침범·경로 표시와 혼동, 재배치(reflow) 위험 | 중 |
+| 목록 위 얇은 인라인 바 | 명확 | **행이 밀림(reflow)** → 휘발성인데 레이아웃이 흔들림 | 낮음 |
+| **목록 위 플로팅 오버레이(HUD)** ★ | 시선 근처(목록 위), **레이아웃 불변**(오버레이라 reflow 없음), 자동 소거가 자연스러움, **패널별 컨텍스트**(활성 패널에 표시) | 새 컨트롤 필요(요청과 부합) | **높음** |
+
+**권장/확정**: **활성 패널 파일 목록 위 플로팅 오버레이(HUD)** — 목록 본문 좌하단(또는 하단 중앙)에 작은 둥근 배지로. 오버레이라 레이아웃을 밀지 않고, 시선 근처이며, 자동 소거가 휘발성 개념과 정합. 상태바(전역·먼 위치·메시지 충돌)보다 우수.
+
+### 전용 컨트롤 설계 — `Nexa.Controls.EphemeralOverlay`
+
+도메인 비종속 **휘발성 텍스트 HUD**(타입어헤드 외 다른 순간 피드백에도 재사용: "복사됨"·드롭 힌트 등). `Nexa.Controls`에 배치(ADR-0002 재사용 컨트롤 정책).
+
+- **모양**: 반투명 둥근 `Border` + 텍스트(+선택 아이콘 `🔍`). 은은한 그림자. 기본 접힘(투명).
+- **API**:
+  - `void Show(string text)` — 텍스트 설정·표시(페이드인)·자동소거 타이머 리셋.
+  - `void Clear()` — 즉시 소거(페이드아웃).
+  - `TimeSpan Timeout`(DP, 기본 1s) — 마지막 `Show` 후 이 시간 지나면 자동 `Clear`.
+  - (선택) `string Glyph`/`Placement` — 아이콘·위치 커스터마이즈.
+- **동작**: `Show`마다 내부 `DispatcherTimer` 리셋 → 연속 입력 중엔 계속 표시, 멈추면 `Timeout` 후 페이드아웃. **오퍼시티 애니메이션**으로 자연스럽게.
+- **배치**: 각 패널의 `NexaFileGrid` 본문 위에 오버레이(`Grid` 겹침, `HorizontalAlignment=Left`/`VerticalAlignment=Bottom` + 여백). 타입어헤드는 **활성 패널**에만 표시(활성 패널의 오버레이에 `Show`).
+- **타임아웃 동기화**: 오버레이 `Timeout` = `ViewOptions.TypeAheadTimeoutMs`(버퍼 리셋과 동일 값) → 버퍼가 사라질 때 표시도 사라짐. 별도 linger 불필요.
+- **재사용성**: 타입어헤드에 종속되지 않음 — 어떤 순간 알림에도 `Show("텍스트")`로 사용.
 
 ## 8. 아키텍처 배치(핫패스=코어 규약 유지)
 
-- **코어 `nexa-tree`**(매칭): `find_next_prefix(from_index: usize, prefix: &str, wrap: bool) -> Option<usize>` — 가시 스트림을 `from_index+1`부터 스캔, starts-with(ASCII 소문자 비교, `index_of_path` 규약과 정합), 끝이면 wrap. **마샬/실체화 없이 코어 Vec 스캔**(10만도 ≈수십µs, 4-1 벤치 근거). ABI `nexa_tree_find_next_prefix` + 관리형 `TreeFindNextPrefix`.
-- **`Nexa.ViewModels`**(버퍼 로직, 맥 테스트): `TypeAheadBuffer` — 문자 누적/타임아웃(시각은 주입)/반복키 cycle 판정/Backspace. 순수 로직 → xUnit 단위 테스트(맥/CI). *시각(now)은 파라미터 주입*으로 테스트 가능하게.
-- **앱(배선)**: `OnGridKeyDown`(또는 전용 `OnGridCharacterReceived`)에서 문자 수신 → `TypeAheadBuffer` 갱신 → 코어 `TreeFindNextPrefix(caretIndex, buffer)` → 매치 인덱스면 선택/캐럿/스크롤. 편집 모드/수정키 가드.
+- **코어 `nexa-tree`**(매칭, A/B/C 파라미터화): `find_prefix(caret_index, prefix, scope, wrap) -> Option<usize>` — 하나의 함수로 세 범위 지원. **마샬/실체화 없이 Vec 스캔**(10만도 ≈수십µs, 4-1 벤치).
+  - `VisibleStream(C)`: `caret_index+1`부터 앞으로 starts-with, 끝이면 0..=caret로 wrap.
+  - `GlobalFirst(A)`: 0부터 첫 매치(캐럿 무시, wrap 무의미).
+  - `CurrentLevel(B)`: 캐럿의 **같은 부모(형제)** 인 가시 행만 대상으로 C 규칙 적용(코어의 `Node.parent` 사용 — 현재 `#[allow(dead_code)]`를 실사용으로 승격).
+  - 매칭 규약: 잎 이름 starts-with, ASCII 소문자 비교(정렬·`index_of_path`와 정합). ABI `nexa_tree_find_prefix(handle, caret, prefix, scope)` + 관리형 `TreeFindPrefix`.
+- **`Nexa.ViewModels`**(버퍼 로직, 맥 테스트): `TypeAheadBuffer` — 문자 누적/타임아웃(**시각 now 주입**)/반복키 cycle 판정/Backspace. Space·수정키 제외 규칙, IME 확정문자 입력만. xUnit 단위 테스트(맥/CI).
+- **`Nexa.Controls`**(휘발성 표시): `EphemeralOverlay`(§7-A) — 재사용 HUD. 각 패널 그리드 위 오버레이.
+- **설정 [ViewOptions](../app/Nexa.App/Settings.cs)**: `TypeAheadScope`(enum A/B/C, 기본 C) · `TypeAheadTimeoutMs`(기본 1000). 설정 화면(후속)에서 선택. `EphemeralOverlay.Timeout` = `TypeAheadTimeoutMs` 바인딩.
+- **앱(배선)**: 활성 패널 그리드에서 문자 수신(`CharacterReceived`/`KeyDown`) → 가드(편집모드·Ctrl/Alt·Space 제외) → `TypeAheadBuffer` 갱신 → 활성 패널 `EphemeralOverlay.Show(buffer)` → 코어 `TreeFindPrefix(caretIndex, buffer, scope)` → 매치면 단일 선택+캐럿+스크롤. 타임아웃 시 버퍼 리셋(오버레이는 자체 `Timeout`으로 소거).
 
 ## 9. 범위 밖 · 후속
 
@@ -78,6 +115,16 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 
 ## 10. 결정 요약 & 다음 단계
 
-- **방향 확정(권장)**: 타입어헤드 = **가시 스트림 위치상대 + wrap starts-with**(옵션 C). 전역 찾기는 **명시적 검색(M3)** 으로 분리 → 사용자 우려("다레벨에서 흩어진 매치")를 *경량 이동/명시적 탐색 분리*로 해소.
-- **구현 단위(승인 시)**: ① 코어 `find_next_prefix` + ABI(맥 테스트) → ② `TypeAheadBuffer`(맥 테스트) → ③ 앱 배선(문자 수신·가드·선택/스크롤) → ④ 설정(타임아웃/범위) + 실기 QA.
-- **미결(§7)**: Space 처리·IME/한글·범위 설정화 — 구현 착수 전 사용자 확정.
+**방향 확정(사용자 결정 2026-07-03)**:
+- 타입어헤드 = **가시 스트림 위치상대 + wrap starts-with(C) 기본**, **A/B/C 설정 선택** 지원. 전역 찾기는 **명시적 검색(M3)** 분리.
+- **Space 제외**(선택 토글 유지), **IME 확정문자 매칭**, **타임아웃 1000ms 설정화**.
+- **휘발성 검색어 표시** = **활성 패널 목록 위 플로팅 오버레이 HUD**(상태바 아님) + **전용 재사용 컨트롤 `Nexa.Controls.EphemeralOverlay`** 신규 개발. 표시 소거 = 타임아웃 동기.
+
+**구현 단위(순차, 각 커밋)**:
+1. 코어 `nexa-tree.find_prefix(caret, prefix, scope, wrap)` + ABI + 관리형 — A/B/C 3범위, 맥 단위테스트.
+2. `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — 맥 단위테스트.
+3. `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — 페이드·자동소거.
+4. `ViewOptions.TypeAheadScope`/`TypeAheadTimeoutMs` + 설정 배선.
+5. 앱 배선(문자 수신·가드·오버레이·코어 조회·선택/스크롤) + 실기 QA.
+
+> 전 항목 방향 확정 — **다음 지시 시 구현 단위 1부터 순차 진행**.
