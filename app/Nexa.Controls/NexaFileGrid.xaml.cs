@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.DataTransfer.DragDrop;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace Nexa.Controls;
 
@@ -309,20 +313,36 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>헤더 정렬 요청 — 현재 활성 정렬 서술자 목록(순번 순). 호스트가 코어에 적용(도메인 비종속).</summary>
     public event Action<IReadOnlyList<SortDescriptor>>? SortRequested;
 
-    /// <summary>헤더 셀 클릭 → 그 컬럼 정렬 3상태 순환(없음→오름→내림→없음). 단일 컬럼(다른 셀 해제). 이 패널만.</summary>
+    /// <summary>
+    /// 헤더 셀 클릭 → 정렬. 기본은 <b>단일 컬럼 3상태 순환</b>(없음→오름→내림→없음, 나머지 해제).
+    /// <b>Shift+클릭 &amp; 이미 정렬된 컬럼이 1개 이상</b>이면 <b>다중열 정렬</b>: 이 컬럼을 정렬 집합에
+    /// 추가(순번 부여)하거나, 이미 정렬 키면 방향 순환(없음이면 집합에서 제거·순번 당김). 이 패널만(COL-3).
+    /// </summary>
     private void OnHeaderTapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not HeaderCell cell || !cell.Column.Sortable)
         {
             return;
         }
-        ColumnSort next = cell.Sort switch
+        e.Handled = true;
+        // 다중열은 Shift + 이미 정렬된 컬럼이 하나라도 있을 때만(요청). 아니면 단일 정렬로 리셋.
+        bool multi = IsShiftDown() && _headerCells.Any(h => h.Sort != ColumnSort.None);
+        if (multi)
         {
-            ColumnSort.None => ColumnSort.Ascending,
-            ColumnSort.Ascending => ColumnSort.Descending,
-            _ => ColumnSort.None,
-        };
-        // 단일 컬럼 정렬(COL-2c): 이 패널의 나머지 헤더 셀 해제. (Alt+클릭 다중 정렬은 COL-3.)
+            ApplyMultiSort(cell);
+        }
+        else
+        {
+            ApplySingleSort(cell);
+        }
+        UpdateSortOrderBadges();
+        RaiseSortRequested();
+    }
+
+    /// <summary>단일 컬럼 정렬(3상태 순환) — 나머지 헤더 셀 해제.</summary>
+    private void ApplySingleSort(HeaderCell cell)
+    {
+        ColumnSort next = Cycle(cell.Sort);
         foreach (var hc in _headerCells)
         {
             if (!ReferenceEquals(hc, cell))
@@ -333,9 +353,61 @@ public sealed partial class NexaFileGrid : UserControl
         }
         cell.Sort = next;
         cell.Order = next == ColumnSort.None ? 0 : 1;
-        e.Handled = true;
-        RaiseSortRequested();
     }
+
+    /// <summary>다중열 정렬 — 이 컬럼을 정렬 집합에 추가/토글(기존 순번 유지, 제거 시 뒤 순번 당김).</summary>
+    private void ApplyMultiSort(HeaderCell cell)
+    {
+        if (cell.Sort == ColumnSort.None)
+        {
+            // 새 정렬 키 = 현재 최대 순번 + 1, 오름차순으로 추가.
+            cell.Order = _headerCells.Max(h => h.Order) + 1;
+            cell.Sort = ColumnSort.Ascending;
+            return;
+        }
+        // 이미 정렬 키 → 방향만 순환(오름→내림→없음). 없음이면 집합에서 제거하고 뒤 순번을 당긴다.
+        ColumnSort next = cell.Sort == ColumnSort.Ascending ? ColumnSort.Descending : ColumnSort.None;
+        if (next == ColumnSort.None)
+        {
+            int removedOrder = cell.Order;
+            cell.Sort = ColumnSort.None;
+            cell.Order = 0;
+            foreach (var hc in _headerCells)
+            {
+                if (hc.Sort != ColumnSort.None && hc.Order > removedOrder)
+                {
+                    hc.Order--;
+                }
+            }
+        }
+        else
+        {
+            cell.Sort = next;   // 순번 유지
+        }
+    }
+
+    private static ColumnSort Cycle(ColumnSort s) => s switch
+    {
+        ColumnSort.None => ColumnSort.Ascending,
+        ColumnSort.Ascending => ColumnSort.Descending,
+        _ => ColumnSort.None,
+    };
+
+    /// <summary>정렬 컬럼이 2개 이상일 때만 헤더에 순번(1,2…)을 표시(단일 정렬은 화살표만).</summary>
+    private void UpdateSortOrderBadges()
+    {
+        int sortedCount = _headerCells.Count(h => h.Sort != ColumnSort.None);
+        foreach (var hc in _headerCells)
+        {
+            hc.OrderText = sortedCount > 1 && hc.Sort != ColumnSort.None
+                ? hc.Order.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+    }
+
+    private static bool IsShiftDown() =>
+        (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & CoreVirtualKeyStates.Down)
+            == CoreVirtualKeyStates.Down;
 
     private void RaiseSortRequested()
     {

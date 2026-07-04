@@ -79,8 +79,24 @@ public sealed class HeaderCell : INotifyPropertyChanged
         }
     }
 
-    /// <summary>다중 컬럼 정렬 순번(1차=1…, 없음=0). COL-3(Alt+헤더)에서 사용.</summary>
+    /// <summary>다중 컬럼 정렬 순번(1차=1…, 없음=0). COL-3(Shift+헤더)에서 사용.</summary>
     public int Order { get; set; }
+
+    private string _orderText = string.Empty;
+
+    /// <summary>헤더에 표시할 정렬 순번 텍스트(다중열 2개 이상일 때만 "1"/"2"…, 단일 정렬은 빈 문자열).</summary>
+    public string OrderText
+    {
+        get => _orderText;
+        set
+        {
+            if (_orderText != value)
+            {
+                _orderText = value;
+                Raise(nameof(OrderText));
+            }
+        }
+    }
 
     /// <summary>헤더에 표시할 정렬 글리프(▲ 오름 / ▼ 내림 / 없으면 빈 문자열).</summary>
     public string Glyph => _sort switch

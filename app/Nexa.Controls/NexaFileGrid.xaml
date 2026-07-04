@@ -30,10 +30,13 @@
                             <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당). 클릭=3상태 정렬(▲/▼) -->
                             <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
                                     Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
-                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
                                     <TextBlock Text="{x:Bind Column.Header}" FontWeight="SemiBold" Opacity="0.9"
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{x:Bind Glyph, Mode=OneWay}" FontSize="9" Opacity="0.85"
+                                               VerticalAlignment="Center" Margin="1,0,0,0" />
+                                    <!-- 다중열 정렬 순번(1,2…). 단일 정렬이면 빈 문자열 -->
+                                    <TextBlock Text="{x:Bind OrderText, Mode=OneWay}" FontSize="8" Opacity="0.7"
                                                VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>

@@ -52,7 +52,7 @@
 | COL-2b | 정렬 **ABI**(nexa_tree_set_sort·NexaSortKey·ABI v6)+관리형 TreeSetSort | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | **맥 라운드트립 테스트 green(6)** | ✅(코어) | 키 배열(다중키 대비)·folders_first |
 | COL-2c | 정렬 **UI**(3상태 헤더 클릭·▲/▼/무 표시·SortRequested→SetSort) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | OnHeaderTapped·HeaderCell·로드/전환시 지속 |
 | COL-2d | 정렬 **좌/우 패널 독립**(HeaderCell 래퍼·PanelView.SortKeys) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | 정렬 상태를 컬럼→패널별 이관, 너비만 공유(리사이즈 동기 유지) |
-| COL-3 | **다중 컬럼 정렬** — Alt+헤더 클릭 키 추가(순번) | ✨📐 | P2 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 | 소~중 · COL-2 위 |
+| COL-3 | **다중 컬럼 정렬** — **Shift+헤더**(이미 정렬 ≥1일 때만) 키 추가·순번 배지 | ✨ | P2 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | 트리거 Alt→Shift(사용자). ApplyMultiSort·OrderText·코어 다중키 재사용 |
 | COL-4 | 컬럼 조정 **모달**(표시/순서/너비) | ✨ | P2 | 2026-07-04 | [docs/23 §6-1](23-column-system.md) | — | — | ☐ | COL-1/2/3 이후 |
 | B-17c | **빈 영역 클릭 → 선택 취소** | ✨ | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | OnGridPressed·RowUnderPointer |
 | B-18t | **이름변경 타이밍** — 더블클릭 실행 시 오발동(지연 트리거) | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | ScheduleRename(더블클릭시간 지연·DoubleTapped 취소) |
