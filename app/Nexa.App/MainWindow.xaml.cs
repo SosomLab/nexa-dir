@@ -58,6 +58,9 @@ public sealed partial class MainWindow : Window
         // 헤더 클릭 정렬(COL-2c) — 좌/우 독립. 각 그리드는 자기 패널에만 적용(표시도 패널별 HeaderCell).
         DirGrid.SortRequested += d => OnSortRequested(true, d);
         DirGrid2.SortRequested += d => OnSortRequested(false, d);
+        // 타입어헤드(docs/32 TA-5): 문자 입력 → 버퍼 → find_prefix → 선택 이동(패널별 버퍼).
+        DirGrid.CharacterReceived += (_, e) => OnTypeAhead(true, e);
+        DirGrid2.CharacterReceived += (_, e) => OnTypeAhead(false, e);
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -175,6 +178,55 @@ public sealed partial class MainWindow : Window
             .ToArray();
         Panel(left).SortKeys = keys;   // 빈 배열=명시적 "없음"(열거 순서), null과 구분
         Panel(left).Active.Items.SetSort(keys, foldersFirst: true);
+    }
+
+    // ── 타입어헤드 찾기 (docs/32 TA-5) ───────────────────────────────────
+
+    /// <summary>
+    /// 그리드 문자 입력 → 타입어헤드. 버퍼(<see cref="PanelView.TypeAhead"/>)에 누적하고 코어
+    /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
+    /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
+    /// </summary>
+    private void OnTypeAhead(bool left, CharacterReceivedRoutedEventArgs e)
+    {
+        // 이름 편집 박스가 포커스면(편집 중) 타입어헤드 금지 — 편집 텍스트가 처리.
+        if (e.OriginalSource is TextBox || IsCtrlDown() || IsAltDown())
+        {
+            return;
+        }
+        var panel = Panel(left);
+        char c = e.Character;
+        long now = Environment.TickCount64;
+        string prefix;
+        if (c == '\b')                    // Backspace = 접두사 축소
+        {
+            prefix = panel.TypeAhead.Backspace(now);
+        }
+        else if (c == ' ' || c < ' ')     // Space 제외 + 제어문자 제외
+        {
+            return;
+        }
+        else
+        {
+            prefix = panel.TypeAhead.Push(c, now);
+        }
+        if (prefix.Length == 0)
+        {
+            return;   // 빈 접두사(전부 지움) → 무동작
+        }
+        int caret = panel.Items.CaretIndex;
+        // 확장(refine)=현재 캐럿 포함(캐럿-1로 시작), 새 시작·반복키=캐럿 다음(이동/cycle).
+        int searchCaret = panel.TypeAhead.IsExtend ? (caret >= 0 ? caret - 1 : -1) : caret;
+        int hit = panel.Items.FindPrefix(searchCaret, prefix, AppSettings.View.TypeAheadScope);
+        if (hit >= 0)
+        {
+            SetActivePanel(left);
+            panel.Items.Select(panel.Items[hit], 0);   // 단일 선택
+            panel.Items.SetCaret(hit);
+            panel.Grid.BringIndexIntoView(hit);
+            UpdateSelectionCount(panel.Items);
+        }
+        e.Handled = true;
     }
 
     /// <summary>

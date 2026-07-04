@@ -23,7 +23,10 @@
 | B-13t | 드래그 중 탭 2초 hover→전환 후 드롭 | ✨ | 2026-07-03 | — | 2026-07-04 13:27 | CI green | **QA 양호(사용자)** | ✅ |
 | B-14e | 드래그 중 ESC 취소 | ✨ | 2026-07-04 | — | 2026-07-04 13:47 | CI green | 실기QA 대기 | 🚧 |
 | TA | 타입어헤드 찾기 **설계 확정**([docs/32](32-typeahead-find.md)) | 📐 | 2026-07-04 | 2026-07-04 14:50 | — | — | 설계 완료 | 📐 |
-| TA-1 | 타입어헤드 **코어 find_prefix + ABI v7 + 관리형**(A/B/C 범위) | ✨ | 2026-07-04 | [docs/32 §8](32-typeahead-find.md) | 2026-07-04 | **맥 테스트 코어3·인터롭1 green** | ✅(코어) | FindScope·Node.parent 승격. 다음 TA-2 버퍼 |
+| TA-1 | 타입어헤드 **코어 find_prefix + ABI v7 + 관리형**(A/B/C 범위) | ✨ | 2026-07-04 | [docs/32 §8](32-typeahead-find.md) | 2026-07-04 | **맥 테스트 코어3·인터롭1 green** | ✅(코어) | FindScope·Node.parent 승격 |
+| TA-2 | 타입어헤드 **버퍼 TypeAheadBuffer**(누적/타임아웃/반복cycle/Backspace) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | **맥 xUnit 7 green(39)** | ✅ | IsExtend(확장=현재포함/새·반복=다음) |
+| TA-4/5 | 타입어헤드 **설정 + 앱 배선**(CharacterReceived→버퍼→find_prefix→선택 이동) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | 실기QA 대기 | 🚧 | 패널별 버퍼·범위/타임아웃 설정. 편집/Ctrl·Alt/Space 가드 |
+| TA-3 | 타입어헤드 **검색어 HUD `EphemeralOverlay`**(휘발성 표시) | 📐 | 2026-07-04 | [docs/32 §7-A](32-typeahead-find.md) | — | — | ⏸ 후속 | 이동 자체엔 불필요 · 시각 표시 |
 
 ## 2. 이번 세션 버그 수정 (실사용 리포트)
 

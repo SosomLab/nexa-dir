@@ -61,6 +61,15 @@ internal sealed class ViewOptions
     /// 복사하면 파일 붙여넣기가 무효화된다(탐색기와 동일). 구현은 후속(설계: docs/33), 지금은 옵션 자리만.</para>
     /// </summary>
     public bool UseSystemClipboard { get; set; }
+
+    /// <summary>
+    /// 타입어헤드 찾기 범위(docs/32): 0=GlobalFirst(A) · 1=CurrentLevel(B) · <b>2=VisibleStream(C, 기본)</b>.
+    /// 설정 UI 예정(TODO). 코어 <c>nexa_tree_find_prefix</c>의 scope 코드와 동일.
+    /// </summary>
+    public uint TypeAheadScope { get; set; } = 2;
+
+    /// <summary>타입어헤드 입력 버퍼 리셋·검색어 표시 소거 타임아웃(ms, 기본 1000). 설정 UI 예정.</summary>
+    public long TypeAheadTimeoutMs { get; set; } = 1000;
 }
 
 /// <summary>

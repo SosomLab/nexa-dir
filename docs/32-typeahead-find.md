@@ -122,9 +122,9 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 
 **구현 단위(순차, 각 커밋)**:
 1. ✅ 코어 `nexa-tree.find_prefix(caret, prefix, scope)` + ABI(`nexa_tree_find_prefix`, **v6→v7**) + 관리형(`TreeFindPrefix`/`VirtualTreeCollection.FindPrefix`) — A/B/C 3범위, **맥 단위테스트**(코어 3·인터롭 1). `FindScope` enum, `Node.parent` 실사용 승격. (2026-07-04)
-2. `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — 맥 단위테스트.
-3. `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — 페이드·자동소거.
-4. `ViewOptions.TypeAheadScope`/`TypeAheadTimeoutMs` + 설정 배선.
-5. 앱 배선(문자 수신·가드·오버레이·코어 조회·선택/스크롤) + 실기 QA.
+2. ✅ `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — **맥 단위테스트 7**. `IsExtend`(확장=현재 포함/새·반복=다음). (2026-07-05)
+3. ⏸ `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — **이동 자체엔 불필요(뒤로)**. 검색어 시각 표시용 후속.
+4. ✅ `ViewOptions.TypeAheadScope`(기본 2=C)/`TypeAheadTimeoutMs`(1000) 추가. (2026-07-05)
+5. ✅ 앱 배선 — `NexaFileGrid.CharacterReceived` → `OnTypeAhead(left, e)`: 가드(편집 TextBox·Ctrl/Alt·Space·제어문자) → 패널별 `PanelView.TypeAhead` 버퍼 → `Items.FindPrefix(searchCaret, prefix, scope)` → 단일 선택+캐럿+스크롤. `IsExtend`면 캐럿 포함(캐럿-1), 아니면 캐럿 다음. **실기 QA 대기**(Windows). (2026-07-05)
 
-> 1단계 완료(코어/ABI/관리형). **다음 = 2단계 `TypeAheadBuffer`(맥 테스트 가능).**
+> **1·2·4·5 완료 → 타이핑 이동 배선됨(Windows 빌드 후 동작).** 3(HUD 표시)만 후속. 방향키 이동과 독립.
