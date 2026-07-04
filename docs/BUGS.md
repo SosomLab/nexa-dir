@@ -75,3 +75,37 @@ File.AppendAllText(f, $"{DateTime.Now:HH:mm:ss.fff} LOAD {(left?"L":"R")} path={
 grid.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
     File.AppendAllText(f, $"{DateTime.Now:HH:mm:ss.fff}   post liveCount={tab.Items.Count} {grid.DebugRealization()}\n"));
 ```
+
+---
+
+## BUG-002 · 이름변경이 드래그/우클릭 시 오발동 (☐ 수정 예정)
+
+- **심각도**: 중 · **상태**: ☐ B-8로 수정 예정
+- **증상**: 선택된 항목을 드래그하려 하면 인라인 이름 변경이 시작됨. 우클릭에도 이름변경 트리거가 관여.
+- **원인**: 이름변경 트리거가 `PointerPressed`(캡처 시점)에서 발동 → 드래그 시작 press에도 걸림. 우클릭 press도 선택/트리거 경로를 탐.
+- **수정 방향**: 트리거를 **PointerReleased(드래그 없이 클릭 완료)** 로 이동 + 우클릭(우버튼) 조기 제외. 드래그 시작 시 pending 취소. (원장 B-8)
+
+## BUG-003 · desktop.ini 더블클릭 "Attempted to perform an unauthorized operation" (✅ 해결)
+
+- **심각도**: 중 · **상태**: ✅ 해결(2026-07-04 15:28, `8b891c0`) — 실기 QA 대기
+- **원인**: `StorageFile.GetFileFromPathAsync`/`Launcher` 브로커가 시스템/숨김 파일(desktop.ini)에 대해 unauthorized.
+- **해결**: `ActivateItem` 파일 실행을 **`Process.Start(UseShellExecute=true)`(ShellExecute)** 로 교체 — 셸 기본 프로그램 위임, 더 많은 형식 처리. Alt+↓ 파일 실행(BUG/요청)도 동일 경로로 해소.
+
+## BUG-004 · 비활성 패널 클릭(행/빈 영역) 시 포커스 이동 안 됨 (✅ 해결)
+
+- **심각도**: 중 · **상태**: ✅ 해결(2026-07-04 15:30, `ba0249f`) — 실기 QA 대기
+- **증상**: 탭 클릭은 패널 활성화되나, 포커스 없는 패널의 행/빈 공간 클릭은 활성 패널이 안 바뀜.
+- **해결**: `OnRootPointerPressed`가 좌/우클릭 시 포인터가 놓인 패널(`PanelUnderPointer`)을 활성화(handledEventsToo).
+
+## BUG-005 · 탭 영역 더블클릭 새 탭 이름 공백 (✅ 해결)
+
+- **심각도**: 낮음 · **상태**: ✅ 해결(2026-07-04 15:28, `8b891c0`) — 실기 QA 대기
+- **원인**: `AddTab`이 `Nav.NavigateTo`만 하고 `Title` 미설정 → 첫 전환 전까지 공백. 이동 후에야 `Navigate`가 Title 설정.
+- **해결**: `AddTab`에서 생성 즉시 `tab.Title = PathDisplay.TabTitle(basePath)`.
+
+## BUG-006 · 다른 패널→자기 패널 붙여넣기 시 다른 패널 미갱신 (☐ watcher)
+
+- **심각도**: 중 · **상태**: ☐ B-12w(watcher)로 근본 해결. 임시: 작업 후 양쪽 패널 재로드.
+- **증상**: 자기 패널 복사·붙여넣기는 자동 갱신되나, 다른 패널이 같은 폴더를 보고 있을 때 그쪽은 반영 안 됨.
+- **원인**: 파일 작업 후 **작업 패널만** 재로드. 외부/타 패널 변경 감시 부재.
+- **해결 방향**: 파일시스템 변경 감시(Pub/Sub watcher)로 영향 폴더를 보는 모든 패널/탭 자동 갱신 + 수동 새로고침(F5). 성능은 경로 구독 범위·디바운스로. (원장 B-12w · [TODO](TODO.md) C-3)
