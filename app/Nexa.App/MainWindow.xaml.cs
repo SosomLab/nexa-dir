@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Core;
@@ -877,6 +878,88 @@ public sealed partial class MainWindow : Window
     /// <summary>끝 구분자·대소문자 무시 경로 비교.</summary>
     private static bool PathEq(string a, string b) =>
         string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    // ── 드래그 앤 드롭 (패널 내/좌우 폴더 이동) — B-11/B-12 ─────────────
+
+    private List<string> _dragPaths = new();   // 현재 드래그 중인 원본 경로들(앱 내부 DnD)
+    private bool _dragSourceLeft;              // 드래그 시작 패널
+
+    /// <summary>행 드래그 시작 → 대상(선택 또는 드래그 항목)을 앱 내부 드래그 상태에 담는다.</summary>
+    private void OnRowDragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            args.Cancel = true;
+            return;
+        }
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        var items = Panel(left).Active.Items;
+        var sel = items.SelectedPaths();
+        _dragPaths = sel.Count > 0 && sel.Any(p => PathEq(p, item.FullPath))
+            ? new List<string>(sel)
+            : new List<string> { item.FullPath };
+        _dragSourceLeft = left;
+        args.Data.SetText(string.Join("\n", _dragPaths));   // 시각 피드백/외부 호환용
+        args.Data.RequestedOperation = DataPackageOperation.Move;
+    }
+
+    /// <summary>폴더 행 위 드래그 → 자기 자신이 아닌 폴더면 이동 수락(캡션 표시).</summary>
+    private void OnRowDragOver(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir
+            && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
+        {
+            e.AcceptedOperation = DataPackageOperation.Move;
+            e.DragUIOverride.Caption = $"{item.Name}(으)로 이동";
+            e.DragUIOverride.IsCaptionVisible = true;
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+        }
+    }
+
+    /// <summary>폴더 행에 드롭 → 드래그한 항목들을 그 폴더로 이동. 원본(그리고 대상 패널) 재로드.</summary>
+    private void OnRowDrop(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir && _dragPaths.Count > 0)
+        {
+            bool destLeft = PanelUnderPointer(fe) ?? _activeLeft;
+            MovePathsInto(_dragSourceLeft, _dragPaths, item.FullPath, destLeft);
+        }
+        _dragPaths.Clear();
+        e.Handled = true;
+    }
+
+    /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 이동하고 관련 패널을 재로드한다(제자리 제외).</summary>
+    private void MovePathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, bool destLeft)
+    {
+        int ok = 0;
+        string? err = null;
+        foreach (var p in paths)
+        {
+            try
+            {
+                string? parent = System.IO.Path.GetDirectoryName(p.TrimEnd('\\', '/'));
+                if (parent is not null && PathEq(parent, destDir))
+                {
+                    continue;   // 제자리 이동
+                }
+                FileOps.MoveInto(p, destDir);
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+        }
+        StatusText.Text = err is null ? $"이동 {ok}개" : $"이동 일부 실패: {err}";
+        ReloadPanel(sourceLeft);
+        if (destLeft != sourceLeft)
+        {
+            ReloadPanel(destLeft);
+        }
+    }
 
     private bool _activeLeft = true;
     private bool _windowActive = true;

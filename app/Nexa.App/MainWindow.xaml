@@ -213,7 +213,9 @@
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
                                             Tag="{x:Bind}" PointerPressed="OnRowPointerPressed" DoubleTapped="OnRowDoubleTapped"
                                             PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited"
-                                            ContextRequested="OnRowContextRequested">
+                                            ContextRequested="OnRowContextRequested"
+                                            CanDrag="True" DragStarting="OnRowDragStarting"
+                                            AllowDrop="True" DragOver="OnRowDragOver" Drop="OnRowDrop">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />
@@ -317,7 +319,9 @@
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
                                             Tag="{x:Bind}" PointerPressed="OnRowPointerPressed" DoubleTapped="OnRowDoubleTapped"
                                             PointerEntered="OnRowPointerEntered" PointerExited="OnRowPointerExited"
-                                            ContextRequested="OnRowContextRequested">
+                                            ContextRequested="OnRowContextRequested"
+                                            CanDrag="True" DragStarting="OnRowDragStarting"
+                                            AllowDrop="True" DragOver="OnRowDragOver" Drop="OnRowDrop">
                                     <!-- 이름 셀: 들여쓰기 + 디스클로저(▶/▼) + 종류 아이콘 + 이름(폴더=굵게) -->
                                     <StackPanel Orientation="Horizontal" Width="{Binding Source={StaticResource ColName}, Path=Width, Mode=OneWay}">
                                         <Border Width="{x:Bind IndentWidth}" />

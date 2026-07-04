@@ -41,6 +41,48 @@ public sealed partial class NexaFileGrid : UserControl
                 RowRecycled?.Invoke(item);
             }
         };
+        // 드래그 중 가장자리 자동 스크롤 타이머(가장자리에 머무는 동안 반복 스크롤).
+        _autoScroll.Interval = TimeSpan.FromMilliseconds(50);
+        _autoScroll.Tick += (_, _) =>
+        {
+            if (_autoScrollDelta == 0)
+            {
+                return;
+            }
+            BodyScroll.ChangeView(null, BodyScroll.VerticalOffset + _autoScrollDelta, null, disableAnimation: true);
+        };
+    }
+
+    // ── 드래그 중 가장자리 자동 스크롤 (B-11) ────────────────────────
+    private readonly DispatcherTimer _autoScroll = new();
+    private double _autoScrollDelta;
+
+    /// <summary>본문 위 드래그 중 위/아래 가장자리 근처면 자동 스크롤을 켠다(호스트가 드롭 수락과 무관하게 동작).</summary>
+    private void OnBodyDragOver(object sender, DragEventArgs e)
+    {
+        const double edge = 32;   // 가장자리 감지 폭(px)
+        const double speed = 20;  // 틱당 스크롤(px)
+        var p = e.GetPosition(BodyScroll);
+        double h = BodyScroll.ActualHeight;
+        _autoScrollDelta = p.Y < edge ? -speed : (p.Y > h - edge ? speed : 0);
+        if (_autoScrollDelta != 0)
+        {
+            if (!_autoScroll.IsEnabled) { _autoScroll.Start(); }
+        }
+        else
+        {
+            _autoScroll.Stop();
+        }
+    }
+
+    private void OnBodyDragLeave(object sender, DragEventArgs e) => StopAutoScroll();
+
+    private void OnBodyDragEnd(object sender, DragEventArgs e) => StopAutoScroll();
+
+    private void StopAutoScroll()
+    {
+        _autoScrollDelta = 0;
+        _autoScroll.Stop();
     }
 
     /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>

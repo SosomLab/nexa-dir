@@ -42,8 +42,9 @@
             </ItemsRepeater>
         </Grid>
 
-        <!-- 본문(가상화) -->
-        <ScrollViewer x:Name="BodyScroll" Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto">
+        <!-- 본문(가상화). 드래그 중 가장자리 근처면 자동 스크롤(AllowDrop + DragOver 타이머). -->
+        <ScrollViewer x:Name="BodyScroll" Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
+                      AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
             <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <StackLayout Orientation="Vertical" Spacing="2" />

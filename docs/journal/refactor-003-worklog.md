@@ -97,4 +97,13 @@ refactor/003-audit  (분기: 1d9d312)
   - `OnGridKeyDown`에 **Ctrl+C/X/V**(복사/잘라내기/붙여넣기)·**Delete**(완전삭제 확인) 추가 — 활성 패널 기준.
 - **검증**: 앱 빌드 PR CI. 실기 QA: Ctrl+C→Ctrl+V(복사)·Ctrl+X→Ctrl+V(이동)·Del(확인창).
 
+## B-11 · 2026-07-03 · 드래그앤드롭 폴더 이동 + 가장자리 자동 스크롤 → `(이 커밋)`
+
+- **무엇 · 파일**:
+  - [NexaFileGrid.xaml](../../app/Nexa.Controls/NexaFileGrid.xaml)/[.cs](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): 본문 ScrollViewer `AllowDrop` + `DragOver`/`DragLeave`/`Drop` → **드래그 중 위/아래 가장자리(32px) 근처면 `DispatcherTimer`(50ms)로 반복 스크롤**(가장자리에 머무는 동안 계속). 드롭/이탈 시 정지.
+  - [MainWindow.xaml](../../app/Nexa.App/MainWindow.xaml): 행 StackPanel에 `CanDrag`+`DragStarting`+`AllowDrop`+`DragOver`+`Drop`(좌/우 2곳).
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `OnRowDragStarting`(대상=선택 또는 드래그 항목, 앱 내부 `_dragPaths`)·`OnRowDragOver`(폴더면 이동 수락+캡션, 자기 자신 제외)·`OnRowDrop`(폴더로 이동)·`MovePathsInto`(제자리 제외, 원본+대상 패널 재로드 — 좌우 겸용).
+- **동작**: 파일/폴더를 다른 폴더 행 위로 드래그→드롭 = 그 폴더로 이동. 드래그 중 목록 가장자리에서 자동 스크롤. 대상이 다른 패널 폴더면 좌우 모두 반영(B-12 토대).
+- **검증**: 앱 빌드 PR CI. 실기 QA: 드래그 이동·자동 스크롤(위/아래)·자기 폴더 드롭 방지·다중 선택 드래그.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->
