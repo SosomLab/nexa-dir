@@ -312,11 +312,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        var props = e.GetCurrentPoint((UIElement)sender).Properties;
+        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4).
+        if ((props.IsLeftButtonPressed || props.IsRightButtonPressed)
+            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft
+            && _activeLeft != paneLeft)
+        {
+            SetActivePanel(paneLeft);
+        }
         if (e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
         {
             return;
         }
-        var props = e.GetCurrentPoint((UIElement)sender).Properties;
         if (!props.IsXButton1Pressed && !props.IsXButton2Pressed)
         {
             return;

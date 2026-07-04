@@ -69,6 +69,26 @@ public static class FileOps
         }
     }
 
+    /// <summary>파일/폴더를 <b>휴지통으로</b> 보낸다(되돌리기 가능, 일반 삭제). 없으면 무동작. Windows 전용.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public static void DeleteToRecycleBin(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
+                path,
+                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+        }
+        else if (File.Exists(path))
+        {
+            Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                path,
+                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+        }
+    }
+
     // ── 내부 헬퍼 ────────────────────────────────────────────────
 
     private static void CopyDirectory(string src, string dest)
