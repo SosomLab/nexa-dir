@@ -115,4 +115,16 @@ refactor/003-audit  (분기: 1d9d312)
 - **동작**: 좌 패널 파일을 우 패널(빈 영역/현재 폴더)로 드래그→드롭 = 우 패널 폴더로 이동, 양쪽 재로드. 폴더 위 드롭이면 그 폴더로.
 - **검증**: 앱 빌드 PR CI. 실기 QA: 좌→우 이동·우→좌 이동·폴더행 vs 빈영역 구분.
 
+## B-13 · 2026-07-03 · 드래그 중 탭 2초 hover → 전환 후 드롭 → `(이 커밋)`
+
+- **무엇 · 파일**:
+  - [MainWindow.xaml](../../app/Nexa.App/MainWindow.xaml): 탭 Border에 `AllowDrop`+`DragOver`+`DragLeave`+`Drop`(좌/우 탭 템플릿 2곳).
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `_tabDwellTimer`(2초) — `OnTabDragOver`가 탭 진입 시 타이머 시작(다른 탭이면 재시작), Tick에서 `SwitchToTab`(그 탭 폴더 표시). `OnTabDragLeave`=취소. `OnTabDrop`=그 탭 폴더로 즉시 이동(2초 안 기다려도 됨).
+- **동작**: 파일 드래그한 채 다른 탭 위에 2초 머물면 그 탭이 활성화(폴더 보임) → 계속 드래그해 그 폴더로 드롭 가능. 탭에 바로 드롭하면 그 탭 폴더로 이동.
+- **검증**: 앱 빌드 PR CI. 실기 QA: 탭 2초 hover 전환·탭 직접 드롭·hover 중 이탈 취소.
+
+## 트랙 B-7~B-13 완료 — 파일 조작 상호작용 요약
+
+7개 기능 단위 순차 구현 완료(각 개별 커밋): 더블클릭 실행·FileOps(맥 테스트)·컨텍스트 메뉴·복사/잘라/붙여/삭제 단축키·DnD 패널 내 이동+자동스크롤·좌우 패널 DnD·탭 hover 전환. **파일 작업은 C# `FileOps`에 중앙화**(향후 nexa-ops 이관 seam, 감사 C-1). 삭제=완전삭제(확인창). **전 기능 Windows 실기 QA 필요**(맥 빌드 불가, 상호작용 다수). 후속: OS 클립보드 연동·진행률/취소·Undo(nexa-ops).
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->

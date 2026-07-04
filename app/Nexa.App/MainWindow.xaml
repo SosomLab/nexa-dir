@@ -167,7 +167,8 @@
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
-                                            Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped">
+                                            Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="2" />
@@ -273,7 +274,8 @@
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
-                                            Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped">
+                                            Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="2" />

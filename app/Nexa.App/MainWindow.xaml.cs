@@ -60,6 +60,16 @@ public sealed partial class MainWindow : Window
         // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
         DirGrid.BodyDropped += () => OnPanelBackgroundDrop(true);
         DirGrid2.BodyDropped += () => OnPanelBackgroundDrop(false);
+        // 드래그 중 탭 위 2초 머물면 그 탭으로 전환(폴더가 보이게, B-13).
+        _tabDwellTimer.Interval = TimeSpan.FromSeconds(2);
+        _tabDwellTimer.Tick += (_, _) =>
+        {
+            _tabDwellTimer.Stop();
+            if (_tabDwellTarget is PanelTab t)
+            {
+                SwitchToTab(_left.Tabs.Contains(t), t);
+            }
+        };
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _left.Active.IsActive = true;
         _right.Active.IsActive = true;
@@ -947,6 +957,47 @@ public sealed partial class MainWindow : Window
             MovePathsInto(_dragSourceLeft, _dragPaths, destDir, destLeft);
         }
         _dragPaths.Clear();
+    }
+
+    // ── 드래그 중 탭 hover 전환 (2초 dwell) — B-13 ───────────────────
+
+    private readonly DispatcherTimer _tabDwellTimer = new();
+    private PanelTab? _tabDwellTarget;   // 현재 드래그가 머무는 탭
+
+    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동 수락.</summary>
+    private void OnTabDragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = _dragPaths.Count > 0 ? DataPackageOperation.Move : DataPackageOperation.None;
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && !ReferenceEquals(_tabDwellTarget, tab))
+        {
+            _tabDwellTarget = tab;
+            _tabDwellTimer.Stop();
+            _tabDwellTimer.Start();   // 이 탭에 2초 머물면 전환(Tick에서 SwitchToTab)
+        }
+    }
+
+    /// <summary>탭에서 드래그가 벗어나면 dwell 타이머 취소.</summary>
+    private void OnTabDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && ReferenceEquals(fe.Tag, _tabDwellTarget))
+        {
+            _tabDwellTimer.Stop();
+            _tabDwellTarget = null;
+        }
+    }
+
+    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동(즉시, 2초 기다림 없이도 가능).</summary>
+    private void OnTabDrop(object sender, DragEventArgs e)
+    {
+        _tabDwellTimer.Stop();
+        _tabDwellTarget = null;
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0
+            && !string.IsNullOrEmpty(tab.Current))
+        {
+            MovePathsInto(_dragSourceLeft, _dragPaths, tab.Current, _left.Tabs.Contains(tab));
+        }
+        _dragPaths.Clear();
+        e.Handled = true;
     }
 
     /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 이동하고 관련 패널을 재로드한다(제자리 제외).</summary>
