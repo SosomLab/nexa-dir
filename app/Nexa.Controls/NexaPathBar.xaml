@@ -6,6 +6,38 @@
     xmlns:local="using:Nexa.Controls"
     HorizontalContentAlignment="Stretch">
 
+    <UserControl.Resources>
+        <!-- 경로 편집기: 기본 TextBox(MinHeight 32·헤더 chrome)가 경로바 높이를 키워 화면을 늘리므로
+             브레드크럼 높이를 유지하는 최소 템플릿(테두리 + ContentElement만). -->
+        <Style x:Key="PathEditor" TargetType="TextBox">
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ScrollViewer x:Name="ContentElement"
+                                          Padding="{TemplateBinding Padding}"
+                                          VerticalContentAlignment="Center"
+                                          HorizontalScrollMode="Auto" VerticalScrollMode="Disabled"
+                                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"
+                                          IsTabStop="False" ZoomMode="Disabled"
+                                          AutomationProperties.AccessibilityView="Raw" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <!-- 브레드크럼(기본) ↔ 편집(TextBox) 2모드. 우클릭 시 편집 진입. -->
     <Grid>
         <!-- 브레드크럼: 세그먼트 가로 배치 + 넘치면 수평 스크롤 -->
@@ -35,7 +67,8 @@
         </ScrollViewer>
 
         <!-- 편집 모드: 전체 경로 텍스트(전체 선택·복사/붙여넣기). Enter=이동, Esc/포커스아웃=취소 -->
-        <TextBox x:Name="PART_Editor" Visibility="Collapsed"
+        <TextBox x:Name="PART_Editor" Visibility="Collapsed" VerticalAlignment="Center"
+                 Style="{StaticResource PathEditor}"
                  KeyDown="OnEditorKeyDown" LostFocus="OnEditorLostFocus" />
     </Grid>
 </UserControl>

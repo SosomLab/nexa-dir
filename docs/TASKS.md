@@ -56,6 +56,8 @@
 | B-19c | 드래그 캡션 **영어화**(Move/Copy)·i18n 일괄 예정 | ✨ | P2 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | 폰트 크기는 OS 드래그 비주얼(불가) |
 | CLIP | **OS 클립보드 연동 옵션**(텍스트 복사 시 파일 붙여넣기 무효화) | 📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 CLIP](33-file-ops-dnd-design.md) | — | — | 📐 설계완료 | ViewOptions.UseSystemClipboard(자리만) |
 | B-14dnd-alt | DnD **Alt 반전 미동작** 조사 | 🐞 | P1 | 2026-07-04 | — | 조사중 | — | 🚧 | Alt가 OS 메뉴에 가로채질 가능·DragOver 미재발화. 드롭은 e.Modifiers 사용 |
+| B-20p | **경로바 편집 박스 높이** — 편집 시 커져 화면 늘어남 | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | PathEditor 컴팩트 스타일(MinHeight 0·최소 템플릿) |
+| COL-1a | 확장자 컬럼 값 **소문자** 표시 | 🐞 | P2 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | ToUpper→ToLower |
 | SHELL | **셸 컨텍스트 메뉴 통합**(`IContextMenu`/`IExplorerCommand`) | 📐 | P0 | 2026-07-04 | — | — | — | 📐 | TODO §2 B-2 · COM ADR 후보 |
 
 ## 4. 착수 권장 순서(이 배치)
