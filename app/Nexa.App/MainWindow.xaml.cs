@@ -744,7 +744,7 @@ public sealed partial class MainWindow : Window
     /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).</summary>
     private IReadOnlyList<string> ContextTargets(bool left, DirItem clicked)
     {
-        var items = left ? _leftItems : _rightItems;
+        var items = Panel(left).Active.Items;
         var sel = items.SelectedPaths();
         if (sel.Count > 0 && sel.Any(p => PathEq(p, clicked.FullPath)))
         {
@@ -778,7 +778,7 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        string destDir = (left ? _leftTab : _rightTab).Current;
+        string destDir = Panel(left).Active.Current;
         if (string.IsNullOrEmpty(destDir))
         {
             return;
@@ -848,7 +848,7 @@ public sealed partial class MainWindow : Window
     /// <summary>지정 패널을 현재 경로로 재로드한다(파일 작업 후 반영). 펼침 상태 유지.</summary>
     private void ReloadPanel(bool left)
     {
-        var tab = left ? _leftTab : _rightTab;
+        var tab = Panel(left).Active;
         if (string.IsNullOrEmpty(tab.Current))
         {
             return;
