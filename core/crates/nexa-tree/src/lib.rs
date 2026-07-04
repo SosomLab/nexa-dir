@@ -272,7 +272,11 @@ impl Tree {
                     sa.cmp(&sb)
                 }
                 SortKey::Modified => na.modified_unix_ms.cmp(&nb.modified_unix_ms),
-                SortKey::Kind => kind_rank(na.kind).cmp(&kind_rank(nb.kind)),
+                // "종류" = 파일 타입. kind_rank만으론 folders_first 뒤 파일이 전부 동률(File)→asc=desc가 됨.
+                // 셸 타입 문자열이 없으므로 확장자를 타입 대용으로 2차 비교(파일 간 변별력 + 방향 반영).
+                SortKey::Kind => kind_rank(na.kind)
+                    .cmp(&kind_rank(nb.kind))
+                    .then_with(|| cmp_ci(ext_of(&na.name), ext_of(&nb.name))),
                 SortKey::None => Ordering::Equal, // 위에서 처리(도달 안 함)
             };
             let ord = if desc { ord.reverse() } else { ord };
@@ -1032,6 +1036,22 @@ mod tests {
         t.set_sort(spec(SortKey::Ext, false, true));
         // 폴더(확장자 없음, 이름 tie) → 파일 확장자: log(a) < md(z) < txt(m)
         assert_eq!(names(&t), vec!["adir", "zdir", "a.log", "z.md", "m.txt"]);
+    }
+
+    #[test]
+    fn sort_by_kind_asc_desc_differ_by_ext() {
+        let base = make_sort_fixture("kind");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // 종류(=확장자 타입) 오름: 폴더 우선 → 파일 확장자 log(a) < md(z) < txt(m)
+        t.set_sort(spec(SortKey::Kind, false, true));
+        let asc = names(&t);
+        assert_eq!(asc, vec!["adir", "zdir", "a.log", "z.md", "m.txt"]);
+        // 내림: 파일 확장자 역순 txt(m) > md(z) > log(a). 폴더는 folders_first로 여전히 앞.
+        t.set_sort(spec(SortKey::Kind, true, true));
+        let desc = names(&t);
+        assert_eq!(desc, vec!["adir", "zdir", "m.txt", "z.md", "a.log"]);
+        assert_ne!(asc, desc, "종류 오름/내림 결과가 달라야 함");
     }
 
     #[test]

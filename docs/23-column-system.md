@@ -65,6 +65,7 @@ ColumnLayout
 
 **COL-2a · 코어(`nexa-tree`) — 설정 가능 비교자** (맥 단위테스트 가능) [규모 중]
 - `SortKey` enum: `Name`·`Ext`·`Size`·`Modified`·`Kind`(+`None`=열거 순서). `SortSpec{ keys: Vec<(SortKey, desc)>, folders_first: bool }`.
+  - **`Kind`(종류)**: 코어에 셸 타입 문자열이 없고 `folders_first` 뒤 파일은 전부 동률(File)이라 kind_rank만으론 asc=desc가 됨 → **확장자를 타입 대용으로 2차 비교**(파일 간 변별력·방향 반영). 폴더 Size는 0 정규화(폴더는 이름 tie-break).
 - `sort_ids`를 spec 기반으로: 키 순서대로 비교(1차 같으면 2차…), 각 키 asc/desc. `folders_first`(기본 on) 우선.
 - **"없음(None)" = 원래 열거 순서**: children에 **원본 열거 순서 보존**(별도 인덱스 or 재열거) → None이면 그 순서로.
 - `set_sort(spec)`: **로드된 모든 폴더의 children 재정렬** + `visible` 재구축(펼침 상태 보존) → 변경 통지(전체 Reset 또는 범위). 단위테스트(정렬 키별·방향·다중키·None 복원·펼친 상태 유지).
