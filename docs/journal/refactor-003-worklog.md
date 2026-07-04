@@ -106,4 +106,13 @@ refactor/003-audit  (분기: 1d9d312)
 - **동작**: 파일/폴더를 다른 폴더 행 위로 드래그→드롭 = 그 폴더로 이동. 드래그 중 목록 가장자리에서 자동 스크롤. 대상이 다른 패널 폴더면 좌우 모두 반영(B-12 토대).
 - **검증**: 앱 빌드 PR CI. 실기 QA: 드래그 이동·자동 스크롤(위/아래)·자기 폴더 드롭 방지·다중 선택 드래그.
 
+## B-12 · 2026-07-03 · 좌우 패널 간 드래그앤드롭(배경 드롭=현재 폴더) → `(이 커밋)`
+
+- **왜**: B-11에서 폴더 행 드롭은 이미 좌우 겸용(대상 패널 자동 판정). 남은 것은 **패널 빈 영역/파일 행에 드롭 = 그 패널의 현재 폴더로 이동**(다른 패널로 옮기는 가장 흔한 케이스).
+- **무엇 · 파일**:
+  - [NexaFileGrid.xaml.cs](../../app/Nexa.Controls/NexaFileGrid.xaml.cs): 본문 `DragOver`가 이동 수락(`AcceptedOperation=Move`) + 드롭 시 `BodyDropped` 이벤트(행이 소비 안 한 드롭). 도메인 비종속.
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `OnRowDrop`이 **폴더 드롭만 소비**(파일/빈영역은 본문으로 버블). ctor에서 `DirGrid/DirGrid2.BodyDropped` 구독 → `OnPanelBackgroundDrop(destLeft)`가 그 패널 현재 폴더로 `MovePathsInto`.
+- **동작**: 좌 패널 파일을 우 패널(빈 영역/현재 폴더)로 드래그→드롭 = 우 패널 폴더로 이동, 양쪽 재로드. 폴더 위 드롭이면 그 폴더로.
+- **검증**: 앱 빌드 PR CI. 실기 QA: 좌→우 이동·우→좌 이동·폴더행 vs 빈영역 구분.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->

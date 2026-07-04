@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Nexa.Controls;
 
@@ -57,9 +58,13 @@ public sealed partial class NexaFileGrid : UserControl
     private readonly DispatcherTimer _autoScroll = new();
     private double _autoScrollDelta;
 
-    /// <summary>본문 위 드래그 중 위/아래 가장자리 근처면 자동 스크롤을 켠다(호스트가 드롭 수락과 무관하게 동작).</summary>
+    /// <summary>본문 빈 영역(행이 소비하지 않은 곳)에 드롭됨 — 호스트가 현재 폴더로 이동 처리(B-12).</summary>
+    public event Action? BodyDropped;
+
+    /// <summary>본문 위 드래그 → 이동 수락 + 위/아래 가장자리 근처면 자동 스크롤(가장자리에 머무는 동안).</summary>
     private void OnBodyDragOver(object sender, DragEventArgs e)
     {
+        e.AcceptedOperation = DataPackageOperation.Move;   // 빈 영역/파일 행도 드롭 가능(현재 폴더로)
         const double edge = 32;   // 가장자리 감지 폭(px)
         const double speed = 20;  // 틱당 스크롤(px)
         var p = e.GetPosition(BodyScroll);
@@ -77,7 +82,11 @@ public sealed partial class NexaFileGrid : UserControl
 
     private void OnBodyDragLeave(object sender, DragEventArgs e) => StopAutoScroll();
 
-    private void OnBodyDragEnd(object sender, DragEventArgs e) => StopAutoScroll();
+    private void OnBodyDragEnd(object sender, DragEventArgs e)
+    {
+        StopAutoScroll();
+        BodyDropped?.Invoke();   // 행이 소비하지 않은 드롭 = 빈 영역 → 현재 폴더로
+    }
 
     private void StopAutoScroll()
     {

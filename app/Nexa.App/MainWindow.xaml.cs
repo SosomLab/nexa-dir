@@ -57,6 +57,9 @@ public sealed partial class MainWindow : Window
             p.Grid.RowRealized += it => { if (it is DirItem d) { _iconCache.Request(d); } };
             p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
         }
+        // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
+        DirGrid.BodyDropped += () => OnPanelBackgroundDrop(true);
+        DirGrid2.BodyDropped += () => OnPanelBackgroundDrop(false);
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _left.Active.IsActive = true;
         _right.Active.IsActive = true;
@@ -919,16 +922,31 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>폴더 행에 드롭 → 드래그한 항목들을 그 폴더로 이동. 원본(그리고 대상 패널) 재로드.</summary>
+    /// <summary>폴더 행에 드롭 → 그 폴더로 이동(소비). 파일/빈 영역 드롭은 소비하지 않아 본문으로 버블(현재 폴더로, B-12).</summary>
     private void OnRowDrop(object sender, DragEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir && _dragPaths.Count > 0)
         {
             bool destLeft = PanelUnderPointer(fe) ?? _activeLeft;
             MovePathsInto(_dragSourceLeft, _dragPaths, item.FullPath, destLeft);
+            _dragPaths.Clear();
+            e.Handled = true;   // 폴더 드롭만 소비
+        }
+    }
+
+    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동(좌우 겸용, B-12).</summary>
+    private void OnPanelBackgroundDrop(bool destLeft)
+    {
+        if (_dragPaths.Count == 0)
+        {
+            return;
+        }
+        string destDir = Panel(destLeft).Active.Current;
+        if (!string.IsNullOrEmpty(destDir))
+        {
+            MovePathsInto(_dragSourceLeft, _dragPaths, destDir, destLeft);
         }
         _dragPaths.Clear();
-        e.Handled = true;
     }
 
     /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 이동하고 관련 패널을 재로드한다(제자리 제외).</summary>
