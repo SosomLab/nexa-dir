@@ -48,7 +48,7 @@
 | B-15h | 드래그 **폴더 3초 hover 진입**+전환시간 설정(탭2초/폴더3초) | ✨ | P1 | 2026-07-04 | 2026-07-04 [docs/33](33-file-ops-dnd-design.md) | 2026-07-04 | 실기QA 대기 | 🚧 | ViewOptions.TabDwellMs(2000)/FolderDwellMs(3000)·spring-load 진입 |
 | B-16 | Ctrl+좌클릭 다중선택 | ✨ | P2 | 2026-07-04 | — | 🚧(이미 토글 존재) | — | 🚧 | B-9m 재정비 시 검증 |
 | COL-1 | **확장자 컬럼**(기본 표시) | ✨ | P1 | 2026-07-04 | [docs/23 §2-1](23-column-system.md) | 2026-07-04 | 실기QA 대기 | 🚧 | ColExt 컬럼·`DirItem.Extension`·행 셀(양쪽) |
-| COL-2a | 정렬 **코어 비교자**(SortKey/SortSpec·다중키·None=열거순서·set_sort 재정렬) | ✨📐 | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 착수가능 | 중 · 맥 단위테스트 가능 |
+| COL-2a | 정렬 **코어 비교자**(SortKey/SortSpec·다중키·None=열거순서·set_sort 재정렬) | ✨ | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | 2026-07-04 (cmp_nodes/set_sort) | **맥 단위테스트 7 green(17)** | ✅(코어) | 폴더 Size=0 정규화·펼침 보존. 다음 COL-2b ABI |
 | COL-2b | 정렬 **ABI**(nexa_tree_set_sort)+관리형 TreeSetSort | ✨📐 | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 | 소 · 맥 라운드트립 · COL-2a 후 |
 | COL-2c | 정렬 **UI**(3상태 헤더 클릭·▲/▼/무 표시·SortRequested→TreeSetSort) | ✨📐 | P1 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 | 중 · Windows 실기 · COL-2b 후 |
 | COL-3 | **다중 컬럼 정렬** — Alt+헤더 클릭 키 추가(순번) | ✨📐 | P2 | 2026-07-04 | [docs/23 §4-1](23-column-system.md) | — | — | 📐 | 소~중 · COL-2 위 |
