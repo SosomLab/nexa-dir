@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.Storage;
 using Windows.System;
@@ -691,6 +692,174 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"실행 실패: {ex.Message}";
         }
     }
+
+    // ── 컨텍스트 메뉴 · 파일 작업 (복사/잘라내기/붙여넣기/완전삭제) — FileOps/FileClipboard 위임 ─────
+
+    /// <summary>행 우클릭 → 컨텍스트 메뉴(열기·잘라내기·복사·붙여넣기·삭제·이름 바꾸기). 클릭 항목이
+    /// 현재 선택에 없으면 단일 선택으로 맞춘 뒤 표시.</summary>
+    private void OnRowContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            return;
+        }
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        SetActivePanel(left);
+
+        var flyout = new MenuFlyout();
+        var open = new MenuFlyoutItem { Text = item.IsDir ? "열기" : "실행" };
+        open.Click += (_, _) => ActivateItem(left, item);
+        flyout.Items.Add(open);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var cut = new MenuFlyoutItem { Text = "잘라내기" };
+        cut.Click += (_, _) => CutSelection(left, item);
+        flyout.Items.Add(cut);
+        var copy = new MenuFlyoutItem { Text = "복사" };
+        copy.Click += (_, _) => CopySelection(left, item);
+        flyout.Items.Add(copy);
+        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = FileClipboard.HasContent };
+        paste.Click += (_, _) => PasteInto(left);
+        flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var del = new MenuFlyoutItem { Text = "삭제(완전)" };
+        del.Click += (_, _) => DeleteSelection(left, item);
+        flyout.Items.Add(del);
+        var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
+        rename.Click += (_, _) => BeginRename(fe, item, left);
+        flyout.Items.Add(rename);
+
+        if (e.TryGetPosition(fe, out var pos))
+        {
+            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
+        }
+        else
+        {
+            flyout.ShowAt(fe);
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).</summary>
+    private IReadOnlyList<string> ContextTargets(bool left, DirItem clicked)
+    {
+        var items = left ? _leftItems : _rightItems;
+        var sel = items.SelectedPaths();
+        if (sel.Count > 0 && sel.Any(p => PathEq(p, clicked.FullPath)))
+        {
+            return sel;
+        }
+        items.Select(clicked, 0);   // 단일 선택으로 맞춤
+        UpdateSelectionCount(items);
+        return new[] { clicked.FullPath };
+    }
+
+    /// <summary>선택(또는 클릭) 항목을 앱 클립보드에 복사 표시(붙여넣기 = 복사).</summary>
+    private void CopySelection(bool left, DirItem clicked)
+    {
+        var targets = ContextTargets(left, clicked);
+        FileClipboard.SetCopy(targets);
+        StatusText.Text = $"복사 {targets.Count}개";
+    }
+
+    /// <summary>선택(또는 클릭) 항목을 앱 클립보드에 잘라내기 표시(붙여넣기 = 이동).</summary>
+    private void CutSelection(bool left, DirItem clicked)
+    {
+        var targets = ContextTargets(left, clicked);
+        FileClipboard.SetCut(targets);
+        StatusText.Text = $"잘라내기 {targets.Count}개";
+    }
+
+    /// <summary>클립보드 내용을 지정 패널의 현재 폴더에 붙여넣는다(cut=이동·copy=복사). 완료 후 재로드.</summary>
+    private void PasteInto(bool left)
+    {
+        if (!FileClipboard.HasContent)
+        {
+            return;
+        }
+        string destDir = (left ? _leftTab : _rightTab).Current;
+        if (string.IsNullOrEmpty(destDir))
+        {
+            return;
+        }
+        bool cut = FileClipboard.IsCut;
+        int ok = 0;
+        string? err = null;
+        foreach (var src in FileClipboard.Paths)
+        {
+            try
+            {
+                _ = cut ? FileOps.MoveInto(src, destDir) : FileOps.CopyInto(src, destDir);
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+        }
+        if (cut)
+        {
+            FileClipboard.Clear();
+        }
+        StatusText.Text = err is null ? $"{(cut ? "이동" : "복사")} {ok}개 완료" : $"붙여넣기 일부 실패: {err}";
+        ReloadPanel(left);
+    }
+
+    /// <summary>선택(또는 클릭) 항목을 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
+    private async void DeleteSelection(bool left, DirItem clicked)
+    {
+        var targets = ContextTargets(left, clicked);
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        var dialog = new ContentDialog
+        {
+            Title = "완전 삭제",
+            Content = $"{targets.Count}개 항목을 완전히 삭제합니다.\n휴지통으로 가지 않으며 되돌릴 수 없습니다.",
+            PrimaryButtonText = "삭제",
+            CloseButtonText = "취소",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = RootGrid.XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+        int ok = 0;
+        string? err = null;
+        foreach (var p in targets)
+        {
+            try
+            {
+                FileOps.DeletePermanent(p);
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+        }
+        StatusText.Text = err is null ? $"삭제 {ok}개 완료" : $"삭제 일부 실패: {err}";
+        ReloadPanel(left);
+    }
+
+    /// <summary>지정 패널을 현재 경로로 재로드한다(파일 작업 후 반영). 펼침 상태 유지.</summary>
+    private void ReloadPanel(bool left)
+    {
+        var tab = left ? _leftTab : _rightTab;
+        if (string.IsNullOrEmpty(tab.Current))
+        {
+            return;
+        }
+        tab.Loaded = false;
+        LoadDirectory(left, tab);
+    }
+
+    /// <summary>끝 구분자·대소문자 무시 경로 비교.</summary>
+    private static bool PathEq(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
     private bool _activeLeft = true;
     private bool _windowActive = true;

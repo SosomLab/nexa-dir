@@ -81,4 +81,12 @@ refactor/003-audit  (분기: 1d9d312)
   - [FileOpsTests](../../app/Nexa.ViewModels.Tests/FileOpsTests.cs): 복사(파일/재귀/충돌)·이동(제자리/자기이동)·삭제 7 테스트.
 - **검증**: `dotnet test`(net10 roll-forward) **32 통과**(FileOps 7 포함). UI 배선은 B-9/B-10. 앱 빌드는 PR CI.
 
+## B-9 · 2026-07-03 · 우클릭 컨텍스트 메뉴(열기·잘라·복사·붙여넣기·삭제·이름) → `(이 커밋)`
+
+- **무엇 · 파일**:
+  - [MainWindow.xaml](../../app/Nexa.App/MainWindow.xaml): 행 StackPanel에 `ContextRequested="OnRowContextRequested"`(좌/우 2곳).
+  - [MainWindow.xaml.cs](../../app/Nexa.App/MainWindow.xaml.cs): `OnRowContextRequested`가 **프로그램적 `MenuFlyout`** 구성(열기/실행·잘라내기·복사·붙여넣기(클립보드 있을 때만)·삭제(완전)·이름 바꾸기) 후 클릭 위치에 표시. `ContextTargets`(클릭 항목이 선택에 있으면 선택 전체, 아니면 단일 선택)·`CopySelection`/`CutSelection`(FileClipboard)·`PasteInto`(cut=이동/copy=복사, FileOps)·`DeleteSelection`(**ContentDialog 확인** 후 완전삭제)·`ReloadPanel`(작업 후 재로드, 펼침 유지)·`PathEq`.
+- **동작**: 우클릭 시 대상 미선택이면 단일 선택 후 메뉴. 붙여넣기=현재 패널 폴더로. 삭제=확인 대화상자(휴지통 아님, 불가역) 후 실행. 이름 바꾸기=B-6 `BeginRename` 재사용.
+- **검증**: 앱 빌드 PR CI. 실기 QA: 우클릭 메뉴·복사/붙여넣기·잘라내기/붙여넣기(이동)·삭제 확인창·이름 바꾸기.
+
 <!-- 진행마다 아래에 6하원칙 항목 append -->
