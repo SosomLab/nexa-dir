@@ -65,19 +65,34 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>빈 영역 드롭 캡션에 쓸 대상 폴더 표시명(호스트가 현재 폴더 변경 시 갱신). 비면 일반 "복사/이동" 캡션.</summary>
     public string? DropTargetName { get; set; }
 
-    /// <summary>본문 위 드래그 → 드롭 수락(Ctrl=복사/Shift=이동 근사 커서, 실제 연산은 드롭 시 호스트 확정) + 가장자리 자동 스크롤.</summary>
+    /// <summary>빈 영역 드래그의 연산 결정(호스트가 자기폴더 Move 금지 등 판단). 미설정 시 수정키 근사.</summary>
+    public Func<DragDropModifiers, DataPackageOperation>? BodyDragOperation { get; set; }
+
+    /// <summary>본문 위 드래그 → 자동 스크롤 + <b>빈 영역만</b> 연산/캡션 결정(폴더 행은 호스트 <c>OnRowDragOver</c>가 이미 수락 → 덮어쓰지 않음).</summary>
     private void OnBodyDragOver(object sender, DragEventArgs e)
     {
-        // 컨트롤은 볼륨을 모르므로 표준 수정키만 반영한 근사 커서(호스트 드롭이 디스크별로 최종 결정).
-        e.AcceptedOperation = e.Modifiers.HasFlag(DragDropModifiers.Control)
-            ? DataPackageOperation.Copy : DataPackageOperation.Move;
-        // 탐색기식 드래그 캡션: 큰 글리프 숨기고 연산 텍스트만(대상 폴더명은 호스트가 아는 행/탭에서 표시).
-        e.DragUIOverride.IsGlyphVisible = false;
-        e.DragUIOverride.IsContentVisible = true;
-        e.DragUIOverride.IsCaptionVisible = true;
-        e.DragUIOverride.Caption = string.IsNullOrEmpty(DropTargetName)
-            ? (e.AcceptedOperation == DataPackageOperation.Copy ? "복사" : "이동")
-            : (e.AcceptedOperation == DataPackageOperation.Copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
+        // 이벤트는 행→본문으로 버블링. 행 핸들러(호스트)가 폴더를 수락했으면 AcceptedOperation≠None →
+        // 그 폴더명 캡션/연산을 유지(덮어쓰면 폴더 위에서도 현재 폴더 캡션이 돼버림). None(파일 행·진짜 빈 영역)일 때만 배경 처리.
+        if (e.AcceptedOperation == DataPackageOperation.None)
+        {
+            var op = BodyDragOperation?.Invoke(e.Modifiers)
+                ?? (e.Modifiers.HasFlag(DragDropModifiers.Control) ? DataPackageOperation.Copy : DataPackageOperation.Move);
+            e.AcceptedOperation = op;
+            e.DragUIOverride.IsGlyphVisible = false;
+            if (op == DataPackageOperation.None)
+            {
+                e.DragUIOverride.IsCaptionVisible = false;   // 자기 폴더로 Move 등 금지 → 캡션 없음(불가 커서)
+            }
+            else
+            {
+                e.DragUIOverride.IsContentVisible = true;
+                e.DragUIOverride.IsCaptionVisible = true;
+                bool copy = op == DataPackageOperation.Copy;
+                e.DragUIOverride.Caption = string.IsNullOrEmpty(DropTargetName)
+                    ? (copy ? "복사" : "이동")
+                    : (copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
+            }
+        }
         const double edge = 32;   // 가장자리 감지 폭(px)
         const double speed = 20;  // 틱당 스크롤(px)
         var p = e.GetPosition(BodyScroll);

@@ -131,6 +131,10 @@
 - **딜레마**: 작은 폰트(커스텀 비트맵) ↔ 라이브 갱신(마우스 이동)은 관리형에서 **양립 불가**(비트맵은 정적). 둘 다(탐색기 그대로) = **셸/OLE**뿐.
 - **결정(2026-07-04)**: 이번 세션은 **기능 검증까지만**. DND-KEY/DND-FONT/DND-STACK은 [TASKS.md](TASKS.md) 개선 대상(🅿️ 보류)으로 등록, 셸/OLE 트랙 착수 시 일괄 해결.
 
+#### 2차 QA 후속 수정(2026-07-04)
+- 🐞 **DND-CAP2(폴더 위 캡션 안 바뀜)**: 드래그 이벤트가 **행→본문(BodyScroll)으로 버블링**되어, 행 핸들러(`OnRowDragOver`)가 정한 폴더명 캡션·연산을 그 다음 `OnBodyDragOver`가 **배경(현재 폴더) 값으로 덮어씀**. → 본문 핸들러를 **`AcceptedOperation==None`(행 미수락=파일 행·진짜 빈 영역)일 때만** 동작하도록 가드. 폴더 행은 호스트 캡션 유지. 자동 스크롤은 항상 수행.
+- 🐞 **DND-SELF(자기 폴더 규칙)**: 드래그 항목이 이미 그 폴더 소속일 때 — **Move는 무의미 → None(금지)**, **Copy는 복제 허용**(…(2)). `BackgroundDragOp(destLeft, mods)`: `DragOp` 결과가 Move이고 `모든 드래그 항목의 부모 == 대상 폴더`면 None. 빈 영역 커서/캡션과 드롭(`OnPanelBackgroundDrop`) 양쪽에 적용. (탐색기 동일: 같은 폴더로 그냥 끌면 무동작, Ctrl+끌면 사본.)
+
 ### Phase 2 — 개수 스택 아이콘 (보류, 택1)
 - **(2a) 커스텀 비트맵(관리형)**: `DragStartingEventArgs.DragUI.SetContentFromSoftwareBitmap(...)`으로 "아이콘 N겹 + 카운트 배지"를 직접 렌더. COM 불필요. 한계: 비트맵은 **시작 시 1회 고정**(Ctrl/Shift로 라이브 변경 불가) — 단 탐색기의 스택 이미지도 고정이고 **캡션만 바뀌므로**(Phase 1이 이미 처리) 실사용 동등. 비용: 시작 시 아이콘 취득·합성(썸네일 대신 타입 아이콘 캐시 사용). 맥 빌드 불가 → Windows 반복 검증 필요(비주얼).
 - **(2b) 셸 `IDragSourceHelper`(COM)**: 탐색기 네이티브 스택. 단 WinUI는 드래그 루프를 프레임워크가 소유 → `IDragSourceHelper` 주입이 곤란(Win32 `DoDragDrop` 직접 구동해야 하며 WinUI 드롭 타깃과의 상호운용 리스크). **비권장** — (2a) 대비 이득 대비 규모·리스크 큼.

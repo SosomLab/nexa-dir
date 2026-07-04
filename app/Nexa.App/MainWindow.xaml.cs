@@ -77,6 +77,9 @@ public sealed partial class MainWindow : Window
         // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
         DirGrid.BodyDropped += m => OnPanelBackgroundDrop(true, m);
         DirGrid2.BodyDropped += m => OnPanelBackgroundDrop(false, m);
+        // 빈 영역 드래그 커서/캡션 연산 결정(자기 폴더로 Move는 금지·Copy는 복제 허용, B-14dnd/DND-SELF).
+        DirGrid.BodyDragOperation = m => BackgroundDragOp(true, m);
+        DirGrid2.BodyDragOperation = m => BackgroundDragOp(false, m);
         // 드래그 중 탭 위에 머물면 그 탭으로 전환(폴더가 보이게, B-13 · 시간=설정 TabDwellMs, B-15h).
         _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
         _tabDwellTimer.Tick += (_, _) =>
@@ -1165,11 +1168,40 @@ public sealed partial class MainWindow : Window
             return;
         }
         string destDir = Panel(destLeft).Active.Current;
-        if (!string.IsNullOrEmpty(destDir))
+        var op = BackgroundDragOp(destLeft, mods);
+        if (op != DataPackageOperation.None && !string.IsNullOrEmpty(destDir))
         {
-            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, DragOp(destDir, mods));
+            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, op);   // 자기폴더 Move는 None → 무시
         }
         _dragPaths.Clear();
+    }
+
+    /// <summary>
+    /// 빈 영역(현재 폴더) 드롭의 연산 — 기본 <see cref="DragOp"/>에 <b>자기 폴더 규칙</b> 추가:
+    /// 드래그 항목이 이미 이 폴더 소속인데 <b>Move면 무의미 → None(금지)</b>, <b>Copy는 복제 허용</b>(…(2)).
+    /// (탐색기 동일: 같은 폴더로 그냥 끌면 아무 일 없음, Ctrl+끌면 사본 생성.)
+    /// </summary>
+    private DataPackageOperation BackgroundDragOp(bool destLeft, DragDropModifiers mods)
+    {
+        string destDir = Panel(destLeft).Active.Current;
+        if (string.IsNullOrEmpty(destDir))
+        {
+            return DataPackageOperation.None;
+        }
+        var op = DragOp(destDir, mods);
+        if (op == DataPackageOperation.Move && _dragPaths.Count > 0
+            && _dragPaths.All(p => PathEq(ParentDir(p), destDir)))
+        {
+            return DataPackageOperation.None;   // 자기 폴더로 이동 = no-op → 금지
+        }
+        return op;
+    }
+
+    /// <summary>경로의 부모 디렉터리(끝 구분자 제거 후). 실패 시 빈 문자열.</summary>
+    private static string ParentDir(string path)
+    {
+        try { return System.IO.Path.GetDirectoryName(path.TrimEnd('\\', '/')) ?? ""; }
+        catch { return ""; }
     }
 
     // ── 드래그 중 탭 hover 전환 (2초 dwell) — B-13 ───────────────────

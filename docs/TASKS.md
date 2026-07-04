@@ -56,6 +56,8 @@
 | B-17c | **빈 영역 클릭 → 선택 취소** | ✨ | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | OnGridPressed·RowUnderPointer |
 | B-18t | **이름변경 타이밍** — 더블클릭 실행 시 오발동(지연 트리거) | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | 실기QA 대기 | 🚧 | ScheduleRename(더블클릭시간 지연·DoubleTapped 취소) |
 | DND-CAP | **탐색기식 드래그 캡션**(큰 글리프 끄고 "…에 복사/이동" 라이브·행/탭/빈영역) | ✨ | P1 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | 2026-07-04 (ApplyDragCaption/FolderLabel) | **QA: 캡션 뜸✓** | 🚧 부분 | Phase 1(관리형). 아래 DND-KEY·DND-FONT는 관리형 한계 |
+| DND-CAP2 | 🐞 **폴더 위 캡션이 폴더명으로 안 바뀜** — 본문 핸들러가 행 캡션 덮어씀(버블링) | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 (AcceptedOperation==None 가드) | 실기QA 대기 | 🚧 | 폴더 행은 호스트 캡션 유지, 배경만 본문 처리 |
+| DND-SELF | **자기 폴더 드롭 규칙** — Copy=복제 허용 / Move=금지(no-op) | 🐞✨ | P1 | 2026-07-04 | — | 2026-07-04 (BackgroundDragOp) | 실기QA 대기 | 🚧 | 부모==대상 & Move → None. Ctrl(복사)는 …(2) 복제 |
 | DND-KEY | 🔴 **키만 눌러선 캡션/연산 라이브 갱신 안 됨**(마우스 움직여야 반영) | 🐞📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류(관리형 불가) | WinUI DragOver는 포인터 이동 시만 발생 → **셸/OLE(DoDragDrop) 필요**. 탐색기는 OLE라 키 즉시 반영 |
 | DND-FONT | 🔴 **드래그 캡션 폰트가 파일목록보다 큼**(고밀도 UI와 불일치) | 🐞📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류(관리형 불가) | DragUIOverride 폰트 API 없음(프레임워크 고정=Windows 표준 드래그 크기). 축소하려면 **커스텀 비트맵(Phase 2a) 또는 셸** |
 | DND-STACK | **드래그 개수 스택 아이콘**(N겹 + 카운트 배지) | ✨📐 | P2 | 2026-07-04 | 2026-07-04 [docs/33 SHELL-DND Phase2](33-file-ops-dnd-design.md) | — | — | 🅿️ 보류 | (2a) 커스텀 비트맵 권장 / (2b) IDragSourceHelper COM 비권장 |
