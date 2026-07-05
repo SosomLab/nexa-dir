@@ -136,10 +136,22 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>폴더명은 굵게.</summary>
     public FontWeight NameWeight => IsDir ? FontWeights.SemiBold : FontWeights.Normal;
 
-    /// <summary>수정한 날짜(로컬, yyyy-MM-dd). 없으면 빈 문자열.</summary>
-    public string ModifiedLabel => ModifiedUnixMs < 0
-        ? string.Empty
-        : DateTimeOffset.FromUnixTimeMilliseconds(ModifiedUnixMs).LocalDateTime.ToString("yyyy-MM-dd");
+    /// <summary>수정 로컬 시각(없으면 null). 날짜/시간 컬럼 라벨의 공통 소스(COL-D1).</summary>
+    private DateTime? ModifiedLocal => ModifiedUnixMs < 0
+        ? null
+        : DateTimeOffset.FromUnixTimeMilliseconds(ModifiedUnixMs).LocalDateTime;
+
+    /// <summary>DateTime modified 컬럼(기본 표시). 형식 yy/MM/dd HH:mm. 없으면 빈 문자열. (차후 YYYY/MM/DD HH:MM:SS 옵션.)</summary>
+    public string ModifiedDateTimeLabel => ModifiedLocal?.ToString("yy/MM/dd HH:mm") ?? string.Empty;
+
+    /// <summary>Date modified 컬럼. 형식 yy/MM/dd. 없으면 빈 문자열.</summary>
+    public string ModifiedDateLabel => ModifiedLocal?.ToString("yy/MM/dd") ?? string.Empty;
+
+    /// <summary>Time modified 컬럼. 형식 HH:mm. 없으면 빈 문자열.</summary>
+    public string ModifiedTimeLabel => ModifiedLocal?.ToString("HH:mm") ?? string.Empty;
+
+    /// <summary>수정한 날짜(로컬, yyyy-MM-dd). 없으면 빈 문자열. (구 기본 · 하위호환.)</summary>
+    public string ModifiedLabel => ModifiedLocal?.ToString("yyyy-MM-dd") ?? string.Empty;
 
     /// <summary>확장자(점 제외, 소문자). 폴더/링크/무확장자는 빈 문자열. 확장자 컬럼용(COL-1).</summary>
     public string Extension => IsDir || Kind == NexaFileKind.Symlink

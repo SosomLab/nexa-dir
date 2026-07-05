@@ -20,7 +20,7 @@
             <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
             <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="280" />
             <ctrls:NexaGridColumn x:Key="ColExt" Header="확장자" Key="ext" Width="70" />
-            <ctrls:NexaGridColumn x:Key="ColDate" Header="수정한 날짜" Key="modified" Width="120" />
+            <ctrls:NexaGridColumn x:Key="ColDate" Header="수정한 날짜/시간" Key="modified" Width="130" />
             <ctrls:NexaGridColumn x:Key="ColKind" Header="종류" Key="kind" Width="90" />
             <ctrls:NexaGridColumn x:Key="ColSize" Header="크기" Key="size" Width="90" />
             <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트 -->
@@ -240,7 +240,7 @@
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColExt}, Path=Width, Mode=OneWay}" Text="{x:Bind Extension}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
-                                    <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedDateTimeLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
                                     <TextBlock Width="{Binding Source={StaticResource ColKind}, Path=Width, Mode=OneWay}" Text="{x:Bind KindText}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
                                     <TextBlock Width="{Binding Source={StaticResource ColSize}, Path=Width, Mode=OneWay}" Text="{x:Bind SizeLabel}" Opacity="0.6" Padding="0,0,10,0" TextAlignment="Right" VerticalAlignment="Center" />
                                 </StackPanel>
@@ -348,7 +348,7 @@
                                         </Grid>
                                     </StackPanel>
                                     <TextBlock Width="{Binding Source={StaticResource ColExt}, Path=Width, Mode=OneWay}" Text="{x:Bind Extension}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
-                                    <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock Width="{Binding Source={StaticResource ColDate}, Path=Width, Mode=OneWay}" Text="{x:Bind ModifiedDateTimeLabel}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
                                     <TextBlock Width="{Binding Source={StaticResource ColKind}, Path=Width, Mode=OneWay}" Text="{x:Bind KindText}" Opacity="0.6" Padding="6,0,0,0" VerticalAlignment="Center" />
                                     <TextBlock Width="{Binding Source={StaticResource ColSize}, Path=Width, Mode=OneWay}" Text="{x:Bind SizeLabel}" Opacity="0.6" Padding="0,0,10,0" TextAlignment="Right" VerticalAlignment="Center" />
                                 </StackPanel>
