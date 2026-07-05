@@ -134,6 +134,21 @@ dotnet run  --project app/Nexa.App         # 실행 — Windows 전용
 - **cargo-deny**(라이선스 게이트 로컬 실행): `cargo install cargo-deny`. CI는 `cargo-deny-action` 사용(별도 설치 불요).
 - **Windows App Runtime**: winget `Microsoft.WindowsAppRuntime.1.6`은 **framework만** 설치 → unpackaged 앱 실행엔 Main/DDLM이 빠져 부족. 위 **인스톨러**(전체 세트)를 쓰거나 bootstrap.ps1에 맡긴다.
 
+### 4-6. 이 PC(빌드·실행 가능 머신) 식별 방법
+
+> 여러 개발 PC를 오갈 때 "이 Windows PC가 앱을 로컬 빌드·실행할 수 있는 그 머신인가"를 판별하는 식별자.
+> ⚠️ **실제 GUID/UUID 값은 머신 고유 식별자라 저장소(공개 예정)에 커밋하지 말 것** — 방법(명령)만 문서화하고, 값은 로컬 메모리/비밀 보관.
+
+| 식별자 | 확인 명령(PowerShell) | 특성 |
+| --- | --- | --- |
+| **MachineGuid**(권장) | `Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Cryptography' MachineGuid` | OS 설치당 고유·**PC 이름 변경 무관**. 소프트웨어로 한 줄에 읽힘 |
+| 호스트명 | `$env:COMPUTERNAME` | 사람이 읽기 쉬운 라벨. **이름 변경 시 바뀜**·비고유 |
+| HW UUID(SMBIOS) | `(Get-CimInstance Win32_ComputerSystemProduct).UUID` | 하드웨어(펌웨어) 고유·**OS 재설치에도 유지** |
+| OS 설치일/사용자 | `(Get-CimInstance Win32_OperatingSystem).InstallDate` · `$env:USERNAME` | 보조 확인 |
+
+- **권장**: 이름에 의존하지 않도록 **MachineGuid**를 기준 식별자로, 호스트명은 사람이 읽는 라벨로 병기.
+- 물리 머신을 OS 재설치 후에도 같은 PC로 보려면 **HW UUID**를 함께 기록.
+
 ## 5. 저장소에 포함할 재현성 파일 (스캐폴딩 시)
 - `rust-toolchain.toml` — Rust 버전 고정
 - `global.json` — .NET SDK 버전 고정
