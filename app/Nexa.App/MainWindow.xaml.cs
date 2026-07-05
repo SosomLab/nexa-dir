@@ -606,7 +606,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnPathBarNavigated(bool left, string path)
     {
-        var p = (path ?? string.Empty).Trim();
+        // 환경변수 해석 레이어: %USERPROFILE%(CMD)·$env:USERPROFILE/${env:VAR}(PowerShell) 등을 실제 경로로 확장.
+        var p = PathInterpreter.Expand(path);
         if (Directory.Exists(p))
         {
             SetActivePanel(left);
