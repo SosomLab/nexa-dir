@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using Nexa.Plugins.Preview;
+using Nexa.Plugins.Samples;
 
 namespace Nexa.App;
 
@@ -13,6 +15,10 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // 내장 미리보기 공급자 등록(BP-2) — 샘플 플러그인(Nexa.Plugins.Samples)을 그대로 dogfooding.
+        // 플러그인은 나중에 등록되면 우선권을 갖는다(PreviewRegistry).
+        PreviewRegistry.Register(new ImagePreviewProvider());
+        PreviewRegistry.Register(new TextPreviewProvider());
         // 오류 격리(NFR-R3): 미처리 예외를 조용히 종료시키지 말고 로그로 남긴다.
         // 로그: %LOCALAPPDATA%\NexaDir\crash.log
         UnhandledException += (_, e) =>

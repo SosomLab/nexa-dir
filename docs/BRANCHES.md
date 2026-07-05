@@ -13,6 +13,7 @@
 | `refactor/002-audit` | 2026-07-02 | 2026-07-03 (`1d9d312`) | 2026-07-05 | — | 2차 감사 — 트랙 A 성능 + B 구조 | [refactor-002-worklog](journal/archive/refactor-002-worklog.md) |
 | `refactor/003-audit` | 2026-07-03 | 2026-07-05 (`bd45f86`) | 2026-07-05 | 77 | 3차 감사 — 파일 조작·전송 엔진·정렬·타입어헤드 | [refactor-003-worklog](journal/archive/refactor-003-worklog.md) |
 | `feat/bottom-panel` | 2026-07-05 | 2026-07-05 (`01c85a7`) | 2026-07-05 | 4 | 하단 패널 컨테이너 프레임워크(BP-1) | [bottom-panel-worklog](journal/archive/bottom-panel-worklog.md) |
+| `feat/bottom-panel-info` | 2026-07-05 | (진행 중) | — | 1+ | 하단 정보/미리보기 뷰(BP-2) | [2026-07-05](journal/2026-07-05.md) |
 
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 

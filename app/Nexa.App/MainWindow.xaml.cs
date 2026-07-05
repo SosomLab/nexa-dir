@@ -2118,14 +2118,37 @@ public sealed partial class MainWindow : Window
     {
         int count = items.SelectionCount;
         StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+        RefreshBottomDocks();   // 선택 변경 → 하단 정보 뷰 갱신 (BP-2)
     }
 
     /// <summary>
     /// 키보드 이동: ↑/↓ 선택 이동(Shift=범위 확장, Ctrl=위치만 이동), →/← 폴더 펼침/접힘,
     /// Space=캐럿 항목 선택(Ctrl+Space=비연속 다중 선택 토글). 대상은 활성 패널(포커스 비의존).
     /// </summary>
+    /// <summary>키보드를 입력 컨트롤(터미널·텍스트박스)이 소유 중인가 — 그렇다면 전역 파일목록 단축키는 개입 금지.</summary>
+    private bool IsKeyboardOwnedByInput()
+    {
+        var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(Content.XamlRoot) as DependencyObject;
+        while (focused is not null)
+        {
+            if (focused is Terminal.TerminalView or TextBox)
+            {
+                return true;
+            }
+            focused = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(focused);
+        }
+        return false;
+    }
+
     private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 터미널·텍스트 입력이 포커스면 전역 파일목록 단축키는 개입 안 함(터미널이 키를 소유).
+        // (RootGrid 핸들러는 handledEventsToo=true라 터미널이 Handled해도 여기까지 오므로 명시적으로 차단.)
+        if (IsKeyboardOwnedByInput())
+        {
+            return;
+        }
+
         // Ctrl+W: 활성 패널의 활성 탭 닫기.
         if (e.Key == VirtualKey.W && IsCtrlDown())
         {
@@ -2407,11 +2430,45 @@ public sealed partial class MainWindow : Window
         }
         BottomLeftDockView.InfoText = DockInfo(_left);
         BottomRightDockView.InfoText = DockInfo(_right);
+        BottomLeftDockView.PreviewPath = PreviewTarget(_left);
+        BottomRightDockView.PreviewPath = PreviewTarget(_right);
+        BottomLeftDockView.CurrentFolder = _left.Active.Current;    // 터미널 작업 디렉터리 등 (BP-T)
+        BottomRightDockView.CurrentFolder = _right.Active.Current;
     }
 
-    /// <summary>도킹 정보 텍스트 — 현재 폴더 경로(후속: 선택 항목 속성·미리보기·터미널).</summary>
+    /// <summary>미리보기 대상 — 단일 선택된 <b>파일</b>의 경로(폴더/다중/없음은 빈 문자열). (BP-2)</summary>
+    private static string PreviewTarget(PanelView p)
+    {
+        var items = p.Active.Items;
+        if (items.SelectionCount == 1 && items.CaretItem is DirItem it && !it.IsDir)
+        {
+            return it.FullPath;
+        }
+        return string.Empty;
+    }
+
+    /// <summary>도킹 정보 텍스트(BP-2) — 선택/캐럿 항목의 속성(이름·종류·크기·수정·경로),
+    /// 다중 선택이면 개수, 선택 없으면 현재 폴더. (후속: 총 크기·미리보기·터미널.)</summary>
     private static string DockInfo(PanelView p)
     {
+        var items = p.Active.Items;
+        int selCount = items.SelectionCount;
+        if (selCount >= 2)
+        {
+            return $"선택: {selCount}개 항목";
+        }
+        if (selCount == 1 && items.CaretItem is DirItem it)
+        {
+            var lines = new List<string?>
+            {
+                it.Name,
+                $"종류: {it.KindText}",
+                it.IsDir ? null : $"크기: {it.SizeLabel}",
+                string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : $"수정: {it.ModifiedDateTimeLabel}",
+                $"경로: {it.FullPath}",
+            };
+            return string.Join("\n", lines.Where(s => !string.IsNullOrEmpty(s)));
+        }
         string cur = p.Active.Current;
         return string.IsNullOrEmpty(cur) ? "(폴더 없음)" : $"현재 폴더:\n{cur}";
     }
