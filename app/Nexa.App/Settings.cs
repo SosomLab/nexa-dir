@@ -48,6 +48,34 @@ internal sealed class ViewOptions
 
     /// <summary>그리드 상단 헤더 정보란(경로 — N개 항목) 표시 여부(기본 <c>true</c>). 설정 UI 토글 예정(TODO).</summary>
     public bool ShowHeaderInfo { get; set; } = true;
+
+    /// <summary>드래그 중 탭 위에 머물러 그 탭으로 전환되기까지 시간(ms, 기본 2000). 설정 UI 예정(B-15h).</summary>
+    public int TabDwellMs { get; set; } = 2000;
+
+    /// <summary>드래그 중 폴더 위에 머물러 그 폴더로 진입(spring-load)되기까지 시간(ms, 기본 3000). 설정 UI 예정(B-15h).</summary>
+    public int FolderDwellMs { get; set; } = 3000;
+
+    /// <summary>
+    /// 복사/잘라내기/붙여넣기를 <b>OS 클립보드</b>와 연동할지(기본 <c>false</c>=앱 내부 클립보드).
+    /// <para>true면 셸 상호운용(탐색기에서 복사→우리 앱 붙여넣기, 그 반대)이 되고, 다른 앱이 텍스트 등을
+    /// 복사하면 파일 붙여넣기가 무효화된다(탐색기와 동일). 구현은 후속(설계: docs/33), 지금은 옵션 자리만.</para>
+    /// </summary>
+    public bool UseSystemClipboard { get; set; }
+
+    /// <summary>
+    /// 타입어헤드 찾기 범위(docs/32): 0=GlobalFirst(A) · 1=CurrentLevel(B) · <b>2=VisibleStream(C, 기본)</b>.
+    /// 설정 UI 예정(TODO). 코어 <c>nexa_tree_find_prefix</c>의 scope 코드와 동일.
+    /// </summary>
+    public uint TypeAheadScope { get; set; } = 2;
+
+    /// <summary>타입어헤드 입력 버퍼 리셋·검색어 표시 소거 타임아웃(ms, 기본 1000). 설정 UI 예정.</summary>
+    public long TypeAheadTimeoutMs { get; set; } = 1000;
+
+    /// <summary>
+    /// 파일 전송(복사/이동) <b>진행 창</b>을 완료 후 자동으로 닫을지(기본 <c>false</c>=열린 채 유지 → 사용자가 닫음).
+    /// 탐색기처럼 완료 후에도 결과를 보여준다. 자동 닫기 토글의 설정 UI 노출은 후속(DND-OW2).
+    /// </summary>
+    public bool AutoCloseTransferWindow { get; set; }
 }
 
 /// <summary>

@@ -35,7 +35,7 @@ nexa-dir/
 │     ├─ nexa-core/        # 공용 타입(FileKind, CORE_VERSION)
 │     ├─ nexa-vfs/         # 가상 파일시스템 추상화(Provider trait, Entry) + 로컬 스트리밍 열거 read_dir_entries·가시성 필터
 │     ├─ nexa-tree/        # 인라인 트리 + 교차선택(가시행 평면 스트림 VisibleRow + OrderedSet 선택, C1/ADR-0004)
-│     └─ nexa-interop/     # C ABI cdylib(nexa_abi_version + nexa_tree_*, ABI v5) — C# 인터롭 표면
+│     └─ nexa-interop/     # C ABI cdylib(nexa_abi_version + nexa_tree_*, ABI v7) — C# 인터롭 표면
 ├─ app/                    # ── WinUI 3 UI 셸(Windows 전용) ──
 │  ├─ README.md            # 앱 빌드 안내(Windows)
 │  ├─ Nexa.Controls/       # 재사용 WinUI 컨트롤 라이브러리 — NexaFileGrid(ItemsRepeater 래핑·도메인 비종속) → ADR-0002 §9
@@ -80,7 +80,7 @@ nexa-dir/
 | `nexa-core` | 코어 공용 타입. `FileKind`(File/Dir/Symlink), `CORE_VERSION`. 단위 테스트 2 |
 | `nexa-vfs` | 저장소 추상화. `Provider` trait(현재 `scheme()`만 — M4 전 list/stat/read/watch 계약 확장 예정, 2차 감사 C2), `Entry`(name/kind/size/modified), **로컬 스트리밍 열거 `read_dir_entries`**(점진 산출 Iterator, 엔트리별 Result) + 가시성 필터. 단위 테스트 3 |
 | `nexa-tree` | **인라인 트리 + 교차선택 모델(C1)** — 트리를 **가시 노드 평면 스트림**(`VisibleRow`)으로 투영, open/expand/collapse/가시행/경로→NodeId 조회 + **OrderedSet 선택**(교차 폴더). UI 비종속 순수 로직(맥 단위 테스트 11). ADR-0004 [29](29-adr-0004-core-tree-model.md) |
-| `nexa-interop` | **cdylib** — C# 호스트가 P/Invoke로 로드. C ABI `nexa_abi_version` + PoC `nexa_poc_add` + **코어 트리 API `nexa_tree_*`**(open/close/가시행/펼침·접힘/선택/경로 조회, **ABI v5**). 단위 테스트 5(라운드트립 포함). 후속: 이벤트 스트림 |
+| `nexa-interop` | **cdylib** — C# 호스트가 P/Invoke로 로드. C ABI `nexa_abi_version` + PoC `nexa_poc_add` + **코어 트리 API `nexa_tree_*`**(open/close/가시행/펼침·접힘/선택/경로 조회/**정렬 `nexa_tree_set_sort`**/**타입어헤드 `nexa_tree_find_prefix`**, **ABI v7**). 단위 테스트 7(라운드트립·정렬·타입어헤드 포함). 후속: 이벤트 스트림 |
 | `deny.toml` | 허용 라이선스 화이트리스트(MIT/Apache/BSD…), 1st-party 예외(PolyForm) |
 | `Cargo.toml` | 워크스페이스 멤버·공통 메타(version/edition/license/authors), release 프로파일(LTO) |
 

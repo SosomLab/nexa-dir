@@ -62,6 +62,47 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>깊이별 들여쓰기 폭(px). 이름 셀 앞 여백.</summary>
     public double IndentWidth => Depth * 16;
 
+    // ── 인라인 이름 변경(선택 후 재클릭 / F2) ─────────────────────────
+    private bool _isRenaming;
+
+    /// <summary>편집 모드 여부. 참이면 이름 셀이 <c>TextBox</c>로 전환된다.</summary>
+    public bool IsRenaming
+    {
+        get => _isRenaming;
+        set
+        {
+            if (_isRenaming != value)
+            {
+                _isRenaming = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRenaming)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameVisibility)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditVisibility)));
+            }
+        }
+    }
+
+    private string _editName = string.Empty;
+
+    /// <summary>편집 중 입력값(TextBox 양방향 바인딩). 시작 시 <see cref="Name"/>으로 초기화.</summary>
+    public string EditName
+    {
+        get => _editName;
+        set
+        {
+            if (_editName != value)
+            {
+                _editName = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditName)));
+            }
+        }
+    }
+
+    /// <summary>이름 표시(비편집) 가시성.</summary>
+    public Visibility NameVisibility => _isRenaming ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>편집 TextBox 가시성.</summary>
+    public Visibility EditVisibility => _isRenaming ? Visibility.Visible : Visibility.Collapsed;
+
     private bool _isExpanded;
 
     /// <summary>폴더 펼침 여부. 변경 시 디스클로저 글리프가 갱신된다.</summary>
@@ -95,10 +136,27 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>폴더명은 굵게.</summary>
     public FontWeight NameWeight => IsDir ? FontWeights.SemiBold : FontWeights.Normal;
 
-    /// <summary>수정한 날짜(로컬, yyyy-MM-dd). 없으면 빈 문자열.</summary>
-    public string ModifiedLabel => ModifiedUnixMs < 0
+    /// <summary>수정 로컬 시각(없으면 null). 날짜/시간 컬럼 라벨의 공통 소스(COL-D1).</summary>
+    private DateTime? ModifiedLocal => ModifiedUnixMs < 0
+        ? null
+        : DateTimeOffset.FromUnixTimeMilliseconds(ModifiedUnixMs).LocalDateTime;
+
+    /// <summary>DateTime modified 컬럼(기본 표시). 형식 yy/MM/dd HH:mm. 없으면 빈 문자열. (차후 YYYY/MM/DD HH:MM:SS 옵션.)</summary>
+    public string ModifiedDateTimeLabel => ModifiedLocal?.ToString("yy/MM/dd HH:mm") ?? string.Empty;
+
+    /// <summary>Date modified 컬럼. 형식 yy/MM/dd. 없으면 빈 문자열.</summary>
+    public string ModifiedDateLabel => ModifiedLocal?.ToString("yy/MM/dd") ?? string.Empty;
+
+    /// <summary>Time modified 컬럼. 형식 HH:mm. 없으면 빈 문자열.</summary>
+    public string ModifiedTimeLabel => ModifiedLocal?.ToString("HH:mm") ?? string.Empty;
+
+    /// <summary>수정한 날짜(로컬, yyyy-MM-dd). 없으면 빈 문자열. (구 기본 · 하위호환.)</summary>
+    public string ModifiedLabel => ModifiedLocal?.ToString("yyyy-MM-dd") ?? string.Empty;
+
+    /// <summary>확장자(점 제외, 소문자). 폴더/링크/무확장자는 빈 문자열. 확장자 컬럼용(COL-1).</summary>
+    public string Extension => IsDir || Kind == NexaFileKind.Symlink
         ? string.Empty
-        : DateTimeOffset.FromUnixTimeMilliseconds(ModifiedUnixMs).LocalDateTime.ToString("yyyy-MM-dd");
+        : Path.GetExtension(Name).TrimStart('.').ToLowerInvariant();
 
     /// <summary>종류 텍스트: 폴더/링크/확장자 파일.</summary>
     public string KindText => IsDir
@@ -209,7 +267,7 @@ internal static class NativeInterop
     private const string Dll = "nexa_interop";
 
     /// <summary>이 앱이 기대하는 코어 ABI 버전. <see cref="VerifyAbi"/>가 로드된 dll과 대조한다.</summary>
-    public const uint ExpectedAbi = 5;
+    public const uint ExpectedAbi = 7;
 
     /// <summary>인터롭 ABI 버전(호환성 점검용). <see cref="VerifyAbi"/>가 <see cref="ExpectedAbi"/>와 대조.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
@@ -226,6 +284,10 @@ internal static class NativeInterop
     /// <summary>코어의 <c>NexaRange</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     public static extern ulong nexa_range_size();
+
+    /// <summary>코어의 <c>NexaSortKey</c> 실제 크기(바이트). 마샬 레이아웃 동치 점검용.</summary>
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ulong nexa_sort_key_size();
 
     /// <summary>
     /// 로드된 네이티브 dll의 <b>ABI 호환성</b>을 검사한다(감사 A2/A3 정정):
@@ -244,6 +306,7 @@ internal static class NativeInterop
         CheckLayout("NexaEntry", Marshal.SizeOf<NexaEntry>(), nexa_entry_size());
         CheckLayout("NexaRow", Marshal.SizeOf<NexaRow>(), nexa_row_size());
         CheckLayout("NexaRange", Marshal.SizeOf<NexaRange>(), nexa_range_size());
+        CheckLayout("NexaSortKey", Marshal.SizeOf<NexaSortKey>(), nexa_sort_key_size());
     }
 
     /// <summary>C# 마샬 크기와 코어 크기를 대조(불일치 시 예외). <see cref="VerifyAbi"/> 내부용.</summary>
@@ -306,6 +369,20 @@ internal static class NativeInterop
         public ulong Inserted;
     }
 
+    /// <summary>C ABI <c>NexaSortKey</c> 미러(정렬 서술자). <c>Key</c>: 0=Name 1=Ext 2=Size 3=Modified 4=Kind 5=None, <c>Desc</c>: 0=오름/1=내림.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NexaSortKey
+    {
+        public uint Key;
+        public uint Desc;
+
+        public NexaSortKey(uint key, bool desc)
+        {
+            Key = key;
+            Desc = desc ? 1u : 0u;
+        }
+    }
+
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr nexa_tree_open(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte showHidden, byte showDotFiles);
@@ -338,6 +415,13 @@ internal static class NativeInterop
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern int nexa_tree_collapse(IntPtr handle, ulong id, ref NexaRange range);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int nexa_tree_set_sort(IntPtr handle, NexaSortKey[]? keys, ulong count, int foldersFirst);
+
+    [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+    private static extern long nexa_tree_find_prefix(
+        IntPtr handle, long caret, [MarshalAs(UnmanagedType.LPUTF8Str)] string prefix, uint scope);
 
     [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
     private static extern void nexa_tree_select(IntPtr handle, ulong id, uint mode);
@@ -424,6 +508,23 @@ internal static class NativeInterop
         nexa_tree_collapse(handle, id, ref rg);
         return new TreeRange((int)rg.Start, (int)rg.Removed, (int)rg.Inserted);
     }
+
+    /// <summary>정렬 사양 설정 — 로드된 모든 폴더 자식 + 가시목록 재정렬(펼침 보존, COL-2b). <paramref name="keys"/>가 비면 열거 순서.</summary>
+    internal static void TreeSetSort(IntPtr handle, NexaSortKey[] keys, bool foldersFirst)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+        nexa_tree_set_sort(handle, keys, (ulong)keys.Length, foldersFirst ? 1 : 0);
+    }
+
+    /// <summary>
+    /// 타입어헤드 접두사 매칭(docs/32) — <paramref name="prefix"/>로 시작하는 가시 행 인덱스(없으면 -1).
+    /// <paramref name="caret"/>=현재 캐럿 가시 인덱스(-1=없음), <paramref name="scope"/>=0 GlobalFirst/1 CurrentLevel/2 VisibleStream.
+    /// </summary>
+    internal static int TreeFindPrefix(IntPtr handle, int caret, string prefix, uint scope) =>
+        handle == IntPtr.Zero ? -1 : (int)nexa_tree_find_prefix(handle, caret, prefix, scope);
 
     /// <summary>선택: <paramref name="mode"/> 0=단일, 1=토글.</summary>
     internal static void TreeSelect(IntPtr handle, ulong id, uint mode) => nexa_tree_select(handle, id, mode);

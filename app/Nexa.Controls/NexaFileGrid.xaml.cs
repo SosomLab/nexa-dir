@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.ApplicationModel.DataTransfer.DragDrop;
 
 namespace Nexa.Controls;
 
@@ -41,7 +44,107 @@ public sealed partial class NexaFileGrid : UserControl
                 RowRecycled?.Invoke(item);
             }
         };
+        // 드래그 중 가장자리 자동 스크롤 타이머(가장자리에 머무는 동안 반복 스크롤).
+        _autoScroll.Interval = TimeSpan.FromMilliseconds(50);
+        _autoScroll.Tick += (_, _) =>
+        {
+            if (_autoScrollDelta == 0)
+            {
+                return;
+            }
+            BodyScroll.ChangeView(null, BodyScroll.VerticalOffset + _autoScrollDelta, null, disableAnimation: true);
+        };
+        // 헤더 셀(패널별 정렬 상태 래퍼)은 호스트가 Columns를 채운 뒤(생성자 이후) 구성 → Loaded에서 1회 빌드.
+        Loaded += (_, _) => BuildHeaderCells();
     }
+
+    // 이 패널(그리드)만의 헤더 셀 — 정렬 표시(▲/▼)가 좌/우 독립(공유 컬럼은 너비만 공유).
+    private readonly List<HeaderCell> _headerCells = new();
+    private bool _headerBuilt;
+
+    private void BuildHeaderCells()
+    {
+        if (_headerBuilt || Columns.Count == 0)
+        {
+            return;
+        }
+        foreach (var col in Columns)
+        {
+            _headerCells.Add(new HeaderCell(col));
+        }
+        HeaderRepeater.ItemsSource = _headerCells;
+        _headerBuilt = true;
+    }
+
+    // ── 드래그 중 가장자리 자동 스크롤 (B-11) ────────────────────────
+    private readonly DispatcherTimer _autoScroll = new();
+    private double _autoScrollDelta;
+
+    /// <summary>본문 빈 영역(행이 소비하지 않은 곳)에 드롭됨 — 호스트가 현재 폴더로 이동/복사 처리(수정키 전달, B-12/B-14dnd).</summary>
+    public event Action<DragDropModifiers>? BodyDropped;
+
+    /// <summary>빈 영역 드롭 캡션에 쓸 대상 폴더 표시명(호스트가 현재 폴더 변경 시 갱신). 비면 일반 "복사/이동" 캡션.</summary>
+    public string? DropTargetName { get; set; }
+
+    /// <summary>빈 영역 드래그의 연산 결정(호스트가 자기폴더 Move 금지 등 판단). 미설정 시 수정키 근사.</summary>
+    public Func<DragDropModifiers, DataPackageOperation>? BodyDragOperation { get; set; }
+
+    /// <summary>본문 위 드래그 → 자동 스크롤 + <b>빈 영역만</b> 연산/캡션 결정(폴더 행은 호스트 <c>OnRowDragOver</c>가 이미 수락 → 덮어쓰지 않음).</summary>
+    private void OnBodyDragOver(object sender, DragEventArgs e)
+    {
+        // 이벤트는 행→본문으로 버블링. 행 핸들러(호스트)가 폴더를 수락했으면 AcceptedOperation≠None →
+        // 그 폴더명 캡션/연산을 유지(덮어쓰면 폴더 위에서도 현재 폴더 캡션이 돼버림). None(파일 행·진짜 빈 영역)일 때만 배경 처리.
+        if (e.AcceptedOperation == DataPackageOperation.None)
+        {
+            var op = BodyDragOperation?.Invoke(e.Modifiers)
+                ?? (e.Modifiers.HasFlag(DragDropModifiers.Control) ? DataPackageOperation.Copy : DataPackageOperation.Move);
+            e.AcceptedOperation = op;
+            e.DragUIOverride.IsGlyphVisible = false;
+            if (op == DataPackageOperation.None)
+            {
+                e.DragUIOverride.IsCaptionVisible = false;   // 자기 폴더로 Move 등 금지 → 캡션 없음(불가 커서)
+            }
+            else
+            {
+                e.DragUIOverride.IsContentVisible = true;
+                e.DragUIOverride.IsCaptionVisible = true;
+                bool copy = op == DataPackageOperation.Copy;
+                e.DragUIOverride.Caption = string.IsNullOrEmpty(DropTargetName)
+                    ? (copy ? "복사" : "이동")
+                    : (copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
+            }
+        }
+        const double edge = 32;   // 가장자리 감지 폭(px)
+        const double speed = 20;  // 틱당 스크롤(px)
+        var p = e.GetPosition(BodyScroll);
+        double h = BodyScroll.ActualHeight;
+        _autoScrollDelta = p.Y < edge ? -speed : (p.Y > h - edge ? speed : 0);
+        if (_autoScrollDelta != 0)
+        {
+            if (!_autoScroll.IsEnabled) { _autoScroll.Start(); }
+        }
+        else
+        {
+            _autoScroll.Stop();
+        }
+    }
+
+    private void OnBodyDragLeave(object sender, DragEventArgs e) => StopAutoScroll();
+
+    private void OnBodyDragEnd(object sender, DragEventArgs e)
+    {
+        StopAutoScroll();
+        BodyDropped?.Invoke(e.Modifiers);   // 행이 소비하지 않은 드롭 = 빈 영역 → 현재 폴더로(수정키 전달)
+    }
+
+    private void StopAutoScroll()
+    {
+        _autoScrollDelta = 0;
+        _autoScroll.Stop();
+    }
+
+    /// <summary>드래그 취소/종료 시 자동 스크롤을 강제 정지(호스트가 <c>DropCompleted</c>에서 호출, B-14).</summary>
+    public void StopDragAutoScroll() => StopAutoScroll();
 
     /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>
     public event Action<object>? RowRealized;
@@ -84,6 +187,9 @@ public sealed partial class NexaFileGrid : UserControl
 
     /// <summary>본문 스크롤을 맨 위로 리셋(폴더 진입 시 첫 항목이 위에 오도록).</summary>
     public void ScrollToTop() => BodyScroll.ChangeView(null, 0, null, disableAnimation: true);
+
+    /// <summary>지정 인덱스의 실체화된 행 요소(미실체화면 null). 인라인 편집 등 행 요소 접근용.</summary>
+    public FrameworkElement? RowElement(int index) => Repeater.TryGetElement(index) as FrameworkElement;
 
     /// <summary>현재 본문 세로 스크롤 오프셋(px). 펼침/접힘 전 캡처용.</summary>
     public double VerticalOffset => BodyScroll.VerticalOffset;
@@ -197,6 +303,124 @@ public sealed partial class NexaFileGrid : UserControl
             fe.ReleasePointerCapture(e.Pointer);
         }
         _resizingCol = null;
+    }
+
+    // ── 헤더 클릭 정렬 (3상태 순환 + SortRequested) — COL-2c ────────────
+
+    /// <summary>헤더 정렬 요청 — 현재 활성 정렬 서술자 목록(순번 순). 호스트가 코어에 적용(도메인 비종속).</summary>
+    public event Action<IReadOnlyList<SortDescriptor>>? SortRequested;
+
+    /// <summary>
+    /// 헤더 셀 클릭 → 정렬. 기본은 <b>단일 컬럼 3상태 순환</b>(없음→오름→내림→없음, 나머지 해제).
+    /// <b>Shift+클릭 &amp; 이미 정렬된 컬럼이 1개 이상</b>이면 <b>다중열 정렬</b>: 이 컬럼을 정렬 집합에
+    /// 추가(순번 부여)하거나, 이미 정렬 키면 방향 순환(없음이면 집합에서 제거·순번 당김). 이 패널만(COL-3).
+    /// </summary>
+    private void OnHeaderTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not HeaderCell cell || !cell.Column.Sortable)
+        {
+            return;
+        }
+        e.Handled = true;
+        // 다중열은 Shift + 이미 정렬된 컬럼이 하나라도 있을 때만(요청). 아니면 단일 정렬로 리셋.
+        bool multi = IsShiftDown() && _headerCells.Any(h => h.Sort != ColumnSort.None);
+        if (multi)
+        {
+            ApplyMultiSort(cell);
+        }
+        else
+        {
+            ApplySingleSort(cell);
+        }
+        UpdateSortOrderBadges();
+        RaiseSortRequested();
+    }
+
+    /// <summary>단일 컬럼 정렬(3상태 순환) — 나머지 헤더 셀 해제.</summary>
+    private void ApplySingleSort(HeaderCell cell)
+    {
+        ColumnSort next = Cycle(cell.Sort);
+        foreach (var hc in _headerCells)
+        {
+            if (!ReferenceEquals(hc, cell))
+            {
+                hc.Sort = ColumnSort.None;
+                hc.Order = 0;
+            }
+        }
+        cell.Sort = next;
+        cell.Order = next == ColumnSort.None ? 0 : 1;
+    }
+
+    /// <summary>다중열 정렬 — 이 컬럼을 정렬 집합에 추가/토글(기존 순번 유지, 제거 시 뒤 순번 당김).</summary>
+    private void ApplyMultiSort(HeaderCell cell)
+    {
+        if (cell.Sort == ColumnSort.None)
+        {
+            // 새 정렬 키 = 현재 최대 순번 + 1, 오름차순으로 추가.
+            cell.Order = _headerCells.Max(h => h.Order) + 1;
+            cell.Sort = ColumnSort.Ascending;
+            return;
+        }
+        // 이미 정렬 키 → 방향만 순환(오름→내림→없음). 없음이면 집합에서 제거하고 뒤 순번을 당긴다.
+        ColumnSort next = cell.Sort == ColumnSort.Ascending ? ColumnSort.Descending : ColumnSort.None;
+        if (next == ColumnSort.None)
+        {
+            int removedOrder = cell.Order;
+            cell.Sort = ColumnSort.None;
+            cell.Order = 0;
+            foreach (var hc in _headerCells)
+            {
+                if (hc.Sort != ColumnSort.None && hc.Order > removedOrder)
+                {
+                    hc.Order--;
+                }
+            }
+        }
+        else
+        {
+            cell.Sort = next;   // 순번 유지
+        }
+    }
+
+    private static ColumnSort Cycle(ColumnSort s) => s switch
+    {
+        ColumnSort.None => ColumnSort.Ascending,
+        ColumnSort.Ascending => ColumnSort.Descending,
+        _ => ColumnSort.None,
+    };
+
+    /// <summary>정렬된 각 컬럼의 순번을 <b>원문자</b>(①②③…)로 컬럼명 뒤에 표시(정렬 안 된 컬럼은 빈 문자열).</summary>
+    private void UpdateSortOrderBadges()
+    {
+        foreach (var hc in _headerCells)
+        {
+            hc.OrderText = hc.Sort != ColumnSort.None ? CircledNumber(hc.Order) : string.Empty;
+        }
+    }
+
+    /// <summary>1→① … 20→⑳(U+2460~). 범위 밖은 평문 숫자.</summary>
+    private static string CircledNumber(int n) =>
+        n is >= 1 and <= 20
+            ? ((char)('①' + (n - 1))).ToString()
+            : n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static bool IsShiftDown() =>
+        (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+            & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+    private void RaiseSortRequested()
+    {
+        var list = new List<SortDescriptor>();
+        foreach (var hc in _headerCells)
+        {
+            if (hc.Sort != ColumnSort.None)
+            {
+                list.Add(new SortDescriptor(hc.Column.Key, hc.Sort == ColumnSort.Descending, hc.Order));
+            }
+        }
+        list.Sort((a, b) => a.Order.CompareTo(b.Order));
+        SortRequested?.Invoke(list);
     }
 
     /// <summary>행 데이터 컬렉션. 내부 <c>ItemsRepeater.ItemsSource</c>로 전달(가상화).</summary>

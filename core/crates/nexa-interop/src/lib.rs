@@ -9,7 +9,7 @@ use std::ptr;
 use std::time::UNIX_EPOCH;
 
 use nexa_core::FileKind;
-use nexa_tree::{SelectMode, Tree};
+use nexa_tree::{FindScope, SelectMode, SortKey, SortSpec, Tree};
 use nexa_vfs::{read_dir_entries, Entry};
 
 /// `FileKind` → C ABI 정수(0=file, 1=dir, 2=symlink). 열거·트리 표면 공용.
@@ -25,9 +25,11 @@ fn kind_code(kind: FileKind) -> u32 {
 /// v2: `NexaEntry.attrs`. v3: 코어 트리/선택 표면(`nexa_tree_*`, `NexaRow`/`NexaRange`).
 /// v4: `nexa_tree_index_of`(행 재실체화 없는 id→가시 인덱스 조회, 슬라이스 4-3).
 /// v5: `nexa_tree_index_of_path`/`nexa_tree_expand_path`(경로→인덱스/펼침, per-row 마샬 제거, 감사 P3).
+/// v6: `nexa_tree_set_sort`(컬럼 정렬 — 키 배열·folders_first, COL-2b) + `NexaSortKey`.
+/// v7: `nexa_tree_find_prefix`(타입어헤드 접두사 매칭 — A/B/C 범위, docs/32 1단계).
 #[no_mangle]
 pub extern "C" fn nexa_abi_version() -> c_uint {
-    5
+    7
 }
 
 /// `NexaEntry`의 실제 크기(바이트). C# 마샬 레이아웃 동치 점검용(감사 A2 — 구조체 드리프트 가드).
@@ -394,6 +396,102 @@ pub unsafe extern "C" fn nexa_tree_collapse(
     1
 }
 
+/// C ABI 정렬 키 서술자(호스트→코어). `key`: 0=Name 1=Ext 2=Size 3=Modified 4=Kind 5=None,
+/// `desc`: 0=오름 1=내림. `nexa_tree_set_sort`에 배열로 전달(1차→2차… 우선순위).
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct NexaSortKey {
+    pub key: u32,
+    pub desc: u32,
+}
+
+/// `NexaSortKey`의 실제 크기(바이트). 마샬 레이아웃 동치 점검용.
+#[no_mangle]
+pub extern "C" fn nexa_sort_key_size() -> u64 {
+    std::mem::size_of::<NexaSortKey>() as u64
+}
+
+fn sort_key_from_code(code: u32) -> SortKey {
+    match code {
+        0 => SortKey::Name,
+        1 => SortKey::Ext,
+        2 => SortKey::Size,
+        3 => SortKey::Modified,
+        4 => SortKey::Kind,
+        _ => SortKey::None,
+    }
+}
+
+/// 정렬 사양을 설정하고 로드된 모든 폴더 자식 + 가시 목록을 재정렬한다(펼침 보존, COL-2b).
+/// `keys`가 널이거나 `count==0`이면 정렬 없음(열거 순서). 반환: `1`=성공, `-1`=널 핸들.
+///
+/// # Safety
+/// `handle`은 유효 핸들, `keys`는 `count`개의 `NexaSortKey`를 가리키는 유효 배열(또는 널)이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_set_sort(
+    handle: *mut TreeHandle,
+    keys: *const NexaSortKey,
+    count: u64,
+    folders_first: c_int,
+) -> c_int {
+    if handle.is_null() {
+        return -1;
+    }
+    let mut spec_keys = Vec::new();
+    if !keys.is_null() && count > 0 {
+        let slice = std::slice::from_raw_parts(keys, count as usize);
+        for k in slice {
+            spec_keys.push((sort_key_from_code(k.key), k.desc != 0));
+        }
+    }
+    (*handle).tree.set_sort(SortSpec {
+        keys: spec_keys,
+        folders_first: folders_first != 0,
+    });
+    1
+}
+
+fn find_scope_from_code(code: u32) -> FindScope {
+    match code {
+        0 => FindScope::GlobalFirst,
+        1 => FindScope::CurrentLevel,
+        _ => FindScope::VisibleStream,
+    }
+}
+
+/// 타입어헤드 접두사 매칭(docs/32) — `prefix`로 시작하는 가시 행 인덱스(없으면 -1).
+/// `caret`: 현재 캐럿 가시 인덱스(음수=없음/처음부터). `scope`: 0=GlobalFirst(A) 1=CurrentLevel(B) 2=VisibleStream(C).
+/// 반환: 매치 가시 인덱스, 없거나 널/잘못된 UTF-8이면 -1.
+///
+/// # Safety
+/// `handle`은 유효 핸들, `prefix`는 유효한 널종단 UTF-8 문자열(또는 널)이어야 한다.
+#[no_mangle]
+pub unsafe extern "C" fn nexa_tree_find_prefix(
+    handle: *mut TreeHandle,
+    caret: i64,
+    prefix: *const c_char,
+    scope: u32,
+) -> i64 {
+    if handle.is_null() || prefix.is_null() {
+        return -1;
+    }
+    let Ok(s) = CStr::from_ptr(prefix).to_str() else {
+        return -1;
+    };
+    let caret_opt = if caret < 0 {
+        None
+    } else {
+        Some(caret as usize)
+    };
+    match (*handle)
+        .tree
+        .find_prefix(caret_opt, s, find_scope_from_code(scope))
+    {
+        Some(i) => i as i64,
+        None => -1,
+    }
+}
+
 /// `NexaRange`에 값을 쓴다(내부 헬퍼).
 ///
 /// # Safety
@@ -506,8 +604,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_five() {
-        assert_eq!(nexa_abi_version(), 5);
+    fn abi_version_is_seven() {
+        assert_eq!(nexa_abi_version(), 7);
     }
 
     #[test]
@@ -656,6 +754,80 @@ mod tests {
             assert_eq!(nexa_tree_row(h, 99, &mut row), 0);
             nexa_tree_close(h);
             assert_eq!(nexa_tree_visible_len(ptr::null_mut()), 0);
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn tree_abi_set_sort_reorders() {
+        let base = std::env::temp_dir().join(format!("nexa_interop_sort_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join("a.txt"), b"333").unwrap(); // size 3
+        std::fs::write(base.join("b.txt"), b"1").unwrap(); //   size 1
+        std::fs::write(base.join("c.txt"), b"22").unwrap(); //  size 2
+
+        let cpath = CString::new(base.to_str().unwrap()).unwrap();
+        let name_at = |h: *mut TreeHandle, i: u64| unsafe {
+            let mut row = empty_row();
+            assert_eq!(nexa_tree_row(h, i, &mut row), 1);
+            CStr::from_ptr(row.name).to_string_lossy().into_owned()
+        };
+        unsafe {
+            let h = nexa_tree_open(cpath.as_ptr(), 1, 1);
+            assert_eq!(nexa_tree_visible_len(h), 3);
+            // 기본(이름 오름): a, b, c
+            assert_eq!(name_at(h, 0), "a.txt");
+
+            // 크기 내림(Size=2, desc=1): a(3) c(2) b(1)
+            let keys = [NexaSortKey { key: 2, desc: 1 }];
+            assert_eq!(nexa_tree_set_sort(h, keys.as_ptr(), 1, 1), 1);
+            assert_eq!(name_at(h, 0), "a.txt");
+            assert_eq!(name_at(h, 1), "c.txt");
+            assert_eq!(name_at(h, 2), "b.txt");
+
+            // 정렬 없음(count 0) → 열거 순서 복원(널 배열도 허용)
+            assert_eq!(nexa_tree_set_sort(h, ptr::null(), 0, 1), 1);
+            // 널 핸들 방어
+            assert_eq!(nexa_tree_set_sort(ptr::null_mut(), keys.as_ptr(), 1, 1), -1);
+            nexa_tree_close(h);
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn tree_abi_find_prefix() {
+        let base = std::env::temp_dir().join(format!("nexa_interop_ta_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join("apple.txt"), b"a").unwrap();
+        std::fs::write(base.join("apricot.txt"), b"a").unwrap();
+        std::fs::write(base.join("banana.txt"), b"b").unwrap();
+
+        let cpath = CString::new(base.to_str().unwrap()).unwrap();
+        let c = 2u32; // VisibleStream
+        unsafe {
+            let h = nexa_tree_open(cpath.as_ptr(), 1, 1);
+            // 가시(이름 오름): apple(0), apricot(1), banana(2)
+            let ap = CString::new("a").unwrap();
+            let bp = CString::new("B").unwrap(); // 대소문자 무시
+            let zp = CString::new("z").unwrap();
+            // 캐럿 없음(-1) → apple(0)
+            assert_eq!(nexa_tree_find_prefix(h, -1, ap.as_ptr(), c), 0);
+            // apple(0)에서 다음 'a' → apricot(1)
+            assert_eq!(nexa_tree_find_prefix(h, 0, ap.as_ptr(), c), 1);
+            // apricot(1)에서 다음 'a' → wrap → apple(0)
+            assert_eq!(nexa_tree_find_prefix(h, 1, ap.as_ptr(), c), 0);
+            // 'B' → banana(2)
+            assert_eq!(nexa_tree_find_prefix(h, -1, bp.as_ptr(), c), 2);
+            // 없는 접두사 → -1, 널 핸들/널 문자열 → -1
+            assert_eq!(nexa_tree_find_prefix(h, -1, zp.as_ptr(), c), -1);
+            assert_eq!(
+                nexa_tree_find_prefix(ptr::null_mut(), -1, ap.as_ptr(), c),
+                -1
+            );
+            assert_eq!(nexa_tree_find_prefix(h, -1, ptr::null(), c), -1);
+            nexa_tree_close(h);
         }
         std::fs::remove_dir_all(&base).unwrap();
     }

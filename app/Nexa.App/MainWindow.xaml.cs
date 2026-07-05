@@ -2,11 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.ApplicationModel.DataTransfer.DragDrop;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Core;
@@ -27,17 +32,36 @@ public sealed partial class MainWindow : Window
     /// <summary>지정 측 패널 반환(좌/우 이중화 분기 소거).</summary>
     private PanelView Panel(bool left) => left ? _left : _right;
 
+    // 패널별 폴더 변경 감시(외부/타 패널 변경 자동 갱신, B-12w). ctor에서 생성.
+    private FolderWatcher _leftWatcher = null!;
+    private FolderWatcher _rightWatcher = null!;
+    private FolderWatcher Watcher(bool left) => left ? _leftWatcher : _rightWatcher;
+
+    /// <summary>지정 패널의 현재 폴더를 감시 대상으로 설정 + 빈 영역 드롭 캡션용 폴더명 갱신(폴더 표시/전환 시 호출).</summary>
+    private void ArmWatcher(bool left)
+    {
+        string cur = Panel(left).Active.Current;
+        Watcher(left).Watch(cur);
+        Panel(left).Grid.DropTargetName = FolderLabel(cur);   // 빈 영역 드롭 캡션 "…에 복사/이동"(SHELL-DND)
+    }
+
     public MainWindow()
     {
         InitializeComponent();
         // 좌/우 패널이 같은 컬럼 인스턴스를 공유 → 리사이즈가 헤더·본문·양쪽 패널에 동시 반영(A3/A4).
         // 표시 순서 = 이름 · 수정한 날짜 · 종류 · 크기(Finder 스타일).
-        foreach (var key in new[] { "ColName", "ColDate", "ColKind", "ColSize" })
+        foreach (var key in new[] { "ColName", "ColExt", "ColDate", "ColKind", "ColSize" })
         {
             var col = (NexaGridColumn)RootGrid.Resources[key];
             DirGrid.Columns.Add(col);
             DirGrid2.Columns.Add(col);
         }
+        // 헤더 클릭 정렬(COL-2c) — 좌/우 독립. 각 그리드는 자기 패널에만 적용(표시도 패널별 HeaderCell).
+        DirGrid.SortRequested += d => OnSortRequested(true, d);
+        DirGrid2.SortRequested += d => OnSortRequested(false, d);
+        // 타입어헤드(docs/32 TA-5): 문자 입력 → 버퍼 → find_prefix → 선택 이동(패널별 버퍼).
+        DirGrid.CharacterReceived += (_, e) => OnTypeAhead(true, e);
+        DirGrid2.CharacterReceived += (_, e) => OnTypeAhead(false, e);
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -47,6 +71,9 @@ public sealed partial class MainWindow : Window
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
+        // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
+        _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
+        _rightWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(false));
         // 그리드 행 수명 → 아이콘 지연 로드/취소. 행이 화면 밖으로 나가면 큐에서 제거(빠른 스크롤 부하 제한, P6).
         _iconCache = new ShellIconCache(DispatcherQueue);
         foreach (var p in new[] { _left, _right })
@@ -54,6 +81,43 @@ public sealed partial class MainWindow : Window
             p.Grid.RowRealized += it => { if (it is DirItem d) { _iconCache.Request(d); } };
             p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
         }
+        // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
+        DirGrid.BodyDropped += m => OnPanelBackgroundDrop(true, m);
+        DirGrid2.BodyDropped += m => OnPanelBackgroundDrop(false, m);
+        // 빈 영역 드래그 커서/캡션 연산 결정(자기 폴더로 Move는 금지·Copy는 복제 허용, B-14dnd/DND-SELF).
+        DirGrid.BodyDragOperation = m => BackgroundDragOp(true, m);
+        DirGrid2.BodyDragOperation = m => BackgroundDragOp(false, m);
+        // 드래그 중 탭 위에 머물면 그 탭으로 전환(폴더가 보이게, B-13 · 시간=설정 TabDwellMs, B-15h).
+        _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
+        _tabDwellTimer.Tick += (_, _) =>
+        {
+            _tabDwellTimer.Stop();
+            if (_tabDwellTarget is PanelTab t)
+            {
+                SwitchToTab(_left.Tabs.Contains(t), t);
+            }
+        };
+        // 드래그 중 폴더 위에 머물면 그 폴더로 진입(spring-load, 시간=설정 FolderDwellMs, B-15h).
+        _folderDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.FolderDwellMs);
+        _folderDwellTimer.Tick += (_, _) =>
+        {
+            _folderDwellTimer.Stop();
+            if (_folderDwellTarget is DirItem f && f.IsDir)
+            {
+                Navigate(_folderDwellLeft, f.FullPath, record: true);   // 그 폴더로 진입(계속 드래그해 하위에 드롭)
+            }
+        };
+        // 이름변경 지연 트리거: 더블클릭 시간 경과(그 사이 더블클릭 없음) → 이름변경 시작(더블클릭 실행과 구분).
+        _renameDelayTimer.Tick += (_, _) =>
+        {
+            _renameDelayTimer.Stop();
+            if (_renamePendingItem is DirItem it && _renamePendingRow is FrameworkElement row && !it.IsRenaming)
+            {
+                BeginRename(row, it, _renamePendingLeft);
+            }
+            _renamePendingItem = null;
+            _renamePendingRow = null;
+        };
         // 패널별 초기 탭 1개 + 탭 바 바인딩(멀티라인·고정크기 ItemsRepeater).
         _left.Active.IsActive = true;
         _right.Active.IsActive = true;
@@ -64,11 +128,121 @@ public sealed partial class MainWindow : Window
         // 경로 바(브레드크럼/편집) 이동 요청 → 실제 네비게이션(존재 확인 후). 좌/우 각각.
         PathBarL.Navigated += (_, e) => OnPathBarNavigated(true, e.Path);
         PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
-        // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
-        Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
-        Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
+        // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
+        RestoreOrDefaultSession();
         UpdateBottomDock();
         Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
+        // 외부 앱이 클립보드를 바꾸면(다른 파일/텍스트 복사) 앱 내부 클립보드는 낡음 → 비워서 최신(OS 클립보드) 우선.
+        try { Clipboard.ContentChanged += (_, _) => FileClipboard.Clear(); } catch { /* 클립보드 미가용 격리 */ }
+
+        // 세션 저장 엔진 가동(일반 설정과 별도 파일 session.json) — 디바운스+유휴+주기+종료 flush(급종료 대비).
+        // 복원 이후에 생성 → 복원 중 MarkDirty 소음 없음(훅은 _session? 널가드).
+        _session = new SessionStore(SessionStore.DefaultPath(), DispatcherQueue, CaptureSession);
+        Closed += (_, _) => _session?.Flush();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => _session?.Flush();
+    }
+
+    // ── 세션(탭) 상태 영속화 — session.json (SessionStore) ────────────────────
+    // 저장 대상: 활성 패널 · 패널별(활성 탭 인덱스 · 열린 탭 목록[경로·펼침 집합·정렬]). 상세는 SessionStore.cs.
+    private SessionStore? _session;
+
+    /// <summary>현재 좌/우 패널·탭 상태를 세션 스냅샷으로 캡처(저장용). UI 스레드에서 호출.</summary>
+    private SessionState CaptureSession() => new()
+    {
+        ActiveLeft = _activeLeft,
+        Left = CapturePanel(_left),
+        Right = CapturePanel(_right),
+    };
+
+    /// <summary>패널 하나의 탭 목록·정렬을 세션 형태로 캡처. (정렬은 현재 패널 단위 → 각 탭에 동일 기록.)</summary>
+    private static PanelSession CapturePanel(PanelView p)
+    {
+        var sort = new List<SortKeyState>();
+        foreach (var k in p.SortKeys ?? Array.Empty<NativeInterop.NexaSortKey>())
+        {
+            sort.Add(new SortKeyState { Key = k.Key, Descending = k.Desc != 0 });
+        }
+        var sess = new PanelSession { ActiveTab = Math.Max(0, p.Tabs.IndexOf(p.Active)) };
+        foreach (var t in p.Tabs)
+        {
+            if (string.IsNullOrEmpty(t.Current))
+            {
+                continue;
+            }
+            sess.Tabs.Add(new TabSession
+            {
+                Path = t.Current,
+                Expanded = new List<string>(t.Expanded),
+                Sort = sort,
+            });
+        }
+        return sess;
+    }
+
+    /// <summary>세션 파일이 있으면 마지막 탭 상태를 복원, 없으면 기본 시작(좌=홈·우=문서).</summary>
+    private void RestoreOrDefaultSession()
+    {
+        var s = SessionStore.Load(SessionStore.DefaultPath());
+        bool restored = false;
+        if (s is not null)
+        {
+            bool l = RestorePanel(true, s.Left);
+            bool r = RestorePanel(false, s.Right);
+            restored = l || r;
+            if (restored)
+            {
+                SetActivePanel(s.ActiveLeft);
+            }
+        }
+        if (!restored)
+        {
+            Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
+            Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
+        }
+    }
+
+    /// <summary>패널 하나를 세션에서 복원(탭 목록·펼침·정렬·활성 탭). 존재하는 폴더 탭이 하나도 없으면 false.</summary>
+    private bool RestorePanel(bool left, PanelSession ps)
+    {
+        // 존재하는 폴더만 탭으로 복원(삭제/이동된 경로는 제외).
+        var valid = ps.Tabs.Where(t => !string.IsNullOrEmpty(t.Path) && Directory.Exists(t.Path)).ToList();
+        if (valid.Count == 0)
+        {
+            return false;
+        }
+        var p = Panel(left);
+        int activeIdx = Math.Clamp(ps.ActiveTab, 0, valid.Count - 1);
+        // 패널 정렬 복원(현재 아키텍처=패널 단위 → 활성 탭 스냅샷의 정렬 사용).
+        var sortSrc = valid[activeIdx].Sort;
+        p.SortKeys = sortSrc.Count == 0
+            ? null
+            : sortSrc.Select(k => new NativeInterop.NexaSortKey(k.Key, k.Descending)).ToArray();
+
+        // 기존 기본 탭(ctor에서 1개) 정리 후 세션 탭으로 재구성.
+        foreach (var old in p.Tabs)
+        {
+            old.Items.Dispose();
+        }
+        p.Tabs.Clear();
+        foreach (var t in valid)
+        {
+            var tab = new PanelTab();
+            tab.Nav.NavigateTo(t.Path, record: false);
+            tab.Title = PathDisplay.TabTitle(t.Path);
+            foreach (var ex in t.Expanded)
+            {
+                tab.Expanded.Add(ex);
+            }
+            p.Tabs.Add(tab);
+        }
+        var activeTab = p.Tabs[activeIdx];
+        p.Active = activeTab;
+        foreach (var tab in p.Tabs)
+        {
+            tab.IsActive = ReferenceEquals(tab, activeTab);
+        }
+        LoadDirectory(left, activeTab);   // 활성 탭만 즉시 로드(펼침·정렬 적용) · 나머지는 전환 시 지연 로드
+        return true;
     }
 
     /// <summary>
@@ -88,6 +262,83 @@ public sealed partial class MainWindow : Window
         {
             StatusText.Text = $"인터롭 실패: {ex.Message}";
         }
+    }
+
+    // ── 헤더 정렬 (COL-2c) — 좌/우 독립 ──────────────────────────────────
+
+    /// <summary>컬럼 키 문자열 → 코어 정렬 키 코드(0=Name 1=Ext 2=Size 3=Modified 4=Kind 5=None).</summary>
+    private static uint SortKeyCode(string key) => key switch
+    {
+        "name" => 0,
+        "ext" => 1,
+        "size" => 2,
+        "modified" => 3,
+        "kind" => 4,
+        _ => 5,
+    };
+
+    /// <summary>
+    /// 헤더 클릭 정렬 요청 → 코어 정렬 키로 매핑하고 <b>클릭한 패널에만</b> 적용(좌/우 독립).
+    /// 패널별 <see cref="PanelView.SortKeys"/>에 저장해 폴더 이동/탭 전환 시 그 패널 핸들에 재적용(지속).
+    /// 빈 목록(3상태 "없음") = 빈 배열 저장 → 열거 순서. (컬럼은 공유하나 정렬 상태는 HeaderCell·패널별.)
+    /// </summary>
+    private void OnSortRequested(bool left, IReadOnlyList<SortDescriptor> descs)
+    {
+        var keys = descs
+            .Select(d => new NativeInterop.NexaSortKey(SortKeyCode(d.Key), d.Descending))
+            .ToArray();
+        Panel(left).SortKeys = keys;   // 빈 배열=명시적 "없음"(열거 순서), null과 구분
+        Panel(left).Active.Items.SetSort(keys, foldersFirst: true);
+        _session?.MarkDirty();   // 정렬 변경 → 세션 저장 예약
+    }
+
+    // ── 타입어헤드 찾기 (docs/32 TA-5) ───────────────────────────────────
+
+    /// <summary>
+    /// 그리드 문자 입력 → 타입어헤드. 버퍼(<see cref="PanelView.TypeAhead"/>)에 누적하고 코어
+    /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
+    /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
+    /// </summary>
+    private void OnTypeAhead(bool left, CharacterReceivedRoutedEventArgs e)
+    {
+        // 이름 편집 박스가 포커스면(편집 중) 타입어헤드 금지 — 편집 텍스트가 처리.
+        if (e.OriginalSource is TextBox || IsCtrlDown() || IsAltDown())
+        {
+            return;
+        }
+        var panel = Panel(left);
+        char c = e.Character;
+        long now = Environment.TickCount64;
+        string prefix;
+        if (c == '\b')                    // Backspace = 접두사 축소
+        {
+            prefix = panel.TypeAhead.Backspace(now);
+        }
+        else if (c == ' ' || c < ' ')     // Space 제외 + 제어문자 제외
+        {
+            return;
+        }
+        else
+        {
+            prefix = panel.TypeAhead.Push(c, now);
+        }
+        if (prefix.Length == 0)
+        {
+            return;   // 빈 접두사(전부 지움) → 무동작
+        }
+        int caret = panel.Items.CaretIndex;
+        // 확장(refine)=현재 캐럿 포함(캐럿-1로 시작), 새 시작·반복키=캐럿 다음(이동/cycle).
+        int searchCaret = panel.TypeAhead.IsExtend ? (caret >= 0 ? caret - 1 : -1) : caret;
+        int hit = panel.Items.FindPrefix(searchCaret, prefix, AppSettings.View.TypeAheadScope);
+        if (hit >= 0)
+        {
+            SetActivePanel(left);
+            panel.Items.Select(panel.Items[hit], 0);   // 단일 선택
+            panel.Items.SetCaret(hit);
+            panel.Grid.BringIndexIntoView(hit);
+            UpdateSelectionCount(panel.Items);
+        }
+        e.Handled = true;
     }
 
     /// <summary>
@@ -111,8 +362,9 @@ public sealed partial class MainWindow : Window
         try
         {
             // 열거+펼침(전체 read_dir + metadata syscall + 정렬)을 백그라운드로 오프로드 → UI 무블록.
+            var sortKeys = Panel(left).SortKeys;   // 이 패널 정렬 스냅샷(null=코어 기본, 배열=지정/열거)
             result = await Task.Run(() =>
-                VirtualTreeCollection.OpenAndExpand(path, v.ShowHiddenFiles, v.ShowDotFiles, expanded));
+                VirtualTreeCollection.OpenAndExpand(path, v.ShowHiddenFiles, v.ShowDotFiles, expanded, sortKeys));
         }
         catch (Exception ex)
         {
@@ -141,6 +393,10 @@ public sealed partial class MainWindow : Window
             : $"디렉터리 열기 실패: {path}";
         if (ok)
         {
+            if (ReferenceEquals(Panel(left).Active, tab))
+            {
+                ArmWatcher(left);   // 활성 탭 폴더 변경 감시(B-12w)
+            }
             onLoaded?.Invoke();   // 로드 완료 후 동작(GoUp 선택·경로바 파일 선택 등). 스크롤 타이밍은 ScrollIndexIntoView가 자체 처리.
         }
     }
@@ -225,6 +481,7 @@ public sealed partial class MainWindow : Window
         nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
         LoadDirectory(left, nav, onLoaded);
         UpdateNavButtons(left);
+        _session?.MarkDirty();   // 경로 변경 → 세션 저장 예약(디바운스)
     }
 
     private void GoUp(bool left)
@@ -296,11 +553,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        var props = e.GetCurrentPoint((UIElement)sender).Properties;
+        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4).
+        if ((props.IsLeftButtonPressed || props.IsRightButtonPressed)
+            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft
+            && _activeLeft != paneLeft)
+        {
+            SetActivePanel(paneLeft);
+        }
         if (e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
         {
             return;
         }
-        var props = e.GetCurrentPoint((UIElement)sender).Properties;
         if (!props.IsXButton1Pressed && !props.IsXButton2Pressed)
         {
             return;
@@ -345,7 +609,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnPathBarNavigated(bool left, string path)
     {
-        var p = (path ?? string.Empty).Trim();
+        // 환경변수 해석 레이어: %USERPROFILE%(CMD)·$env:USERPROFILE/${env:VAR}(PowerShell) 등을 실제 경로로 확장.
+        var p = PathInterpreter.Expand(path);
         if (Directory.Exists(p))
         {
             SetActivePanel(left);
@@ -406,6 +671,7 @@ public sealed partial class MainWindow : Window
         {
             set.Remove(key);
         }
+        _session?.MarkDirty();   // 펼침/접힘 → 세션 저장 예약
     }
 
     /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
@@ -433,11 +699,46 @@ public sealed partial class MainWindow : Window
     // ── 파일 선택 (단일 · Ctrl 다중 · Shift 범위) — 코어(OrderedSet) 위임 ─────
     // 선택 상태는 DirItem.IsSelected(행 배경). 범위 기준점(anchor)은 패널별.
 
+    /// <summary>포인터 원본이 속한 행의 <see cref="DirItem"/>(행 밖이면 null). 빈 영역 클릭 판정용.</summary>
+    private static DirItem? RowUnderPointer(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is FrameworkElement fe && fe.Tag is DirItem d)
+            {
+                return d;
+            }
+            node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+        }
+        return null;
+    }
+
+    /// <summary>그리드 빈 영역(행 아님) 좌클릭 → 그 패널 선택 해제(빈 영역 클릭 = 선택 취소).</summary>
+    private void OnGridPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var pp = e.GetCurrentPoint((UIElement)sender).Properties;
+        if (!pp.IsLeftButtonPressed)
+        {
+            return;   // 좌클릭만(우클릭=컨텍스트 메뉴)
+        }
+        if (RowUnderPointer(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;   // 행 위 클릭은 행 핸들러가 처리
+        }
+        bool left = ReferenceEquals(sender, DirGrid);
+        var items = Panel(left).Items;
+        items.ClearSelection();
+        items.SetCaret(-1);
+        UpdateSelectionCount(items);
+        CancelPendingRename();
+    }
+
     private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        // 마우스 뒤로/앞으로(XButton1/2)는 네비게이션 전용 → 행 선택·활성 패널 변경 금지(RootGrid가 처리).
+        // 마우스 뒤로/앞으로(XButton)·우클릭은 여기서 선택/이름변경 관여 금지
+        // (우클릭=ContextRequested가 선택 판정, XButton=네비게이션). B-8: 우클릭·드래그 시 이름변경 오발동 방지.
         var pp = e.GetCurrentPoint((UIElement)sender).Properties;
-        if (pp.IsXButton1Pressed || pp.IsXButton2Pressed)
+        if (pp.IsXButton1Pressed || pp.IsXButton2Pressed || pp.IsRightButtonPressed)
         {
             return;
         }
@@ -445,23 +746,36 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
+        if (item.IsRenaming)
+        {
+            return;   // 편집 중 — TextBox가 처리(간섭 금지)
+        }
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         var items = Panel(left).Items;
         SetActivePanel(left);   // 클릭한 패널이 활성 → 반대 패널 선택은 회색(포커스아웃)
         Panel(left).Grid.Focus(FocusState.Programmatic);   // 키보드 이동 대상 포커스
 
-        // 선택은 코어(OrderedSet)에 위임: Shift=가시 범위(anchor~클릭), Ctrl=토글, 그 외=단일.
+        // 선택 규약: Shift=범위, Ctrl=토글(즉시). 평범한 클릭은 대상 상태에 따라:
+        //  · 미선택 항목 → 즉시 단일 선택(+이름변경 후보 장전)
+        //  · 이미 선택된 항목 → 선택을 바꾸지 않고 릴리스까지 보류(_deferredClickItem)
+        //    → 다중 선택 드래그 보존(B-9m) + 이름변경은 드래그 없이 릴리스했을 때만(B-8).
+        CancelPendingRename();   // 새 press → 대기 중인 이름변경 취소(더블클릭이면 DoubleTapped가 실행)
+        _deferredClickItem = null;
         if (IsShiftDown())
         {
             items.SelectRange(item);
         }
         else if (IsCtrlDown())
         {
-            items.Select(item, 1);   // 토글
+            items.Select(item, 1);   // 토글(다중)
+        }
+        else if (item.IsSelected)
+        {
+            _deferredClickItem = item;   // 보류(릴리스에서 확정)
         }
         else
         {
-            items.Select(item, 0);   // 단일
+            items.Select(item, 0);       // 새 항목 → 즉시 단일
         }
         int idx = items.IndexOf(item);
         if (idx >= 0)
@@ -471,24 +785,244 @@ public sealed partial class MainWindow : Window
         UpdateSelectionCount(items);
     }
 
-    /// <summary>행 더블클릭 → 폴더면 해당 패널을 그 폴더로 이동(진입).</summary>
+    /// <summary>행 포인터 릴리스(드래그 없이 클릭 완료) — 보류된 선택/이름변경을 확정(B-8/B-9m).</summary>
+    private void OnRowPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item
+            || !ReferenceEquals(_deferredClickItem, item))
+        {
+            return;   // 보류된 항목의 릴리스만 처리(드래그였다면 릴리스가 여기로 안 옴)
+        }
+        _deferredClickItem = null;
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        var items = Panel(left).Items;
+
+        if (items.SelectionCount == 1 && item.IsSelected)
+        {
+            // 이미 단독 선택된 항목의 클릭 → 이름변경 후보. 단, 곧 더블클릭(실행/진입)일 수 있으므로
+            // 더블클릭 시간만큼 기다렸다가(그 사이 DoubleTapped가 오면 취소) 이름변경 시작(타이밍 버그 수정).
+            ScheduleRename(fe, item, left);
+            return;
+        }
+
+        // 다중 선택 중 한 항목을 클릭(드래그 아님) → 그 항목으로 단일 축소(Explorer식).
+        items.Select(item, 0);
+        int idx = items.IndexOf(item);
+        if (idx >= 0)
+        {
+            items.SetCaret(idx);
+        }
+        UpdateSelectionCount(items);
+    }
+
+    // ── 이름변경 지연 트리거(더블클릭 실행과 구분) ─────────────────────
+    private readonly DispatcherTimer _renameDelayTimer = new();
+    private DirItem? _renamePendingItem;
+    private FrameworkElement? _renamePendingRow;
+    private bool _renamePendingLeft;
+
+    /// <summary>더블클릭 시간 후 이름변경을 시작하도록 예약(그 사이 더블클릭이 오면 <see cref="CancelPendingRename"/>로 취소).</summary>
+    private void ScheduleRename(FrameworkElement row, DirItem item, bool left)
+    {
+        _renamePendingRow = row;
+        _renamePendingItem = item;
+        _renamePendingLeft = left;
+        _renameDelayTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime() + 60);   // 더블클릭 판정 여유
+        _renameDelayTimer.Stop();
+        _renameDelayTimer.Start();
+    }
+
+    /// <summary>대기 중인 이름변경 취소(더블클릭 실행/진입·새 클릭·드래그 시).</summary>
+    private void CancelPendingRename()
+    {
+        _renameDelayTimer.Stop();
+        _renamePendingItem = null;
+        _renamePendingRow = null;
+    }
+
+    // 이미 선택된 항목을 평범하게 눌렀을 때 선택 변경을 릴리스까지 보류(다중 드래그 보존·이름변경 판정, B-8/B-9m).
+    private DirItem? _deferredClickItem;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    /// <summary>인라인 이름변경 시작 — 이름 셀을 편집기로 전환하고 포커스 + 이름부(확장자 제외) 선택.</summary>
+    private void BeginRename(FrameworkElement row, DirItem item, bool left)
+    {
+        SetActivePanel(left);
+        item.EditName = item.Name;
+        item.IsRenaming = true;
+        // 편집기가 가시화된 뒤(같은 디스패치 후) 포커스·선택.
+        row.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (FindDescendant<TextBox>(row) is TextBox tb)
+            {
+                tb.Focus(FocusState.Programmatic);
+                tb.Select(0, NameSelectLength(item));
+            }
+        });
+    }
+
+    /// <summary>편집기에서 Enter=커밋 · Esc=취소.</summary>
+    private void OnRenameKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not TextBox tb || tb.Tag is not DirItem item)
+        {
+            return;
+        }
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            item.EditName = tb.Text;
+            CommitRename(item);
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = true;
+            CancelRename(item);
+        }
+    }
+
+    /// <summary>편집기 포커스 상실(영역 밖 클릭) = 커밋(Enter와 동일).</summary>
+    private void OnRenameLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb && tb.Tag is DirItem item && item.IsRenaming)
+        {
+            item.EditName = tb.Text;
+            CommitRename(item);
+        }
+    }
+
+    /// <summary>편집 취소 — 원래 이름 복원, 목록에 포커스 반환.</summary>
+    private void CancelRename(DirItem item)
+    {
+        item.EditName = item.Name;
+        item.IsRenaming = false;
+        Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>
+    /// 이름 변경 확정 — 디스크에서 rename 후 폴더 재로드 + 새 경로 재선택. 무변경/빈 이름은 취소와 동일.
+    /// 잘못된 문자·중복·실패는 상태바로 격리(편집 종료). (후속: nexa-ops 경유·Undo·진행률.)
+    /// </summary>
+    private void CommitRename(DirItem item)
+    {
+        if (!item.IsRenaming)
+        {
+            return;
+        }
+        bool left = _activeLeft;   // 이름변경은 활성 패널에서 일어남
+        string newName = (item.EditName ?? string.Empty).Trim();
+        item.IsRenaming = false;
+        Panel(left).Grid.Focus(FocusState.Programmatic);
+        if (string.IsNullOrEmpty(newName) || string.Equals(newName, item.Name, StringComparison.Ordinal))
+        {
+            return;   // 무변경/빈 이름 → 취소와 동일
+        }
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            StatusText.Text = $"이름에 사용할 수 없는 문자가 있습니다: {newName}";
+            return;
+        }
+        string? dir = Path.GetDirectoryName(item.FullPath);
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string newPath = Path.Combine(dir, newName);
+        // 대소문자만 바꾸는 것(같은 파일)은 허용, 그 외 이미 존재하면 거부.
+        if ((File.Exists(newPath) || Directory.Exists(newPath))
+            && !string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText.Text = $"같은 이름이 이미 있습니다: {newName}";
+            return;
+        }
+        try
+        {
+            if (item.IsDir)
+            {
+                Directory.Move(item.FullPath, newPath);
+            }
+            else
+            {
+                File.Move(item.FullPath, newPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"이름 변경 실패: {ex.Message}";
+            return;
+        }
+        StatusText.Text = $"이름 변경: {item.Name} → {newName}";
+        var tab = Panel(left).Active;
+        UpdateExpandedPaths(tab, item.FullPath, newPath);   // 펼침 경로(폴더/자식) 갱신
+        tab.Loaded = false;
+        LoadDirectory(left, tab, onLoaded: () => SelectByPath(left, newPath));   // 재로드 후 새 경로 재선택
+    }
+
+    /// <summary>이름변경으로 바뀐 경로를 탭 펼침셋에 반영(폴더 자신 + 그 하위 펼침 경로 접두사 치환).</summary>
+    private static void UpdateExpandedPaths(PanelTab tab, string oldPath, string newPath)
+    {
+        string oldTrim = oldPath.TrimEnd('\\', '/');
+        string newTrim = newPath.TrimEnd('\\', '/');
+        var affected = tab.Expanded.Where(p =>
+            p.Equals(oldTrim, StringComparison.OrdinalIgnoreCase) ||
+            p.StartsWith(oldTrim + "\\", StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var old in affected)
+        {
+            tab.Expanded.Remove(old);
+            tab.Expanded.Add(newTrim + old[oldTrim.Length..]);
+        }
+    }
+
+    /// <summary>비주얼 트리에서 첫 <typeparamref name="T"/> 자손을 찾는다(편집기 TextBox 포커스용).</summary>
+    private static T? FindDescendant<T>(DependencyObject root) where T : class
+    {
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var c = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (c is T hit)
+            {
+                return hit;
+            }
+            if (FindDescendant<T>(c) is T deep)
+            {
+                return deep;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>편집 시작 시 선택 길이 — 파일은 확장자 앞까지, 폴더/선행점 파일은 전체.</summary>
+    private static int NameSelectLength(DirItem item)
+    {
+        string n = item.Name;
+        if (item.IsDir)
+        {
+            return n.Length;
+        }
+        int dot = n.LastIndexOf('.');
+        return dot > 0 ? dot : n.Length;
+    }
+
+    /// <summary>행 더블클릭 → 폴더/링크는 진입, 파일은 기본 연결 프로그램으로 실행(<see cref="ActivateItem"/>).</summary>
     private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
+        CancelPendingRename();   // 더블클릭(진입/실행) → 대기 중 이름변경 취소
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
         }
-        if (!item.IsDir && item.Kind != NexaFileKind.Symlink)
-        {
-            return;   // 파일: 진입 대상 아님(향후 셸 실행)
-        }
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
-        Navigate(left, item.FullPath, record: true);
+        ActivateItem(left, item);   // 폴더=진입, 파일=연결 프로그램 실행
         e.Handled = true;
     }
 
-    /// <summary>항목 활성화: 폴더/심볼릭링크는 진입(더블클릭 동작), 파일은 연결 프로그램으로 실행한다.</summary>
-    private async void ActivateItem(bool left, DirItem item)
+    /// <summary>항목 활성화: 폴더/심볼릭링크는 진입(더블클릭 동작), 파일은 기본 연결 프로그램으로 실행한다.
+    /// 파일 실행은 셸 실행(ShellExecute)을 사용 — StorageFile 브로커가 시스템/숨김 파일(desktop.ini 등)에
+    /// 대해 "unauthorized"로 실패하던 문제를 피하고 더 많은 형식을 처리한다.</summary>
+    private void ActivateItem(bool left, DirItem item)
     {
         if (item.IsDir || item.Kind == NexaFileKind.Symlink)
         {
@@ -497,14 +1031,892 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            var file = await StorageFile.GetFileFromPathAsync(item.FullPath);
-            await Launcher.LaunchFileAsync(file);   // 확장자 연결 프로그램으로 실행
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(item.FullPath)
+            {
+                UseShellExecute = true,   // 셸이 확장자 기본 프로그램으로 연다
+            });
         }
         catch (Exception ex)
         {
             StatusText.Text = $"실행 실패: {ex.Message}";
         }
     }
+
+    // ── 컨텍스트 메뉴 · 파일 작업 (복사/잘라내기/붙여넣기/완전삭제) — FileOps/FileClipboard 위임 ─────
+
+    /// <summary>행 우클릭 → 컨텍스트 메뉴(열기·잘라내기·복사·붙여넣기·삭제·이름 바꾸기). 클릭 항목이
+    /// 현재 선택에 없으면 단일 선택으로 맞춘 뒤 표시.</summary>
+    private void OnRowContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            return;
+        }
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        SetActivePanel(left);
+
+        // 폴더/파일에 따라 항목 차등(B-10c): 폴더=열기+그 폴더로 붙여넣기 / 파일=실행(붙여넣기 없음).
+        var flyout = new MenuFlyout();
+        var open = new MenuFlyoutItem { Text = item.IsDir ? "열기" : "실행" };
+        open.Click += (_, _) => ActivateItem(left, item);
+        flyout.Items.Add(open);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var cut = new MenuFlyoutItem { Text = "잘라내기" };
+        cut.Click += (_, _) => CutPaths(left, ContextTargets(left, item));
+        flyout.Items.Add(cut);
+        var copy = new MenuFlyoutItem { Text = "복사" };
+        copy.Click += (_, _) => CopyPaths(left, ContextTargets(left, item));
+        flyout.Items.Add(copy);
+        if (item.IsDir)
+        {
+            var pasteInto = new MenuFlyoutItem { Text = "폴더에 붙여넣기", IsEnabled = CanPaste() };
+            pasteInto.Click += (_, _) => PasteIntoDir(left, item.FullPath);
+            flyout.Items.Add(pasteInto);
+        }
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var del = new MenuFlyoutItem { Text = "삭제(휴지통)" };
+        del.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: false);
+        flyout.Items.Add(del);
+        var delPerm = new MenuFlyoutItem { Text = "완전 삭제(Shift+Del)" };
+        delPerm.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: true);
+        flyout.Items.Add(delPerm);
+        var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
+        rename.Click += (_, _) => BeginRename(fe, item, left);
+        flyout.Items.Add(rename);
+
+        if (e.TryGetPosition(fe, out var pos))
+        {
+            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
+        }
+        else
+        {
+            flyout.ShowAt(fe);
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → 빈영역 컨텍스트 메뉴(붙여넣기·새로고침). B-10c.</summary>
+    private void OnPanelContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe)
+        {
+            return;
+        }
+        bool left = ReferenceEquals(sender, DirGrid) ? true
+            : ReferenceEquals(sender, DirGrid2) ? false
+            : PanelUnderPointer(fe) ?? _activeLeft;
+        SetActivePanel(left);
+
+        var flyout = new MenuFlyout();
+        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = CanPaste() };
+        paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
+        flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // 새로 만들기 ▶ 폴더 / 파일 / 바로 가기 (BG-N1/N2/N3) — 생성 후 즉시 인라인 이름변경.
+        var newSub = new MenuFlyoutSubItem { Text = "새로 만들기" };
+        var newFolder = new MenuFlyoutItem { Text = "폴더" };
+        newFolder.Click += (_, _) => CreateNewFolder(left);
+        newSub.Items.Add(newFolder);
+        var newFile = new MenuFlyoutItem { Text = "파일" };
+        newFile.Click += (_, _) => CreateNewFile(left);
+        newSub.Items.Add(newFile);
+        var newLink = new MenuFlyoutItem { Text = "바로 가기" };
+        newLink.Click += (_, _) => CreateNewShortcut(left);
+        newSub.Items.Add(newLink);
+        flyout.Items.Add(newSub);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var refresh = new MenuFlyoutItem { Text = "새로고침(F5)" };
+        refresh.Click += (_, _) => ReloadPanel(left);
+        flyout.Items.Add(refresh);
+
+        if (e.TryGetPosition(fe, out var pos))
+        {
+            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
+        }
+        else
+        {
+            flyout.ShowAt(fe);
+        }
+        e.Handled = true;
+    }
+
+    // ── 새로 만들기 (빈영역 컨텍스트 · New submenu) — 폴더/파일/바로가기 (BG-N1/N2/N3) ─────
+
+    /// <summary>현재 폴더에 새 폴더를 만들고(충돌 없는 이름) 즉시 인라인 이름변경을 시작한다.</summary>
+    private void CreateNewFolder(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string path = UniqueChildPath(dir, "새 폴더", "");
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"폴더 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>현재 폴더에 새 빈 텍스트 파일을 만들고 즉시 인라인 이름변경을 시작한다.</summary>
+    private void CreateNewFile(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string path = UniqueChildPath(dir, "새 파일", ".txt");
+        try
+        {
+            using (File.Create(path)) { }   // 빈 파일 생성 후 즉시 닫기
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"파일 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>대상 파일을 선택받아 현재 폴더에 바로 가기(.lnk)를 만들고 즉시 인라인 이름변경을 시작한다.
+    /// (폴더 대상 바로 가기는 후속 — FileOpenPicker는 파일만 선택.)</summary>
+    private async void CreateNewShortcut(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string? target = await PickShortcutTargetAsync();
+        if (string.IsNullOrEmpty(target))
+        {
+            return;   // 취소
+        }
+        string baseName = Path.GetFileNameWithoutExtension(target.TrimEnd('\\', '/'));
+        if (string.IsNullOrEmpty(baseName))
+        {
+            baseName = "새 바로 가기";
+        }
+        string path = UniqueChildPath(dir, $"{baseName} - 바로 가기", ".lnk");
+        try
+        {
+            ShellLink.Create(path, target);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"바로 가기 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>바로 가기 대상 파일 선택 — FileOpenPicker(데스크톱은 창 핸들 초기화 필요). 취소 시 null.</summary>
+    private async Task<string?> PickShortcutTargetAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
+    /// <summary><paramref name="dir"/> 안에서 충돌하지 않는 경로("base"+ext, 있으면 " (2)", " (3)"…).</summary>
+    private static string UniqueChildPath(string dir, string baseName, string ext)
+    {
+        string path = Path.Combine(dir, baseName + ext);
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            return path;
+        }
+        for (int n = 2; ; n++)
+        {
+            path = Path.Combine(dir, $"{baseName} ({n}){ext}");
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                return path;
+            }
+        }
+    }
+
+    /// <summary>새로 만든 항목을 현재 폴더 재로드 후 선택·스크롤로 드러내고 즉시 인라인 이름변경을 시작한다.
+    /// 오프스크린 행은 <see cref="SelectByPath"/>가 강제 실체화하므로 다음 디스패치에 행 요소를 얻어 편집.</summary>
+    private void RevealAndRename(bool left, string path)
+    {
+        var tab = Panel(left).Active;
+        tab.Loaded = false;
+        LoadDirectory(left, tab, onLoaded: () =>
+        {
+            SelectByPath(left, path);   // 선택+캐럿+스크롤(오프스크린 강제 실체화)
+            var items = Panel(left).Items;
+            int i = items.IndexOfPath(path);
+            if (i < 0)
+            {
+                return;
+            }
+            var grid = Panel(left).Grid;
+            grid.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (grid.RowElement(i) is FrameworkElement row && items[i] is DirItem it)
+                {
+                    BeginRename(row, it, left);
+                }
+            });
+        });
+    }
+
+    /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).</summary>
+    private IReadOnlyList<string> ContextTargets(bool left, DirItem clicked)
+    {
+        var items = Panel(left).Active.Items;
+        var sel = items.SelectedPaths();
+        if (sel.Count > 0 && sel.Any(p => PathEq(p, clicked.FullPath)))
+        {
+            return sel;
+        }
+        items.Select(clicked, 0);   // 단일 선택으로 맞춤
+        UpdateSelectionCount(items);
+        return new[] { clicked.FullPath };
+    }
+
+    /// <summary>키보드 단축키(Ctrl+C/X/V·Del) 대상 — 현재 선택이 있으면 선택 전체, 없으면 캐럿 항목.</summary>
+    private IReadOnlyList<string> KeyboardTargets(bool left)
+    {
+        var items = Panel(left).Active.Items;
+        var sel = items.SelectedPaths();
+        if (sel.Count > 0)
+        {
+            return sel;
+        }
+        return items.CaretItem is DirItem c ? new[] { c.FullPath } : System.Array.Empty<string>();
+    }
+
+    /// <summary>대상 경로를 앱 클립보드에 복사 표시(붙여넣기 = 복사).</summary>
+    private void CopyPaths(bool left, IReadOnlyList<string> targets)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        FileClipboard.SetCopy(targets);
+        StatusText.Text = $"복사 {targets.Count}개";
+    }
+
+    /// <summary>대상 경로를 앱 클립보드에 잘라내기 표시(붙여넣기 = 이동).</summary>
+    private void CutPaths(bool left, IReadOnlyList<string> targets)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        FileClipboard.SetCut(targets);
+        StatusText.Text = $"잘라내기 {targets.Count}개";
+    }
+
+    /// <summary>클립보드 내용을 지정 패널의 <b>현재 폴더</b>에 붙여넣는다(cut=이동·copy=복사).</summary>
+    private void PasteInto(bool left) => PasteIntoDir(left, Panel(left).Active.Current);
+
+    /// <summary>붙여넣을 내용이 있는가 — <b>앱 내부 클립보드</b> 또는 <b>OS 클립보드</b>(탐색기 등에서 복사한 파일).
+    /// 컨텍스트 메뉴 "붙여넣기" 활성화 판정에 사용.</summary>
+    private static bool CanPaste()
+    {
+        if (FileClipboard.HasContent)
+        {
+            return true;
+        }
+        try
+        {
+            return Clipboard.GetContent().Contains(StandardDataFormats.StorageItems);
+        }
+        catch
+        {
+            return false;   // 클립보드 접근 실패는 격리
+        }
+    }
+
+    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더).
+    /// 앱 내부 클립보드 우선, 없으면 <b>OS 클립보드</b>(탐색기 복사)에서 파일을 가져온다. 실제 전송은 DnD와
+    /// <b>동일 경로</b>(<see cref="TransferPathsInto"/>) → 진행 창·덮어쓰기 확인·진행률·취소 공용.</summary>
+    private async void PasteIntoDir(bool left, string destDir)
+    {
+        if (string.IsNullOrEmpty(destDir))
+        {
+            return;
+        }
+        // 1) 앱 내부 클립보드 우선.
+        if (FileClipboard.HasContent)
+        {
+            bool cut = FileClipboard.IsCut;
+            var paths = new List<string>(FileClipboard.Paths);   // 스냅샷(아래 Clear 대비)
+            if (cut)
+            {
+                FileClipboard.Clear();   // 잘라내기 붙여넣기 = 1회성
+            }
+            TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
+            return;
+        }
+        // 2) OS 클립보드(탐색기 등에서 복사/잘라낸 파일).
+        try
+        {
+            var view = Clipboard.GetContent();
+            if (!view.Contains(StandardDataFormats.StorageItems))
+            {
+                return;
+            }
+            var items = await view.GetStorageItemsAsync();
+            var paths = items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (paths.Count == 0)
+            {
+                return;
+            }
+            bool cut = await OsClipboardIsCutAsync(view);
+            TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"붙여넣기 실패: {ex.Message}";
+        }
+    }
+
+    /// <summary>OS 클립보드의 "Preferred DropEffect"로 잘라내기(이동) 여부 판정 — 실패/없으면 복사로 간주.</summary>
+    private static async Task<bool> OsClipboardIsCutAsync(Windows.ApplicationModel.DataTransfer.DataPackageView view)
+    {
+        try
+        {
+            if (!view.Contains("Preferred DropEffect"))
+            {
+                return false;
+            }
+            if (await view.GetDataAsync("Preferred DropEffect") is Windows.Storage.Streams.IRandomAccessStream ras)
+            {
+                var reader = new Windows.Storage.Streams.DataReader(ras.GetInputStreamAt(0))
+                {
+                    ByteOrder = Windows.Storage.Streams.ByteOrder.LittleEndian,
+                };
+                await reader.LoadAsync(4);
+                uint effect = reader.ReadUInt32();   // DROPEFFECT_COPY=1 · MOVE=2
+                return (effect & 2) != 0;
+            }
+        }
+        catch { /* 격리 → 복사 */ }
+        return false;
+    }
+
+    /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
+    /// <summary>대상 삭제. <paramref name="permanent"/>=true면 완전삭제(확인 대화상자), false면 휴지통(되돌리기 가능).</summary>
+    private async void DeletePaths(bool left, IReadOnlyList<string> targets, bool permanent)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        if (permanent)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "완전 삭제",
+                Content = $"{targets.Count}개 항목을 완전히 삭제합니다.\n휴지통으로 가지 않으며 되돌릴 수 없습니다.",
+                PrimaryButtonText = "삭제",
+                CloseButtonText = "취소",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = RootGrid.XamlRoot,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+        }
+        int ok = 0;
+        string? err = null;
+        foreach (var p in targets)
+        {
+            try
+            {
+                if (permanent) { FileOps.DeletePermanent(p); }
+                else { FileOps.DeleteToRecycleBin(p); }
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+        }
+        string kind = permanent ? "완전 삭제" : "휴지통";
+        StatusText.Text = err is null ? $"{kind} {ok}개 완료" : $"{kind} 일부 실패: {err}";
+        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
+    }
+
+    /// <summary>지정 패널을 현재 경로로 재로드한다(파일 작업 후 반영). 펼침 상태 유지.</summary>
+    private void ReloadPanel(bool left)
+    {
+        var tab = Panel(left).Active;
+        if (string.IsNullOrEmpty(tab.Current))
+        {
+            return;
+        }
+        tab.Loaded = false;
+        LoadDirectory(left, tab);
+    }
+
+    /// <summary>끝 구분자·대소문자 무시 경로 비교.</summary>
+    private static bool PathEq(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    // ── 드래그 앤 드롭 (패널 내/좌우 폴더 이동) — B-11/B-12 ─────────────
+
+    private List<string> _dragPaths = new();   // 현재 드래그 중인 원본 경로들(앱 내부 DnD)
+    private bool _dragSourceLeft;              // 드래그 시작 패널
+
+    /// <summary>행 드래그 시작 → 대상(선택 또는 드래그 항목)을 앱 내부 드래그 상태에 담고 외부 드롭용 데이터를 구성한다.
+    /// <para><b>기본(탐색기 동일)</b>: 실제 파일/폴더 항목(<c>StorageItems</c>)을 넣어 대상 앱이 <b>파일을 연다</b>(Sublime 등).
+    /// <b>Alt</b>를 누른 채 드래그하면 경로 <b>텍스트</b>만 넣어 대상에 경로가 붙여넣기된다(사용자 요청).</para>
+    /// (앱 내부 이동/복사는 <c>_dragPaths</c>로 처리 — 데이터 패키지와 무관하므로 위 분기와 독립.)</summary>
+    private async void OnRowDragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
+        {
+            args.Cancel = true;
+            return;
+        }
+        _deferredClickItem = null;   // 드래그 시작 → 보류된 클릭 취소(선택 유지, B-9m)
+        CancelPendingRename();       // 드래그 중엔 대기 중 이름변경 취소(오발동 방지, B-8)
+        bool left = PanelUnderPointer(fe) ?? _activeLeft;
+        var items = Panel(left).Active.Items;
+        var sel = items.SelectedPaths();
+        _dragPaths = sel.Count > 0 && sel.Any(p => PathEq(p, item.FullPath))
+            ? new List<string>(sel)
+            : new List<string> { item.FullPath };
+        _dragSourceLeft = left;
+        // 이동·복사 둘 다 허용해야 대상이 Ctrl=복사/Shift=이동을 수락할 수 있음(둘 중 하나만이면 나머지는 금지=None).
+        args.Data.RequestedOperation = DataPackageOperation.Move | DataPackageOperation.Copy;
+
+        // Alt: 경로 텍스트만 → 대상에 경로 붙여넣기.
+        if (IsAltDown())
+        {
+            args.Data.SetText(string.Join("\r\n", _dragPaths));
+            return;
+        }
+
+        // 기본: 실제 파일/폴더 항목을 넣어 대상이 파일을 열게 한다(탐색기 동일). StorageItem 취득은
+        // 비동기(브로커) → 드래그 시작을 지연(GetDeferral)해 완료 후 진행.
+        var deferral = args.GetDeferral();
+        try
+        {
+            var storageItems = new List<IStorageItem>(_dragPaths.Count);
+            foreach (var p in _dragPaths)
+            {
+                try
+                {
+                    if (Directory.Exists(p))
+                    {
+                        storageItems.Add(await StorageFolder.GetFolderFromPathAsync(p));
+                    }
+                    else if (File.Exists(p))
+                    {
+                        storageItems.Add(await StorageFile.GetFileFromPathAsync(p));
+                    }
+                }
+                catch
+                {
+                    // 개별 항목 실패(시스템/보호 파일 등)는 격리 → 아래 텍스트 폴백으로 커버.
+                }
+            }
+            if (storageItems.Count > 0)
+            {
+                args.Data.SetStorageItems(storageItems, readOnly: false);
+            }
+            // 텍스트 폴백: 파일을 못 받는 텍스트 전용 대상엔 경로가 들어간다(탐색기도 텍스트 병행 제공).
+            args.Data.SetText(string.Join("\r\n", _dragPaths));
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    /// <summary>드래그 종료(드롭 성공 또는 <b>ESC 취소</b>) — 상태 정리. 취소(결과 None)면 아무것도 이동 안 하고 알림(B-14).</summary>
+    private void OnRowDropCompleted(UIElement sender, DropCompletedEventArgs args)
+    {
+        _tabDwellTimer.Stop();
+        _tabDwellTarget = null;
+        CancelFolderDwell();
+        DirGrid.StopDragAutoScroll();
+        DirGrid2.StopDragAutoScroll();
+        if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
+        {
+            StatusText.Text = "드래그 취소";   // ESC 등으로 취소 → 이동 없음
+        }
+        _dragPaths.Clear();
+    }
+
+    /// <summary>폴더 행 위 드래그 → 자기 자신이 아닌 폴더면 이동 수락(캡션 표시).</summary>
+    private void OnRowDragOver(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir
+            && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
+        {
+            e.AcceptedOperation = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Ctrl/Shift 강제(B-14dnd)
+            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(item.FullPath));  // 탐색기식 라이브 캡션(SHELL-DND)
+            // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
+            if (!ReferenceEquals(_folderDwellTarget, item))
+            {
+                _folderDwellTarget = item;
+                _folderDwellLeft = PanelUnderPointer(fe) ?? _activeLeft;
+                _folderDwellTimer.Stop();
+                _folderDwellTimer.Start();
+            }
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            ApplyDragCaption(e.DragUIOverride, DataPackageOperation.None, null);   // 금지 대상 → 캡션 숨김
+            CancelFolderDwell();
+        }
+    }
+
+    /// <summary>드래그가 폴더 행에서 벗어나면 spring-load dwell 취소(B-15h).</summary>
+    private void OnRowDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && ReferenceEquals(_folderDwellTarget, item))
+        {
+            CancelFolderDwell();
+        }
+    }
+
+    /// <summary>폴더 행에 드롭 → 그 폴더로 이동/복사(디스크·Alt에 따라). 파일/빈 영역은 본문으로 버블(현재 폴더로, B-12).</summary>
+    private void OnRowDrop(object sender, DragEventArgs e)
+    {
+        CancelFolderDwell();
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir && _dragPaths.Count > 0)
+        {
+            TransferPathsInto(_dragSourceLeft, _dragPaths, item.FullPath, DragOp(item.FullPath, e.Modifiers));
+            _dragPaths.Clear();
+            e.Handled = true;   // 폴더 드롭만 소비
+        }
+    }
+
+    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동/복사(좌우 겸용, B-12/B-14dnd).</summary>
+    private void OnPanelBackgroundDrop(bool destLeft, DragDropModifiers mods)
+    {
+        if (_dragPaths.Count == 0)
+        {
+            return;
+        }
+        string destDir = Panel(destLeft).Active.Current;
+        var op = BackgroundDragOp(destLeft, mods);
+        if (op != DataPackageOperation.None && !string.IsNullOrEmpty(destDir))
+        {
+            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, op);   // 자기폴더 Move는 None → 무시
+        }
+        _dragPaths.Clear();
+    }
+
+    /// <summary>
+    /// 빈 영역(현재 폴더) 드롭의 연산 — 기본 <see cref="DragOp"/>에 <b>자기 폴더 규칙</b> 추가:
+    /// 드래그 항목이 이미 이 폴더 소속인데 <b>Move면 무의미 → None(금지)</b>, <b>Copy는 복제 허용</b>(…(2)).
+    /// (탐색기 동일: 같은 폴더로 그냥 끌면 아무 일 없음, Ctrl+끌면 사본 생성.)
+    /// </summary>
+    private DataPackageOperation BackgroundDragOp(bool destLeft, DragDropModifiers mods)
+    {
+        string destDir = Panel(destLeft).Active.Current;
+        if (string.IsNullOrEmpty(destDir))
+        {
+            return DataPackageOperation.None;
+        }
+        var op = DragOp(destDir, mods);
+        if (op == DataPackageOperation.Move && _dragPaths.Count > 0
+            && _dragPaths.All(p => PathEq(ParentDir(p), destDir)))
+        {
+            return DataPackageOperation.None;   // 자기 폴더로 이동 = no-op → 금지
+        }
+        return op;
+    }
+
+    /// <summary>경로의 부모 디렉터리(끝 구분자 제거 후). 실패 시 빈 문자열.</summary>
+    private static string ParentDir(string path)
+    {
+        try { return System.IO.Path.GetDirectoryName(path.TrimEnd('\\', '/')) ?? ""; }
+        catch { return ""; }
+    }
+
+    // ── 드래그 중 탭 hover 전환 (2초 dwell) — B-13 ───────────────────
+
+    private readonly DispatcherTimer _tabDwellTimer = new();
+    private PanelTab? _tabDwellTarget;   // 현재 드래그가 머무는 탭
+
+    // 드래그 중 폴더 위 dwell 진입(spring-load, B-15h).
+    private readonly DispatcherTimer _folderDwellTimer = new();
+    private DirItem? _folderDwellTarget;
+    private bool _folderDwellLeft;
+
+    private void CancelFolderDwell()
+    {
+        _folderDwellTimer.Stop();
+        _folderDwellTarget = null;
+    }
+
+    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(디스크·Alt).</summary>
+    private void OnTabDragOver(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0)
+        {
+            e.AcceptedOperation = DragOp(tab.Current, e.Modifiers);
+            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(tab.Current));   // 탐색기식 라이브 캡션(SHELL-DND)
+            if (!ReferenceEquals(_tabDwellTarget, tab))
+            {
+                _tabDwellTarget = tab;
+                _tabDwellTimer.Stop();
+                _tabDwellTimer.Start();   // 이 탭에 2초 머물면 전환(Tick에서 SwitchToTab)
+            }
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            ApplyDragCaption(e.DragUIOverride, DataPackageOperation.None, null);
+        }
+    }
+
+    /// <summary>탭에서 드래그가 벗어나면 dwell 타이머 취소.</summary>
+    private void OnTabDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe && ReferenceEquals(fe.Tag, _tabDwellTarget))
+        {
+            _tabDwellTimer.Stop();
+            _tabDwellTarget = null;
+        }
+    }
+
+    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동(즉시, 2초 기다림 없이도 가능).</summary>
+    private void OnTabDrop(object sender, DragEventArgs e)
+    {
+        _tabDwellTimer.Stop();
+        _tabDwellTarget = null;
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0
+            && !string.IsNullOrEmpty(tab.Current))
+        {
+            TransferPathsInto(_dragSourceLeft, _dragPaths, tab.Current, DragOp(tab.Current, e.Modifiers));
+        }
+        _dragPaths.Clear();
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// 드롭 연산 결정(B-14dnd) — Windows 표준 수정키:
+    /// <b>Ctrl=복사 강제 · Shift=이동 강제</b>, 없으면 기본(<b>같은 볼륨=이동 / 다른 볼륨=복사</b>).
+    /// (Alt는 OS 메뉴 활성화에 가로채여 신뢰 불가 → 표준 Ctrl/Shift 채택.)
+    /// </summary>
+    /// <summary>
+    /// 드래그 UI를 <b>탐색기 방식</b>으로 — WinUI 기본 큰 글리프("↗ Move")는 숨기고, 연산·대상 폴더명을
+    /// 시스템 폰트 <b>라이브 캡션</b>("…에 복사"/"…(으)로 이동")으로 표시. Ctrl/Shift 변경 시 DragOver가
+    /// 다시 발생하며 캡션이 갱신된다(SHELL-DND, docs/33). 항목 고스트(IsContentVisible)는 유지.
+    /// </summary>
+    private static void ApplyDragCaption(Microsoft.UI.Xaml.DragUIOverride ui, DataPackageOperation op, string? destName)
+    {
+        ui.IsGlyphVisible = false;   // 탐색기엔 없는 큰 글리프 제거(예전 "Move 글자 큼" 원인)
+        if (op == DataPackageOperation.None)
+        {
+            ui.IsCaptionVisible = false;   // 금지 대상 → 캡션 없음(불가 커서만)
+            return;
+        }
+        ui.IsContentVisible = true;   // 드래그한 행 고스트 유지
+        ui.IsCaptionVisible = true;
+        bool copy = op.HasFlag(DataPackageOperation.Copy) && !op.HasFlag(DataPackageOperation.Move);
+        string label = string.IsNullOrEmpty(destName) ? "" : destName;
+        ui.Caption = copy
+            ? (label.Length == 0 ? "복사" : $"{label}에 복사")
+            : (label.Length == 0 ? "이동" : $"{label}(으)로 이동");
+    }
+
+    /// <summary>드롭 대상 폴더의 표시 이름(캡션용) — 리프 폴더명, 드라이브 루트면 경로 자체.</summary>
+    private static string FolderLabel(string dir)
+    {
+        if (string.IsNullOrEmpty(dir))
+        {
+            return "";
+        }
+        string leaf = System.IO.Path.GetFileName(dir.TrimEnd('\\', '/'));
+        return leaf.Length > 0 ? leaf : dir;   // "C:\\" 등 루트는 경로 그대로
+    }
+
+    private DataPackageOperation DragOp(string destDir, DragDropModifiers mods)
+    {
+        if (mods.HasFlag(DragDropModifiers.Control))
+        {
+            return DataPackageOperation.Copy;   // Ctrl = 복사 강제
+        }
+        if (mods.HasFlag(DragDropModifiers.Shift))
+        {
+            return DataPackageOperation.Move;   // Shift = 이동 강제
+        }
+        bool sameVol = _dragPaths.Count == 0 || VolumeEq(_dragPaths[0], destDir);
+        return sameVol ? DataPackageOperation.Move : DataPackageOperation.Copy;   // 기본: 디스크별
+    }
+
+    /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(같은 디스크=이동 취급, 보수적).</summary>
+    private static bool VolumeEq(string a, string b)
+    {
+        try
+        {
+            string ra = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(a.TrimEnd('\\', '/'))) ?? string.Empty;
+            string rb = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(b.TrimEnd('\\', '/'))) ?? string.Empty;
+            return string.Equals(ra, rb, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="paths"/>를 <paramref name="destDir"/>로 <paramref name="op"/>(이동/복사)한다. 규칙(DND-OW):
+    /// <list type="bullet">
+    ///   <item><b>같은 폴더</b>: 이동=무동작 · 복사=순번 복제(" (2)"…).</item>
+    ///   <item><b>다른 폴더</b> & 이름 충돌: 파일별로 <b>덮어쓰기 확인</b>(예=덮어씀 / 아니오=그 항목만 건너뜀).</item>
+    /// </list>
+    /// 충돌 없는 항목은 즉시 처리하고, 충돌 항목만 순차 확인한다. 진행률을 상태바에 표시(DND-OW2).
+    /// (paths는 호출자가 곧 <c>_dragPaths</c>를 비우므로 <b>첫 await 전에 복사</b>해 안전.)
+    /// </summary>
+    private async void TransferPathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, DataPackageOperation op)
+    {
+        bool copy = op == DataPackageOperation.Copy;
+        var items = new List<string>(paths);   // 스냅샷(비동기 중 원본 clear 방지)
+        string verb = copy ? "복사" : "이동";
+        int done = 0, skipped = 0;
+        string? err = null;
+        bool cancelled = false;
+        bool overwriteAll = false;   // "모두 예" 선택 후로는 이후 충돌을 묻지 않고 덮어씀
+
+        // 진행 창(별도 Window) — 시작 시 표시, 완료 후 기본은 열린 채 유지(자동 닫기 off).
+        var win = new TransferProgressWindow(verb);
+        win.ActivateForeground();   // 맨 앞으로 + 포커스
+        win.SetPreparing();
+        var ct = win.Token;
+
+        long total = await Task.Run(() =>
+        {
+            long s = 0;
+            foreach (var it in items) { s += FileOps.SizeOf(it); }
+            return s;
+        });
+        win.SetDeterminate(total);
+
+        long copied = 0;
+        int fileNo = 0;
+        string currentName = string.Empty;
+        // 진행 보고(백그라운드 → UI 스레드로 마샬). 증분 바이트 누적 → 진행 창 갱신.
+        var progress = new Progress<long>(delta =>
+        {
+            copied += delta;
+            win.Report(copied, total, fileNo, items.Count, currentName);
+        });
+        void OnBytes(long b) => ((IProgress<long>)progress).Report(b);
+
+        try
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (ct.IsCancellationRequested) { cancelled = true; break; }
+                fileNo = i + 1;
+                string p = items[i];
+                currentName = FileOps.LeafName(p);
+                win.Report(copied, total, fileNo, items.Count, currentName);
+                try
+                {
+                    string? parent = System.IO.Path.GetDirectoryName(p.TrimEnd('\\', '/'));
+                    bool sameFolder = parent is not null && PathEq(parent, destDir);
+                    if (sameFolder)
+                    {
+                        if (copy)
+                        {
+                            // 같은 폴더 복사 = 순번 복제(진행 보고). I/O는 백그라운드.
+                            string dup = FileOps.UniqueDest(destDir, FileOps.LeafName(p), Directory.Exists(p));
+                            await Task.Run(() => FileOps.CopyOntoWithProgress(p, dup, overwrite: false, OnBytes, ct));
+                            done++;
+                        }
+                        // 같은 폴더 이동 = 무동작
+                        continue;
+                    }
+                    if (FileOps.Conflicts(destDir, p))
+                    {
+                        var choice = overwriteAll
+                            ? OverwriteChoice.Yes
+                            : await win.AskOverwriteAsync(FileOps.LeafName(p), copy);
+                        if (choice == OverwriteChoice.Cancel)
+                        {
+                            cancelled = true;   // 전체 전송 중단
+                            break;
+                        }
+                        if (choice == OverwriteChoice.No)
+                        {
+                            skipped++;
+                            OnBytes(FileOps.SizeOf(p));   // 건너뛴 항목만큼 진행 전진(막대가 끝까지)
+                            continue;
+                        }
+                        if (choice == OverwriteChoice.YesToAll)
+                        {
+                            overwriteAll = true;   // 이후 충돌은 자동 덮어쓰기
+                        }
+                        // 예 → 덮어쓰기(복사/이동 분리 — 지금은 동일, 향후 분기 가능). I/O는 백그라운드.
+                        string dest = FileOps.NaturalDest(destDir, p);
+                        await Task.Run(() => { if (copy) { OverwriteCopy(p, dest, OnBytes, ct); } else { OverwriteMove(p, dest, OnBytes, ct); } });
+                        done++;
+                    }
+                    else
+                    {
+                        // 충돌 없음 → 순번 없이 대상 이름으로 처리. I/O는 백그라운드(UI 무블록).
+                        string dest = FileOps.NaturalDest(destDir, p);
+                        await Task.Run(() =>
+                        {
+                            if (copy) { FileOps.CopyOntoWithProgress(p, dest, overwrite: false, OnBytes, ct); }
+                            else { FileOps.MoveOntoWithProgress(p, dest, overwrite: false, OnBytes, ct); }
+                        });
+                        done++;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    cancelled = true;   // 취소 버튼/창 닫기 → 남은 항목 중단
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    err = ex.Message;
+                }
+            }
+        }
+        finally
+        {
+            string summary = cancelled
+                ? $"{verb} 취소됨 — {done}개 완료"
+                : err is null
+                    ? $"{verb} 완료 — {done}개{(skipped > 0 ? $" · 건너뜀 {skipped}개" : string.Empty)}"
+                    : $"{verb} 일부 실패: {err}";
+            win.Complete(summary, AppSettings.View.AutoCloseTransferWindow);   // 기본 autoClose=false → 창 유지
+            StatusText.Text = summary;
+        }
+        _ = sourceLeft;   // 향후 정밀 갱신용(현재는 양쪽 재로드)
+        ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
+    }
+
+    /// <summary>덮어쓰기 <b>복사</b>(진행 보고 · 현재 이동과 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteCopy(string src, string dest, Action<long>? onBytes, CancellationToken ct)
+        => FileOps.CopyOntoWithProgress(src, dest, overwrite: true, onBytes, ct);
+
+    /// <summary>덮어쓰기 <b>이동</b>(진행 보고 · 현재 복사와 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteMove(string src, string dest, Action<long>? onBytes, CancellationToken ct)
+        => FileOps.MoveOntoWithProgress(src, dest, overwrite: true, onBytes, ct);
+
+    // 덮어쓰기 확인은 진행 창 안에서 처리(TransferProgressWindow.AskOverwriteAsync) — ContentDialog XamlRoot 문제 회피.
 
     private bool _activeLeft = true;
     private bool _windowActive = true;
@@ -514,6 +1926,7 @@ public sealed partial class MainWindow : Window
     {
         _activeLeft = left;
         RefreshSelectionFocus();
+        _session?.MarkDirty();   // 활성 패널 변경 → 세션 저장 예약
     }
 
     /// <summary>탭 바(빈 영역) 클릭 → 그 패널을 활성화하고 목록에 포커스(키보드 이동 대상).</summary>
@@ -542,6 +1955,7 @@ public sealed partial class MainWindow : Window
         }
         SetActivePanel(left);
         ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
+        _session?.MarkDirty();   // 활성 탭 전환 → 세션 저장 예약
     }
 
     /// <summary>
@@ -554,11 +1968,16 @@ public sealed partial class MainWindow : Window
         if (tab.Loaded && tab.Items.Handle != IntPtr.Zero)
         {
             var (grid, header, pathBar) = PanelUi(left);
+            if (Panel(left).SortKeys is { } sk)
+            {
+                tab.Items.SetSort(sk, foldersFirst: true);   // 이 패널 정렬을 캐시 탭에도 반영(전환 일관, 바인딩 전이라 무플래시)
+            }
             grid.ItemsSource = tab.Items;   // 열린 핸들 재사용 — 재열거·재펼침 없음
             grid.ScrollToTop();             // ItemsSource 교체 후 뷰포트 확정(잔존 오프셋으로 빈 화면 방지)
             pathBar.Path = tab.Current;
             header.Text = $"{tab.Current} — {tab.DirectChildCount}개 항목";
             UpdateSelectionCount(tab.Items);
+            ArmWatcher(left);   // 캐시된 탭으로 전환 → 그 폴더 감시로 갱신(B-12w)
         }
         else
         {
@@ -577,6 +1996,7 @@ public sealed partial class MainWindow : Window
         }
         var tab = new PanelTab();
         tab.Nav.NavigateTo(basePath, record: false);   // 새 탭 초기 경로(기록 없음)
+        tab.Title = PathDisplay.TabTitle(basePath);     // 탭 이름 즉시 설정(전환 전 공백 방지, 버그 수정)
         Panel(left).Tabs.Add(tab);
         SwitchToTab(left, tab);
     }
@@ -619,6 +2039,7 @@ public sealed partial class MainWindow : Window
         {
             SwitchToTab(left, tabs[Math.Min(idx, tabs.Count - 1)]);
         }
+        _session?.MarkDirty();   // 탭 닫기 → 세션 저장 예약
     }
 
     /// <summary>탭 더블클릭 → 설정된 동작(기본: 닫기). 빈 영역 더블클릭(추가)과 구분되도록 여기서 소비.</summary>
@@ -674,6 +2095,48 @@ public sealed partial class MainWindow : Window
         {
             CloseTab(_activeLeft, Panel(_activeLeft).Active);
             e.Handled = true;
+            return;
+        }
+
+        // F2: 캐럿 항목 인라인 이름 변경(표준 단축키). 캐럿 행이 실체화돼 있을 때.
+        if (e.Key == VirtualKey.F2)
+        {
+            e.Handled = true;
+            int ci = Panel(_activeLeft).Items.CaretIndex;
+            if (Panel(_activeLeft).Items.CaretItem is DirItem it && ci >= 0
+                && Panel(_activeLeft).Grid.RowElement(ci) is FrameworkElement row)
+            {
+                BeginRename(row, it, _activeLeft);
+            }
+            return;
+        }
+
+        // F5: 활성 패널 수동 새로고침(watcher 자동 갱신 전까지 수동 갱신 수단, B-12w 부분).
+        if (e.Key == VirtualKey.F5)
+        {
+            e.Handled = true;
+            ReloadPanel(_activeLeft);
+            return;
+        }
+
+        // Ctrl+C/X/V: 복사/잘라내기/붙여넣기(활성 패널, 대상=선택 또는 캐럿).
+        if (IsCtrlDown() && (e.Key == VirtualKey.C || e.Key == VirtualKey.X || e.Key == VirtualKey.V))
+        {
+            e.Handled = true;
+            switch (e.Key)
+            {
+                case VirtualKey.C: CopyPaths(_activeLeft, KeyboardTargets(_activeLeft)); break;
+                case VirtualKey.X: CutPaths(_activeLeft, KeyboardTargets(_activeLeft)); break;
+                case VirtualKey.V: PasteInto(_activeLeft); break;
+            }
+            return;
+        }
+
+        // Delete=휴지통(되돌리기 가능), Shift+Delete=완전 삭제(확인). 선택(또는 캐럿) 대상.
+        if (e.Key == VirtualKey.Delete)
+        {
+            e.Handled = true;
+            DeletePaths(_activeLeft, KeyboardTargets(_activeLeft), permanent: IsShiftDown());
             return;
         }
 

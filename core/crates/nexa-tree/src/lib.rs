@@ -20,8 +20,7 @@ pub type NodeId = u64;
 #[derive(Debug, Clone)]
 struct Node {
     id: NodeId,
-    /// 부모(최상위는 `None`). 슬라이스 2/3(ABI·경로변동 추적)에서 사용.
-    #[allow(dead_code)]
+    /// 부모(최상위는 `None`). 타입어헤드 `CurrentLevel`(형제 스코프)·경로변동 추적에 사용.
     parent: Option<NodeId>,
     path: PathBuf,
     name: String,
@@ -82,6 +81,54 @@ pub enum SelectMode {
     Toggle,
 }
 
+/// 정렬 키(컬럼) — **실제 필드**로 비교(표시 텍스트가 아님: 크기/날짜는 숫자).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortKey {
+    Name,
+    Ext,
+    Size,
+    Modified,
+    Kind,
+    /// 정렬 없음 = 원래 **열거 순서**(children id 오름차순 복원).
+    None,
+}
+
+/// 정렬 사양(패널별 독립, docs/23 §3-1). `keys`는 1차→2차… 우선순위이며 각 키에 `desc`.
+/// `folders_first`면 방향과 무관하게 **폴더를 앞에 모은다**(탐색기 규약).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SortSpec {
+    /// (키, 내림차순 여부). 빈 목록 또는 `None` 키 = 열거 순서.
+    pub keys: Vec<(SortKey, bool)>,
+    pub folders_first: bool,
+}
+
+impl SortSpec {
+    /// 기본: **폴더 우선 + 이름 오름차순**(기존 고정 동작과 동일).
+    pub fn name_asc() -> SortSpec {
+        SortSpec {
+            keys: vec![(SortKey::Name, false)],
+            folders_first: true,
+        }
+    }
+}
+
+impl Default for SortSpec {
+    fn default() -> Self {
+        SortSpec::name_asc()
+    }
+}
+
+/// 타입어헤드 찾기 범위(docs/32 §5·§8). 하나의 매칭 함수를 파라미터화한다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FindScope {
+    /// A: 가시 스트림 처음부터 첫 매치(캐럿 무시).
+    GlobalFirst,
+    /// B: 캐럿의 같은 부모(형제)인 가시 행만, 위치상대+wrap.
+    CurrentLevel,
+    /// C(기본): 캐럿 다음부터 가시 스트림 starts-with, 끝이면 wrap.
+    VisibleStream,
+}
+
 /// Windows 숨김 속성 비트(FILE_ATTRIBUTE_HIDDEN).
 const ATTR_HIDDEN: u32 = 0x2;
 
@@ -116,6 +163,7 @@ pub struct Tree {
     anchor: Option<NodeId>,
     root_path: PathBuf,
     filter: Filter,
+    sort: SortSpec,
 }
 
 impl Tree {
@@ -144,6 +192,7 @@ impl Tree {
                 show_hidden,
                 show_dotfiles,
             },
+            sort: SortSpec::default(),
         };
         let roots = tree.enumerate(&root_path, None, 0)?;
         tree.roots.clone_from(&roots);
@@ -199,15 +248,135 @@ impl Tree {
         Ok(ids)
     }
 
-    /// 폴더 우선 + 이름 오름차순(대소문자 무시). 앱 `SortItems`와 동일 규약.
+    /// 현재 `self.sort` 사양으로 id 슬라이스를 정렬(폴더 우선 → 키 순서 → 이름·열거 tie-break).
     fn sort_ids(&self, ids: &mut [NodeId]) {
-        ids.sort_by(|&a, &b| {
-            let na = &self.nodes[a as usize];
-            let nb = &self.nodes[b as usize];
-            nb.is_dir()
-                .cmp(&na.is_dir())
-                .then_with(|| na.name.to_lowercase().cmp(&nb.name.to_lowercase()))
-        });
+        ids.sort_by(|&a, &b| self.cmp_nodes(a, b));
+    }
+
+    /// 두 노드의 정렬 순서. `folders_first` 그룹핑 → 키 순차 비교(각 asc/desc) →
+    /// 남으면 이름·id로 안정 tie-break. 빈 키/`None` 키 = **열거 순서(id)**.
+    fn cmp_nodes(&self, a: NodeId, b: NodeId) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        let na = &self.nodes[a as usize];
+        let nb = &self.nodes[b as usize];
+        if self.sort.folders_first {
+            let g = nb.is_dir().cmp(&na.is_dir()); // 폴더(true) 먼저
+            if g != Ordering::Equal {
+                return g;
+            }
+        }
+        if self.sort.keys.is_empty() {
+            return a.cmp(&b); // 정렬 없음 = 열거(id) 순서
+        }
+        for &(key, desc) in &self.sort.keys {
+            if key == SortKey::None {
+                return a.cmp(&b); // 열거 순서(방향 무시)
+            }
+            let ord = match key {
+                SortKey::Name => cmp_ci(&na.name, &nb.name),
+                SortKey::Ext => cmp_ci(ext_of(&na.name), ext_of(&nb.name)),
+                // 폴더 크기는 OS 잡음값 → 정렬상 0으로 정규화(폴더는 이름 tie-break로, 탐색기와 동일).
+                SortKey::Size => {
+                    let sa = if na.is_dir() { 0 } else { na.size };
+                    let sb = if nb.is_dir() { 0 } else { nb.size };
+                    sa.cmp(&sb)
+                }
+                SortKey::Modified => na.modified_unix_ms.cmp(&nb.modified_unix_ms),
+                // "종류" = 파일 타입. kind_rank만으론 folders_first 뒤 파일이 전부 동률(File)→asc=desc가 됨.
+                // 셸 타입 문자열이 없으므로 확장자를 타입 대용으로 2차 비교(파일 간 변별력 + 방향 반영).
+                SortKey::Kind => kind_rank(na.kind)
+                    .cmp(&kind_rank(nb.kind))
+                    .then_with(|| cmp_ci(ext_of(&na.name), ext_of(&nb.name))),
+                SortKey::None => Ordering::Equal, // 위에서 처리(도달 안 함)
+            };
+            let ord = if desc { ord.reverse() } else { ord };
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+        // 모든 키 동률 → 이름, 그다음 id(안정·열거 순서)
+        cmp_ci(&na.name, &nb.name).then(a.cmp(&b))
+    }
+
+    /// 현재 정렬 사양(호스트/테스트 조회용).
+    pub fn sort_spec(&self) -> &SortSpec {
+        &self.sort
+    }
+
+    /// 정렬 사양을 바꾸고 **로드된 모든 폴더의 자식 + 가시 목록을 재구성**한다(펼침 상태 보존).
+    /// children id는 열거 순서로 보존되므로 `None`이면 그 순서가 그대로 복원된다(docs/23 §4-1 COL-2a).
+    pub fn set_sort(&mut self, spec: SortSpec) {
+        self.sort = spec;
+        // 루트 재정렬.
+        let mut roots = std::mem::take(&mut self.roots);
+        self.sort_ids(&mut roots);
+        self.roots = roots;
+        // 로드된 각 폴더의 children 재정렬(2개 미만은 순서 불변).
+        for i in 0..self.nodes.len() {
+            if self.nodes[i].loaded && self.nodes[i].children.len() > 1 {
+                let mut ch = std::mem::take(&mut self.nodes[i].children);
+                self.sort_ids(&mut ch);
+                self.nodes[i].children = ch;
+            }
+        }
+        self.rebuild_visible();
+    }
+
+    /// 현재 펼침 상태를 따라 roots→DFS로 가시 목록을 다시 만든다(정렬 변경 후 호출).
+    fn rebuild_visible(&mut self) {
+        let roots = self.roots.clone();
+        let mut vis = Vec::with_capacity(self.visible.len());
+        for r in roots {
+            vis.push(r);
+            let n = &self.nodes[r as usize];
+            if n.is_dir() && n.expanded {
+                self.collect_subtree(r, &mut vis);
+            }
+        }
+        self.visible = vis;
+    }
+
+    // ── 타입어헤드 찾기 (docs/32) ───────────────────────────────
+
+    /// 타입어헤드 접두사 매칭 — `prefix`(대소문자 무시)로 시작하는 **가시 행**의 인덱스(없으면 `None`).
+    /// 이름 starts-with만(경로 아님, 정렬 `cmp_ci`와 동일 규약). `caret`=현재 캐럿 가시 인덱스(범위 밖/`None`=처음부터).
+    /// - `VisibleStream`(C): `caret+1`부터 앞으로, 끝이면 `0..=caret`로 wrap(계속 입력 시 다음 매치로 cycle).
+    /// - `GlobalFirst`(A): 0부터 첫 매치(캐럿 무시).
+    /// - `CurrentLevel`(B): 캐럿과 **같은 부모(형제)** 인 가시 행만 대상으로 C 규칙.
+    pub fn find_prefix(
+        &self,
+        caret: Option<usize>,
+        prefix: &str,
+        scope: FindScope,
+    ) -> Option<usize> {
+        let n = self.visible.len();
+        if prefix.is_empty() || n == 0 {
+            return None;
+        }
+        let lower = prefix.to_lowercase();
+        let starts = |idx: usize| -> bool {
+            let id = self.visible[idx];
+            self.nodes[id as usize]
+                .name
+                .to_lowercase()
+                .starts_with(&lower)
+        };
+        let caret = caret.filter(|&c| c < n);
+        match scope {
+            FindScope::GlobalFirst => (0..n).find(|&i| starts(i)),
+            FindScope::VisibleStream => {
+                let start = caret.map_or(0, |c| c + 1); // caret+1..n → 0..start(=0..=caret) wrap
+                (start..n).chain(0..start).find(|&i| starts(i))
+            }
+            FindScope::CurrentLevel => {
+                // 캐럿의 부모(없으면 최상위=None) 형제만. C 규칙(caret+1부터 wrap).
+                let parent = caret.and_then(|c| self.nodes[self.visible[c] as usize].parent);
+                let start = caret.map_or(0, |c| c + 1);
+                (start..n)
+                    .chain(0..start)
+                    .find(|&i| self.nodes[self.visible[i] as usize].parent == parent && starts(i))
+            }
+        }
     }
 
     // ── 가시 스트림 ─────────────────────────────────────────────
@@ -459,6 +628,28 @@ fn to_unix_ms(t: Option<SystemTime>) -> i64 {
         .map_or(-1, |d| d.as_millis() as i64)
 }
 
+/// 대소문자 무시 이름 비교(정렬 규약: 표시와 별개, 안정적 순서).
+fn cmp_ci(a: &str, b: &str) -> std::cmp::Ordering {
+    a.to_lowercase().cmp(&b.to_lowercase())
+}
+
+/// 파일명의 확장자(마지막 `.` 뒤). 선행 `.`만 있는 dotfile은 확장자 없음("").
+fn ext_of(name: &str) -> &str {
+    match name.rfind('.') {
+        Some(i) if i > 0 => &name[i + 1..],
+        _ => "",
+    }
+}
+
+/// 종류(Kind) 정렬 순위: 폴더 → 파일 → 심링크.
+fn kind_rank(k: FileKind) -> u8 {
+    match k {
+        FileKind::Dir => 0,
+        FileKind::File => 1,
+        FileKind::Symlink => 2,
+    }
+}
+
 #[cfg(test)]
 impl Tree {
     /// 파일시스템 없이 합성 노드로 채운 트리(벤치/스케일 테스트 전용).
@@ -521,6 +712,7 @@ impl Tree {
                 show_hidden: true,
                 show_dotfiles: true,
             },
+            sort: SortSpec::default(),
         }
     }
 }
@@ -832,5 +1024,228 @@ mod tests {
     fn open_missing_path_errors() {
         let missing = std::env::temp_dir().join("nexa_tree_missing_zzz_does_not_exist");
         assert!(Tree::open(&missing).is_err());
+    }
+
+    // ── 정렬(COL-2a) ────────────────────────────────────────────────
+
+    /// 정렬 검증용 픽스처: 폴더 adir(inner.txt 1개)·zdir, 파일 a.log(3)·m.txt(1)·z.md(2).
+    /// 이름/크기/확장자 정렬 결과가 서로 달라 구분력이 있다.
+    fn make_sort_fixture(tag: &str) -> PathBuf {
+        let base =
+            std::env::temp_dir().join(format!("nexa_tree_sort_{}_{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("adir")).unwrap();
+        fs::create_dir_all(base.join("zdir")).unwrap();
+        fs::write(base.join("adir/inner.txt"), b"i").unwrap();
+        fs::write(base.join("a.log"), b"333").unwrap(); // size 3
+        fs::write(base.join("m.txt"), b"1").unwrap(); //   size 1
+        fs::write(base.join("z.md"), b"22").unwrap(); //   size 2
+        base
+    }
+
+    fn spec(key: SortKey, desc: bool, folders_first: bool) -> SortSpec {
+        SortSpec {
+            keys: vec![(key, desc)],
+            folders_first,
+        }
+    }
+
+    #[test]
+    fn sort_default_is_folders_first_name_asc() {
+        let base = make_sort_fixture("def");
+        let t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // 기본(변경 전) = 폴더 우선 + 이름 오름
+        assert_eq!(names(&t), vec!["adir", "zdir", "a.log", "m.txt", "z.md"]);
+    }
+
+    #[test]
+    fn sort_by_size_asc_and_desc() {
+        let base = make_sort_fixture("size");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        t.set_sort(spec(SortKey::Size, false, true));
+        // 폴더 우선(이름) → 파일 크기 오름: m(1) z(2) a(3)
+        assert_eq!(names(&t), vec!["adir", "zdir", "m.txt", "z.md", "a.log"]);
+        t.set_sort(spec(SortKey::Size, true, true));
+        // 파일 크기 내림: a(3) z(2) m(1). 폴더는 여전히 앞(folders_first).
+        assert_eq!(names(&t), vec!["adir", "zdir", "a.log", "z.md", "m.txt"]);
+    }
+
+    #[test]
+    fn sort_by_name_desc_keeps_folders_first() {
+        let base = make_sort_fixture("named");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        t.set_sort(spec(SortKey::Name, true, true));
+        // 폴더 우선(내림: zdir,adir) → 파일 내림: z,m,a
+        assert_eq!(names(&t), vec!["zdir", "adir", "z.md", "m.txt", "a.log"]);
+    }
+
+    #[test]
+    fn sort_by_ext_asc() {
+        let base = make_sort_fixture("ext");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        t.set_sort(spec(SortKey::Ext, false, true));
+        // 폴더(확장자 없음, 이름 tie) → 파일 확장자: log(a) < md(z) < txt(m)
+        assert_eq!(names(&t), vec!["adir", "zdir", "a.log", "z.md", "m.txt"]);
+    }
+
+    #[test]
+    fn sort_by_kind_asc_desc_differ_by_ext() {
+        let base = make_sort_fixture("kind");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // 종류(=확장자 타입) 오름: 폴더 우선 → 파일 확장자 log(a) < md(z) < txt(m)
+        t.set_sort(spec(SortKey::Kind, false, true));
+        let asc = names(&t);
+        assert_eq!(asc, vec!["adir", "zdir", "a.log", "z.md", "m.txt"]);
+        // 내림: 파일 확장자 역순 txt(m) > md(z) > log(a). 폴더는 folders_first로 여전히 앞.
+        t.set_sort(spec(SortKey::Kind, true, true));
+        let desc = names(&t);
+        assert_eq!(desc, vec!["adir", "zdir", "m.txt", "z.md", "a.log"]);
+        assert_ne!(asc, desc, "종류 오름/내림 결과가 달라야 함");
+    }
+
+    #[test]
+    fn sort_none_restores_enumeration_order() {
+        let base = make_sort_fixture("none");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // folders_first=off + None → 순수 열거(id) 순서 = id 오름차순(엄격 증가).
+        t.set_sort(spec(SortKey::None, false, false));
+        let ids: Vec<NodeId> = (0..t.visible_len()).map(|i| t.row(i).unwrap().id).collect();
+        assert!(
+            ids.windows(2).all(|w| w[0] < w[1]),
+            "None은 열거(id) 순서여야 함: {ids:?}"
+        );
+    }
+
+    #[test]
+    fn set_sort_preserves_expansion() {
+        let base = make_sort_fixture("exp");
+        let mut t = Tree::open(&base).unwrap();
+        // adir 펼침(inner.txt 표시).
+        let adir = t.row(0).unwrap().id;
+        assert_eq!(t.row(0).unwrap().name, "adir");
+        t.expand(adir).unwrap();
+        assert!(names(&t).contains(&"inner.txt".to_string()));
+        // 정렬을 크기 내림으로 바꿔도 adir는 여전히 펼쳐져 있고 inner.txt가 그 아래.
+        t.set_sort(spec(SortKey::Size, true, true));
+        fs::remove_dir_all(&base).unwrap();
+        assert_eq!(t.is_expanded(adir), Some(true));
+        let ns = names(&t);
+        let ai = ns.iter().position(|n| n == "adir").unwrap();
+        assert_eq!(
+            ns[ai + 1],
+            "inner.txt",
+            "펼친 자식이 부모 바로 뒤에 유지: {ns:?}"
+        );
+    }
+
+    // ── 타입어헤드 find_prefix (docs/32) ────────────────────────────
+
+    /// 타입어헤드 픽스처: 최상위 apple/apricot/banana.txt + 폴더 sub{avocado.txt}.
+    /// 기본 정렬(폴더우선·이름오름) 가시(접힘): [sub, apple.txt, apricot.txt, banana.txt].
+    fn make_ta_fixture(tag: &str) -> PathBuf {
+        let base =
+            std::env::temp_dir().join(format!("nexa_tree_ta_{}_{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("sub")).unwrap();
+        fs::write(base.join("sub/avocado.txt"), b"a").unwrap();
+        fs::write(base.join("apple.txt"), b"a").unwrap();
+        fs::write(base.join("apricot.txt"), b"a").unwrap();
+        fs::write(base.join("banana.txt"), b"b").unwrap();
+        base
+    }
+
+    #[test]
+    fn find_prefix_visible_stream_wrap_and_cycle() {
+        let base = make_ta_fixture("c");
+        let t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // [sub(0), apple(1), apricot(2), banana(3)]
+        assert_eq!(
+            names(&t),
+            vec!["sub", "apple.txt", "apricot.txt", "banana.txt"]
+        );
+        // 캐럿 없음 → 처음부터 첫 'a' = apple(1)
+        assert_eq!(t.find_prefix(None, "a", FindScope::VisibleStream), Some(1));
+        // apple(1)에서 다음 'a' = apricot(2)
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::VisibleStream),
+            Some(2)
+        );
+        // apricot(2)에서 다음 'a' → banana 아님, wrap → apple(1)
+        assert_eq!(
+            t.find_prefix(Some(2), "a", FindScope::VisibleStream),
+            Some(1)
+        );
+        // 'ap' 접두사 → apple(1)
+        assert_eq!(t.find_prefix(None, "ap", FindScope::VisibleStream), Some(1));
+        // 'b' → banana(3), 대소문자 무시
+        assert_eq!(t.find_prefix(None, "B", FindScope::VisibleStream), Some(3));
+        // 없는 접두사 → None, 빈 접두사 → None
+        assert_eq!(t.find_prefix(None, "z", FindScope::VisibleStream), None);
+        assert_eq!(t.find_prefix(Some(1), "", FindScope::VisibleStream), None);
+    }
+
+    #[test]
+    fn find_prefix_global_first_ignores_caret() {
+        let base = make_ta_fixture("a");
+        let t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        // 캐럿 무관하게 항상 0부터 첫 'a' = apple(1)
+        assert_eq!(t.find_prefix(None, "a", FindScope::GlobalFirst), Some(1));
+        assert_eq!(t.find_prefix(Some(2), "a", FindScope::GlobalFirst), Some(1));
+        assert_eq!(t.find_prefix(Some(3), "a", FindScope::GlobalFirst), Some(1));
+    }
+
+    #[test]
+    fn find_prefix_current_level_siblings_only() {
+        let base = make_ta_fixture("b");
+        let mut t = Tree::open(&base).unwrap();
+        // sub 펼침 → [sub(0), avocado(1), apple(2), apricot(3), banana(4)]
+        let sub = t.row(0).unwrap().id;
+        t.expand(sub).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        assert_eq!(
+            names(&t),
+            vec![
+                "sub",
+                "avocado.txt",
+                "apple.txt",
+                "apricot.txt",
+                "banana.txt"
+            ]
+        );
+        // 최상위 apple(2)에서 'a' 형제 검색 → avocado(자식) 건너뛰고 apricot(3)
+        assert_eq!(
+            t.find_prefix(Some(2), "a", FindScope::CurrentLevel),
+            Some(3)
+        );
+        // avocado(1, sub 자식)에서 'a' 형제 → 형제는 avocado뿐 → wrap으로 자신(1)
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::CurrentLevel),
+            Some(1)
+        );
+        // 비교: 같은 상황 C(가시 스트림)는 형제 무시하고 apricot(3)
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::VisibleStream),
+            Some(2)
+        ); // apple(2)
+    }
+
+    #[test]
+    fn set_sort_none_then_name_roundtrip() {
+        let base = make_sort_fixture("rt");
+        let mut t = Tree::open(&base).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+        let default_order = names(&t);
+        t.set_sort(spec(SortKey::Size, true, true)); // 흐트러뜨림
+        assert_ne!(names(&t), default_order);
+        t.set_sort(SortSpec::name_asc()); // 기본 복귀
+        assert_eq!(names(&t), default_order);
     }
 }

@@ -271,16 +271,11 @@ public sealed partial class NexaMenuBar : UserControl
     {
         if (e.Key == VirtualKey.Menu)
         {
-            if (!_altCombo)   // Alt 단독 탭 → 메뉴 토글
+            // Alt 단독으로는 메뉴를 '열지' 않는다 — 표시는 Alt+문자 단축키(파일=Alt+F 등)로만.
+            // 이미 열려 있으면 Alt로 닫기만 허용(ESC와 동일한 취소 경로).
+            if (!_altCombo && _activeIndex >= 0)
             {
-                if (_activeIndex >= 0)
-                {
-                    CloseMenu();
-                }
-                else
-                {
-                    OpenMenu(0);
-                }
+                CloseMenu();
                 e.Handled = true;
             }
             _altCombo = false;
