@@ -1418,8 +1418,11 @@ public sealed partial class MainWindow : Window
     private List<string> _dragPaths = new();   // 현재 드래그 중인 원본 경로들(앱 내부 DnD)
     private bool _dragSourceLeft;              // 드래그 시작 패널
 
-    /// <summary>행 드래그 시작 → 대상(선택 또는 드래그 항목)을 앱 내부 드래그 상태에 담는다.</summary>
-    private void OnRowDragStarting(UIElement sender, DragStartingEventArgs args)
+    /// <summary>행 드래그 시작 → 대상(선택 또는 드래그 항목)을 앱 내부 드래그 상태에 담고 외부 드롭용 데이터를 구성한다.
+    /// <para><b>기본(탐색기 동일)</b>: 실제 파일/폴더 항목(<c>StorageItems</c>)을 넣어 대상 앱이 <b>파일을 연다</b>(Sublime 등).
+    /// <b>Alt</b>를 누른 채 드래그하면 경로 <b>텍스트</b>만 넣어 대상에 경로가 붙여넣기된다(사용자 요청).</para>
+    /// (앱 내부 이동/복사는 <c>_dragPaths</c>로 처리 — 데이터 패키지와 무관하므로 위 분기와 독립.)</summary>
+    private async void OnRowDragStarting(UIElement sender, DragStartingEventArgs args)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
@@ -1435,9 +1438,51 @@ public sealed partial class MainWindow : Window
             ? new List<string>(sel)
             : new List<string> { item.FullPath };
         _dragSourceLeft = left;
-        args.Data.SetText(string.Join("\n", _dragPaths));   // 시각 피드백/외부 호환용
         // 이동·복사 둘 다 허용해야 대상이 Ctrl=복사/Shift=이동을 수락할 수 있음(둘 중 하나만이면 나머지는 금지=None).
         args.Data.RequestedOperation = DataPackageOperation.Move | DataPackageOperation.Copy;
+
+        // Alt: 경로 텍스트만 → 대상에 경로 붙여넣기.
+        if (IsAltDown())
+        {
+            args.Data.SetText(string.Join("\r\n", _dragPaths));
+            return;
+        }
+
+        // 기본: 실제 파일/폴더 항목을 넣어 대상이 파일을 열게 한다(탐색기 동일). StorageItem 취득은
+        // 비동기(브로커) → 드래그 시작을 지연(GetDeferral)해 완료 후 진행.
+        var deferral = args.GetDeferral();
+        try
+        {
+            var storageItems = new List<IStorageItem>(_dragPaths.Count);
+            foreach (var p in _dragPaths)
+            {
+                try
+                {
+                    if (Directory.Exists(p))
+                    {
+                        storageItems.Add(await StorageFolder.GetFolderFromPathAsync(p));
+                    }
+                    else if (File.Exists(p))
+                    {
+                        storageItems.Add(await StorageFile.GetFileFromPathAsync(p));
+                    }
+                }
+                catch
+                {
+                    // 개별 항목 실패(시스템/보호 파일 등)는 격리 → 아래 텍스트 폴백으로 커버.
+                }
+            }
+            if (storageItems.Count > 0)
+            {
+                args.Data.SetStorageItems(storageItems, readOnly: false);
+            }
+            // 텍스트 폴백: 파일을 못 받는 텍스트 전용 대상엔 경로가 들어간다(탐색기도 텍스트 병행 제공).
+            args.Data.SetText(string.Join("\r\n", _dragPaths));
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     /// <summary>드래그 종료(드롭 성공 또는 <b>ESC 취소</b>) — 상태 정리. 취소(결과 None)면 아무것도 이동 안 하고 알림(B-14).</summary>
