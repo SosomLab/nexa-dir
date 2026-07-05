@@ -343,7 +343,12 @@ impl Tree {
     /// - `VisibleStream`(C): `caret+1`부터 앞으로, 끝이면 `0..=caret`로 wrap(계속 입력 시 다음 매치로 cycle).
     /// - `GlobalFirst`(A): 0부터 첫 매치(캐럿 무시).
     /// - `CurrentLevel`(B): 캐럿과 **같은 부모(형제)** 인 가시 행만 대상으로 C 규칙.
-    pub fn find_prefix(&self, caret: Option<usize>, prefix: &str, scope: FindScope) -> Option<usize> {
+    pub fn find_prefix(
+        &self,
+        caret: Option<usize>,
+        prefix: &str,
+        scope: FindScope,
+    ) -> Option<usize> {
         let n = self.visible.len();
         if prefix.is_empty() || n == 0 {
             return None;
@@ -351,7 +356,10 @@ impl Tree {
         let lower = prefix.to_lowercase();
         let starts = |idx: usize| -> bool {
             let id = self.visible[idx];
-            self.nodes[id as usize].name.to_lowercase().starts_with(&lower)
+            self.nodes[id as usize]
+                .name
+                .to_lowercase()
+                .starts_with(&lower)
         };
         let caret = caret.filter(|&c| c < n);
         match scope {
@@ -364,9 +372,9 @@ impl Tree {
                 // 캐럿의 부모(없으면 최상위=None) 형제만. C 규칙(caret+1부터 wrap).
                 let parent = caret.and_then(|c| self.nodes[self.visible[c] as usize].parent);
                 let start = caret.map_or(0, |c| c + 1);
-                (start..n).chain(0..start).find(|&i| {
-                    self.nodes[self.visible[i] as usize].parent == parent && starts(i)
-                })
+                (start..n)
+                    .chain(0..start)
+                    .find(|&i| self.nodes[self.visible[i] as usize].parent == parent && starts(i))
             }
         }
     }
@@ -1023,7 +1031,8 @@ mod tests {
     /// 정렬 검증용 픽스처: 폴더 adir(inner.txt 1개)·zdir, 파일 a.log(3)·m.txt(1)·z.md(2).
     /// 이름/크기/확장자 정렬 결과가 서로 달라 구분력이 있다.
     fn make_sort_fixture(tag: &str) -> PathBuf {
-        let base = std::env::temp_dir().join(format!("nexa_tree_sort_{}_{}", tag, std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("nexa_tree_sort_{}_{}", tag, std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("adir")).unwrap();
         fs::create_dir_all(base.join("zdir")).unwrap();
@@ -1128,7 +1137,11 @@ mod tests {
         assert_eq!(t.is_expanded(adir), Some(true));
         let ns = names(&t);
         let ai = ns.iter().position(|n| n == "adir").unwrap();
-        assert_eq!(ns[ai + 1], "inner.txt", "펼친 자식이 부모 바로 뒤에 유지: {ns:?}");
+        assert_eq!(
+            ns[ai + 1],
+            "inner.txt",
+            "펼친 자식이 부모 바로 뒤에 유지: {ns:?}"
+        );
     }
 
     // ── 타입어헤드 find_prefix (docs/32) ────────────────────────────
@@ -1136,7 +1149,8 @@ mod tests {
     /// 타입어헤드 픽스처: 최상위 apple/apricot/banana.txt + 폴더 sub{avocado.txt}.
     /// 기본 정렬(폴더우선·이름오름) 가시(접힘): [sub, apple.txt, apricot.txt, banana.txt].
     fn make_ta_fixture(tag: &str) -> PathBuf {
-        let base = std::env::temp_dir().join(format!("nexa_tree_ta_{}_{}", tag, std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("nexa_tree_ta_{}_{}", tag, std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("sub")).unwrap();
         fs::write(base.join("sub/avocado.txt"), b"a").unwrap();
@@ -1152,13 +1166,22 @@ mod tests {
         let t = Tree::open(&base).unwrap();
         fs::remove_dir_all(&base).unwrap();
         // [sub(0), apple(1), apricot(2), banana(3)]
-        assert_eq!(names(&t), vec!["sub", "apple.txt", "apricot.txt", "banana.txt"]);
+        assert_eq!(
+            names(&t),
+            vec!["sub", "apple.txt", "apricot.txt", "banana.txt"]
+        );
         // 캐럿 없음 → 처음부터 첫 'a' = apple(1)
         assert_eq!(t.find_prefix(None, "a", FindScope::VisibleStream), Some(1));
         // apple(1)에서 다음 'a' = apricot(2)
-        assert_eq!(t.find_prefix(Some(1), "a", FindScope::VisibleStream), Some(2));
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::VisibleStream),
+            Some(2)
+        );
         // apricot(2)에서 다음 'a' → banana 아님, wrap → apple(1)
-        assert_eq!(t.find_prefix(Some(2), "a", FindScope::VisibleStream), Some(1));
+        assert_eq!(
+            t.find_prefix(Some(2), "a", FindScope::VisibleStream),
+            Some(1)
+        );
         // 'ap' 접두사 → apple(1)
         assert_eq!(t.find_prefix(None, "ap", FindScope::VisibleStream), Some(1));
         // 'b' → banana(3), 대소문자 무시
@@ -1189,14 +1212,29 @@ mod tests {
         fs::remove_dir_all(&base).unwrap();
         assert_eq!(
             names(&t),
-            vec!["sub", "avocado.txt", "apple.txt", "apricot.txt", "banana.txt"]
+            vec![
+                "sub",
+                "avocado.txt",
+                "apple.txt",
+                "apricot.txt",
+                "banana.txt"
+            ]
         );
         // 최상위 apple(2)에서 'a' 형제 검색 → avocado(자식) 건너뛰고 apricot(3)
-        assert_eq!(t.find_prefix(Some(2), "a", FindScope::CurrentLevel), Some(3));
+        assert_eq!(
+            t.find_prefix(Some(2), "a", FindScope::CurrentLevel),
+            Some(3)
+        );
         // avocado(1, sub 자식)에서 'a' 형제 → 형제는 avocado뿐 → wrap으로 자신(1)
-        assert_eq!(t.find_prefix(Some(1), "a", FindScope::CurrentLevel), Some(1));
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::CurrentLevel),
+            Some(1)
+        );
         // 비교: 같은 상황 C(가시 스트림)는 형제 무시하고 apricot(3)
-        assert_eq!(t.find_prefix(Some(1), "a", FindScope::VisibleStream), Some(2)); // apple(2)
+        assert_eq!(
+            t.find_prefix(Some(1), "a", FindScope::VisibleStream),
+            Some(2)
+        ); // apple(2)
     }
 
     #[test]

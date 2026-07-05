@@ -478,7 +478,11 @@ pub unsafe extern "C" fn nexa_tree_find_prefix(
     let Ok(s) = CStr::from_ptr(prefix).to_str() else {
         return -1;
     };
-    let caret_opt = if caret < 0 { None } else { Some(caret as usize) };
+    let caret_opt = if caret < 0 {
+        None
+    } else {
+        Some(caret as usize)
+    };
     match (*handle)
         .tree
         .find_prefix(caret_opt, s, find_scope_from_code(scope))
@@ -756,8 +760,7 @@ mod tests {
 
     #[test]
     fn tree_abi_set_sort_reorders() {
-        let base =
-            std::env::temp_dir().join(format!("nexa_interop_sort_{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("nexa_interop_sort_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         std::fs::create_dir_all(&base).unwrap();
         std::fs::write(base.join("a.txt"), b"333").unwrap(); // size 3
@@ -819,7 +822,10 @@ mod tests {
             assert_eq!(nexa_tree_find_prefix(h, -1, bp.as_ptr(), c), 2);
             // 없는 접두사 → -1, 널 핸들/널 문자열 → -1
             assert_eq!(nexa_tree_find_prefix(h, -1, zp.as_ptr(), c), -1);
-            assert_eq!(nexa_tree_find_prefix(ptr::null_mut(), -1, ap.as_ptr(), c), -1);
+            assert_eq!(
+                nexa_tree_find_prefix(ptr::null_mut(), -1, ap.as_ptr(), c),
+                -1
+            );
             assert_eq!(nexa_tree_find_prefix(h, -1, ptr::null(), c), -1);
             nexa_tree_close(h);
         }
