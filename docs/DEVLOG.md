@@ -11,6 +11,14 @@
 
 ---
 
+## 2026-07-06
+
+- **하단 패널 콘텐츠 `feat/bottom-panel-info` → main 병합**(`3dd423a`): BP-2(정보·미리보기·플러그인 SDK) + BP-T(터미널).
+  - **미리보기 시스템 + 플러그인**: 표준 `IPreviewProvider`+레지스트리(텍스트/이미지) · **퍼미시브 MIT SDK `Nexa.Plugins`**(DR-6)+샘플+**개발 매뉴얼**([36](36-plugin-development.md)) · 크기 상호연동 · 로딩 부하 방지 wrapper(디바운스/취소).
+  - **임베디드 터미널**: **ConPTY** + **VT 에뮬레이터**(`VtScreen`: 색·화면버퍼·SGR·스크롤백, [37](37-terminal.md)) · lazy 로딩 · exit 재시작 · 작업경로=활성 탭 폴더(홈 폴백) · 키보드 캡처(전역 단축키 개입 차단). 알려진 이슈 [BUG-007/008](BUGS.md)(캐럿·색 → BP-T3).
+  - 병합 후 `feat/bottom-panel-info` 로컬+원격 삭제. [BRANCHES](BRANCHES.md) 시간 역순으로 재정렬.
+- 상세: [journal/2026-07-05.md](journal/2026-07-05.md)(BP-2/BP-T 세션) · [journal/2026-07-06.md](journal/2026-07-06.md).
+
 ## 2026-07-05
 
 - **문서 통폐합**: 시간순 기록을 이 **DEVLOG**로, 기능·마일스톤 기록을 **MILESTONES**로 통합. 일자 단위·시간 역순 규약 도입. 브랜치 이력은 [BRANCHES.md](BRANCHES.md).
