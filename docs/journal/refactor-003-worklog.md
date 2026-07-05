@@ -212,3 +212,31 @@ refactor/003-audit  (분기: 1d9d312)
 - **코어/ABI(COL-2a·2b)**: 맥 단위테스트 green(코어 17·인터롭 6). **ABI v6** — Windows에서 코어 cdylib 재빌드 필요(VerifyAbi가 v5 dll 거부).
 - **UI(COL-2c·2d·3·표시)**: Windows 빌드 오류 1건 수정 후 재빌드 요청 상태. **실기 QA 대기**: 헤더 클릭 정렬·화살표 앞/원문자 뒤·Shift 다중열·좌우 독립·폴더 이동 지속·리사이즈 동기.
 - **미착수**: COL-4(컬럼 조정 모달: 표시/순서/너비). 패널별 정렬은 HeaderCell로 달성, per-panel ColumnLayout(§6-3) 전면 도입은 COL-4와 함께 후속.
+
+## 세션 요약 · 2026-07-05 · 새로 만들기·날짜컬럼·세션 저장·환경변수·전송 엔진 통일 → main 병합
+
+> 상세·시간기록: [TASKS.md](../TASKS.md) · 설계: [docs/33 TRANSFER-ENGINE/CLIP](../33-file-ops-dnd-design.md)·[docs/34](../34-settings-and-session-persistence.md).
+> 사용자 Windows PC(DESKTOP-O7JCBAT) 로컬 빌드·실행으로 검증(코어/ViewModels 맥 테스트 병행). 이 세션 끝에 **`refactor/003-audit` → main 병합**.
+
+### 구현(커밋)
+- **BG-N `2a2c0ed`**: 빈영역 "새로 만들기 ▶ 폴더/파일/바로가기"(.lnk=IShellLink COM+대상 선택) + 생성 후 즉시 인라인 이름변경([ShellLink.cs](../../app/Nexa.App/ShellLink.cs)).
+- **COL-D1/D2 `1f1f92d`**: 수정 날짜/시간 라벨 3종(DateTime `yy/MM/dd HH:mm`·Date·Time) + 기본 컬럼을 DateTime로 교체. Date/Time 선택 컬럼·가시성 토글은 COL-D3/D4 후속.
+- **SESS `2a2c0ed`**: 탭 세션 저장/복원([SessionStore.cs](../../app/Nexa.App/SessionStore.cs), `session.json`@LocalAppData) — 활성패널·탭·경로·펼침·정렬. **요청/수행 분리 + 단일 Tick(1s) 코얼레싱**(dirty 플래그만 set, Tick당 1회 저장)·유휴 실행·해시 스킵·원자적 쓰기·안전주기·종료 flush. [docs/34](../34-settings-and-session-persistence.md).
+- **ENV-PATH `8ebe805`**: 경로 바 환경변수 해석 레이어([PathInterpreter.cs](../../app/Nexa.ViewModels/PathInterpreter.cs)) — `%VAR%`(CMD)·`$env:VAR`/`${env:VAR}`(PowerShell). xUnit +10.
+- **DnD 전송 엔진(DND-OW 계열)**:
+  - `15cdff1` 외부 DnD 기본을 **StorageItems**(실제 파일)로 → 대상 앱이 파일을 엶(탐색기 동일). **Alt=경로 텍스트**.
+  - `3a59404`/`459a7df` **덮어쓰기 확인**(충돌 항목만 순차) + **바이트 단위 진행률**(대용량 단일 파일 가시화). FileOps: `CopyOntoWithProgress`/`MoveOntoWithProgress`/`SizeOf`/`SameVolume`.
+  - `9883d69`/`67406a3` **진행 창**(별도 Window·맨앞 포커스·자동 닫기 off 기본) + **취소**(CancellationToken).
+  - `cb20c98` **단일 엔진 통일** — 붙여넣기(Ctrl+V·컨텍스트)도 DnD와 같은 `TransferPathsInto` 경로(진행 창·덮어쓰기·취소 공용). [docs/33 TRANSFER-ENGINE](../33-file-ops-dnd-design.md).
+  - `56560fe` **OS 클립보드 연동(읽기측)** — 탐색기 복사도 `CanPaste`로 붙여넣기 활성·수행. 외부 복사 시 앱 클립보드 비워 최신 우선.
+  - `56f7b22`/`73f9379` 덮어쓰기 **"모두 예"** + **"취소"** 옵션 + 진행 창 글자/버튼 축소.
+  - `1bb2b9e` 🐞 **XamlRoot 오류 해결** — 확인 프롬프트를 진행 창 안에 embed(보조 Window ContentDialog 불안정 회피).
+- **환경/문서**: `1e59fd5` cargo fmt(CI fmt 게이트) · `db75331` docs/11 §4-6 이 PC 식별(MachineGuid/HW UUID) · `51ab1b7` docs/34 영속화 문서.
+
+### 상태(완료 여부)
+- **개발·빌드·단위테스트**: 전 항목 로컬 green(코어 · **ViewModels xUnit 57**). 앱 `dotnet build` 0/0.
+- **실기 QA(사용자 확인)**: 세션 저장/복원 왕복·진행 창·XamlRoot 수정 로컬 스모크 확인. 나머지(새로만들기 3종·날짜컬럼·환경변수·DnD 파일열기/Alt·덮어쓰기 예/모두예/취소·OS 클립보드 붙여넣기)는 **Windows 실기 QA 대기**.
+- **미착수(후속)**: COL-D3/D4(Date/Time 선택 컬럼+가시성 토글)·전체 날짜포맷 옵션·CLIP 쓰기측(우리 복사→탐색기 붙여넣기)·자동 닫기 설정 UI·폴더 병합·nexa-ops 이관.
+
+### 병합
+- **`refactor/003-audit` → main 병합**(3차 감사 라운드 완료: B-6~B-15h 파일조작 · DnD 파리티 · COL-2/3 정렬 · 타입어헤드 · 이번 세션 전송엔진/세션/컬럼/환경변수). 로컬 빌드·테스트 green 확인 후 병합.

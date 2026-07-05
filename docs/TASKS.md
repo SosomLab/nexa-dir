@@ -30,6 +30,12 @@
 | COL-D1/D2 | 수정 **날짜/시간 컬럼** — 라벨 3종+기본 DateTime(yy/MM/dd HH:mm) | ✨ | 2026-07-05 | — | 2026-07-05 (`1f1f92d`) | CI green(app) | 실기QA 대기 | 🚧 | Date/Time 개별 컬럼·가시성 토글은 COL-D3/D4 후속 |
 | SESS | **탭 세션 저장/복원**(session.json@LocalAppData) — 활성패널·탭·경로·펼침·정렬 | ✨ | 2026-07-05 | [docs/34](34-settings-and-session-persistence.md) | 2026-07-05 (`2a2c0ed`) | 로컬 왕복 검증 · CI green(app) | 실기QA 대기 | 🚧 | 요청/수행 분리·Tick당 1회·유휴·원자적·안전주기·종료flush |
 | CI-FMT | Rust `cargo fmt` 정리(nexa-interop/tree) — CI fmt 게이트 복구 | 🐞 | 2026-07-05 | — | 2026-07-05 (`1e59fd5`) | clippy -D·test green | 2026-07-05 | ✅ | TA 커밋 rustfmt 누락분(로직 무변경) |
+| ENV-PATH | 경로 바 **환경변수 해석**(%VAR% CMD·$env:VAR/${env:VAR} PowerShell) | ✨ | 2026-07-05 | — | 2026-07-05 (`8ebe805`) | **xUnit 10 green(49)** | 실기QA 대기 | 🚧 | PathInterpreter(ViewModels)·따옴표 제거·미정의 원문 유지 |
+| DND-STOR | 외부 DnD 기본 **StorageItems**(대상이 파일 열기, 탐색기 동일) · **Alt=경로 텍스트** | ✨ | 2026-07-05 | — | 2026-07-05 (`15cdff1`) | 빌드 0/0 | 실기QA 대기 | 🚧 | GetDeferral·개별 실패 격리·텍스트 폴백 |
+| DND-OW | **전송 덮어쓰기 확인**(충돌만 순차·예/모두예/건너뛰기/취소) + **바이트 진행률** | ✨ | 2026-07-05 | [docs/33 TRANSFER-ENGINE](33-file-ops-dnd-design.md) | 2026-07-05 (`3a59404`·`459a7df`·`56f7b22`·`73f9379`) | **xUnit 57 green** | 실기QA 대기 | 🚧 | FileOps CopyOnto/MoveOnto/SizeOf·같은폴더=순번/다른=확인 |
+| PROG-WIN | **파일 전송 진행 창**(별도 Window·맨앞 포커스·취소·자동닫기 off) + 창 안 확인 프롬프트 | ✨🐞 | 2026-07-05 | — | 2026-07-05 (`9883d69`·`67406a3`·`1bb2b9e`) | 빌드 0/0 | 실기QA 대기 | 🚧 | 1bb2b9e=ContentDialog XamlRoot 오류 해결(창 안 embed) |
+| DND-ENGINE | 복사/이동 **단일 엔진 통일**(DnD+붙여넣기=TransferPathsInto) | ♻️ | 2026-07-05 | [docs/33](33-file-ops-dnd-design.md) | 2026-07-05 (`cb20c98`) | 빌드 0/0 | 실기QA 대기 | 🚧 | 붙여넣기도 진행 창/덮어쓰기/취소 공용 |
+| CLIP-READ | **OS 클립보드 붙여넣기**(탐색기 복사→우리 앱) + CanPaste 활성·최신 우선 | ✨ | 2026-07-05 | [docs/33 CLIP](33-file-ops-dnd-design.md) | 2026-07-05 (`56560fe`) | 빌드 0/0 | 실기QA 대기 | 🚧 | Preferred DropEffect로 cut 판정·ContentChanged로 앱 클립 비움. 쓰기측 후속 |
 | TA-3 | 타입어헤드 **검색어 HUD `EphemeralOverlay`**(휘발성 표시) | 📐 | 2026-07-04 | [docs/32 §7-A](32-typeahead-find.md) | — | — | ⏸ 후속 | 이동 자체엔 불필요 · 시각 표시 |
 
 ## 2. 이번 세션 버그 수정 (실사용 리포트)
