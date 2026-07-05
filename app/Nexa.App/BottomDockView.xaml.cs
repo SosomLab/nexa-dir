@@ -51,9 +51,13 @@ public sealed partial class BottomDockView : UserControl
                 _kind = value;
                 SyncToggles();
                 Render();
+                KindChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
+
+    /// <summary>콘텐츠 종류가 바뀌었을 때(세션 저장 등 호스트 반응용).</summary>
+    public event EventHandler? KindChanged;
 
     private void OnKindClick(object sender, RoutedEventArgs e)
     {
