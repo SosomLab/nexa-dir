@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="파일 전송">
 
-    <Grid Padding="20" RowSpacing="10" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid Padding="14,12" RowSpacing="6" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -14,14 +14,17 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="전송 중…" />
-        <TextBlock x:Name="DetailText" Grid.Row="1" Opacity="0.7" TextTrimming="CharacterEllipsis" Text="" />
-        <TextBlock x:Name="PercentText" Grid.Row="2" FontSize="26" Text="0%" />
-        <ProgressBar x:Name="Bar" Grid.Row="3" Minimum="0" Height="8" />
+        <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="13" FontWeight="SemiBold" Text="전송 중…"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="DetailText" Grid.Row="1" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis" Text="" />
+        <TextBlock x:Name="PercentText" Grid.Row="2" FontSize="18" Margin="0,2,0,0" Text="0%" />
+        <ProgressBar x:Name="Bar" Grid.Row="3" Minimum="0" Height="6" Margin="0,2,0,0" />
 
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button x:Name="CancelBtn" Content="취소" Click="OnCancel" />
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+            <Button x:Name="CancelBtn" Content="취소" Click="OnCancel"
+                    FontSize="12" Padding="12,4" MinWidth="0" MinHeight="0" />
             <Button x:Name="CloseBtn" Content="닫기" IsEnabled="False" Click="OnClose"
+                    FontSize="12" Padding="12,4" MinWidth="0" MinHeight="0"
                     Style="{StaticResource AccentButtonStyle}" />
         </StackPanel>
     </Grid>

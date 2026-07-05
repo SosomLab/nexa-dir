@@ -1794,6 +1794,7 @@ public sealed partial class MainWindow : Window
         int done = 0, skipped = 0;
         string? err = null;
         bool cancelled = false;
+        bool overwriteAll = false;   // "모두 예" 선택 후로는 이후 충돌을 묻지 않고 덮어씀
 
         // 진행 창(별도 Window) — 시작 시 표시, 완료 후 기본은 열린 채 유지(자동 닫기 off).
         var win = new TransferProgressWindow(verb);
@@ -1847,12 +1848,18 @@ public sealed partial class MainWindow : Window
                     }
                     if (FileOps.Conflicts(destDir, p))
                     {
-                        bool overwrite = await ConfirmOverwriteAsync(copy, p, win.Content.XamlRoot);
-                        if (!overwrite)
+                        var choice = overwriteAll
+                            ? OverwriteChoice.Yes
+                            : await ConfirmOverwriteAsync(copy, p, win.Content.XamlRoot);
+                        if (choice == OverwriteChoice.No)
                         {
                             skipped++;
                             OnBytes(FileOps.SizeOf(p));   // 건너뛴 항목만큼 진행 전진(막대가 끝까지)
                             continue;
+                        }
+                        if (choice == OverwriteChoice.YesToAll)
+                        {
+                            overwriteAll = true;   // 이후 충돌은 자동 덮어쓰기
                         }
                         // 예 → 덮어쓰기(복사/이동 분리 — 지금은 동일, 향후 분기 가능). I/O는 백그라운드.
                         string dest = FileOps.NaturalDest(destDir, p);
@@ -1904,19 +1911,33 @@ public sealed partial class MainWindow : Window
     private static void OverwriteMove(string src, string dest, Action<long>? onBytes, CancellationToken ct)
         => FileOps.MoveOntoWithProgress(src, dest, overwrite: true, onBytes, ct);
 
-    /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예=덮어씀 / 아니오=건너뜀). 진행 창 위에 표시. 다중 파일은 충돌 항목마다 순차 호출.</summary>
-    private async Task<bool> ConfirmOverwriteAsync(bool copy, string sourcePath, XamlRoot xamlRoot)
+    /// <summary>덮어쓰기 확인 결과 — 아니오(건너뜀) · 예(이 항목) · 모두 예(이후 충돌 자동 덮어쓰기).</summary>
+    private enum OverwriteChoice
+    {
+        No,
+        Yes,
+        YesToAll,
+    }
+
+    /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예 / <b>모두 예</b> / 아니오). 진행 창 위에 표시. 다중 파일은 충돌 항목마다 순차 호출.</summary>
+    private async Task<OverwriteChoice> ConfirmOverwriteAsync(bool copy, string sourcePath, XamlRoot xamlRoot)
     {
         var dialog = new ContentDialog
         {
             Title = "덮어쓰기 확인",
             Content = $"'{FileOps.LeafName(sourcePath)}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?",
             PrimaryButtonText = "덮어쓰기(예)",
+            SecondaryButtonText = "모두 예",
             CloseButtonText = "건너뛰기(아니오)",
-            DefaultButton = ContentDialogButton.Close,
+            DefaultButton = ContentDialogButton.Primary,
             XamlRoot = xamlRoot,   // 진행 창 위에 표시(WinUI 3 데스크톱 필수)
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await dialog.ShowAsync() switch
+        {
+            ContentDialogResult.Primary => OverwriteChoice.Yes,
+            ContentDialogResult.Secondary => OverwriteChoice.YesToAll,
+            _ => OverwriteChoice.No,
+        };
     }
 
     private bool _activeLeft = true;
