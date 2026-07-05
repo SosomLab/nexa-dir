@@ -148,9 +148,11 @@ public sealed partial class BottomDockView : UserControl
         if (_terminalView is null)
         {
             _terminalView = new TerminalView();
+            // (재)시작 시점의 선택 탭 폴더를 작업 디렉터리로. 시작 후 폴더 변경/탭 이동은 무영향.
+            _terminalView.WorkingDirectoryProvider = () => CurrentFolder;
             TerminalHost.Child = _terminalView;
         }
-        _terminalView.Start(string.IsNullOrEmpty(CurrentFolder) ? null : CurrentFolder);   // 멱등(이미 시작이면 포커스만)
+        _terminalView.Start();   // 멱등(이미 시작이면 포커스만)
     }
 
     // ── 미리보기 렌더(BP-2) — 로딩 부하 방지 wrapper(디바운스·취소·중복 스킵). 공급자는 몰라도 됨 ─────

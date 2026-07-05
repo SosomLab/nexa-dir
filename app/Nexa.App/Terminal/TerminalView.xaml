@@ -12,8 +12,8 @@
         <ScrollViewer x:Name="Scroll" Padding="6,4"
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollMode="Enabled" HorizontalScrollMode="Enabled">
-            <TextBlock x:Name="OutputText" FontFamily="Consolas" FontSize="12" Foreground="#E6E6E6"
-                       TextWrapping="NoWrap" IsTextSelectionEnabled="True" />
+            <!-- VtScreen 셀 그리드를 색과 함께 렌더(라인=가로 StackPanel of 색 runs) -->
+            <StackPanel x:Name="LinesPanel" />
         </ScrollViewer>
     </Grid>
 </UserControl>
