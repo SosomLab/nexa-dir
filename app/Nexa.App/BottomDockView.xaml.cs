@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Nexa.App.Preview;
+using Nexa.Plugins.Preview;
 
 namespace Nexa.App;
 

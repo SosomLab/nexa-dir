@@ -22,9 +22,10 @@ public interface IPreviewProvider
 }
 ```
 
-- **레지스트리** `PreviewRegistry`: 등록 순서대로 첫 `CanPreview` 매치를 사용. **플러그인은 `Register`로 맨 앞에 추가**해
+- **레지스트리** `PreviewRegistry`: 등록 순서 역순(나중 등록 우선)으로 첫 `CanPreview` 매치를 사용. **플러그인은 `Register`로 추가**해
   우선권을 가진다(내장 공급자 대체/보강 가능).
-- 코드: [app/Nexa.App/Preview/](../app/Nexa.App/Preview/) — `IPreviewProvider`·`PreviewRegistry`·`TextPreviewProvider`·`ImagePreviewProvider`.
+- **계약 = 퍼미시브 MIT SDK**(DR-6): `IPreviewProvider`·`PreviewRegistry`는 [`app/Nexa.Plugins/Preview/`](../app/Nexa.Plugins/)(누구나 플러그인 개발 가능, [36](36-plugin-development.md)).
+  내장 공급자(앱): [`app/Nexa.App/Preview/`](../app/Nexa.App/Preview/) `TextPreviewProvider`·`ImagePreviewProvider`(앱 시작 시 `App.xaml.cs`에서 등록).
 
 ## 3. 내장 공급자 (구현)
 

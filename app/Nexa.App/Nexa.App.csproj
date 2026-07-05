@@ -40,6 +40,8 @@
     <ProjectReference Include="..\Nexa.Controls\Nexa.Controls.csproj" />
     <!-- UI 비종속 순수 로직(경로 표시·네비게이션 히스토리) — 맥/Windows 공통 테스트(감사 B-1) -->
     <ProjectReference Include="..\Nexa.ViewModels\Nexa.ViewModels.csproj" />
+    <!-- 플러그인 SDK/계약(미리보기 공급자 등) — 퍼미시브 MIT, 누구나 플러그인 개발 가능(DR-6) -->
+    <ProjectReference Include="..\Nexa.Plugins\Nexa.Plugins.csproj" />
   </ItemGroup>
 
   <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────

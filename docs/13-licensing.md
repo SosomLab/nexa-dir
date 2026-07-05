@@ -85,3 +85,11 @@
 - 후속: 상업 라이선스(가격/키 발급) 절차는 배포 전 별도 정리. 상표(제품명) 출원 검토.
 - **연락처**: 조직 SosomLab(<https://sosomlab.com>), 상업 라이선스 문의 **kiros33@sosomlab.com**,
   개발자(maintainer) Sangyong Bae **kiros33@gmail.com**. (LICENSE.md/LICENSE.ko.md·README에도 반영)
+
+## 7. 플러그인 SDK 라이선스 (DR-6) — 퍼미시브 MIT
+
+- **플러그인 SDK/계약 `Nexa.Plugins`(`IPreviewProvider` 등)과 예제는 MIT** — 앱 본체(§6, PolyForm Noncommercial)와 **분리**.
+  누구나(개인·상업) 이 SDK를 참조해 **플러그인을 자유롭게 개발·배포·판매**할 수 있고, 플러그인 자체 라이선스도 자유.
+- 근거: 플러그인 생태계 활성화(제한 라이선스면 서드파티 개발 위축). **SDK만 개방, 앱 본체는 보호**(VS Code식 모델).
+- 위치: [`app/Nexa.Plugins/`](../app/Nexa.Plugins/)(`LICENSE.md`=MIT, `PackageLicenseExpression=MIT`). 개발 가이드 [36](36-plugin-development.md).
+- 경계 규율: SDK는 **퍼미시브 의존성만**(WinUI/Windows App SDK) 참조하고 앱 본체/도메인/코어를 참조하지 않는다(재배포 가능 유지).

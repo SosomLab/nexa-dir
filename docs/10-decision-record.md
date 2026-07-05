@@ -14,6 +14,7 @@
 | **DR-3** | 배포 (OD4) | **MSIX + GitHub Releases + winget** (1차) + **포터블(폴더/단일exe) 가능하도록 설계** | 서명 MSIX 자동화. 포터블은 우선순위 아님·배포 시 판단하되 **지금 막지 않도록** 설계 → [12](12-packaging-portable.md) |
 | **DR-4** | AI 제공 (OD2) | **보류 — M5 착수 전 별도 ADR** | 프라이버시/비용 정책은 시점에 맞춰 결정 |
 | **DR-5** | 라이선스 (OD3) | **소스공개 제한형 — PolyForm Noncommercial**(대안 BSL), 저장소 **공개 예정**(현재 private, 진행 후 public 전환), 개인 무료/상업 유료 | 소스 공개(신뢰) + 유료 판매 보호 양립 → [13](13-licensing.md) |
+| **DR-6** | 플러그인 SDK 라이선스 | **플러그인 SDK/계약(`Nexa.Plugins`)과 예제는 퍼미시브 MIT** — 앱 본체(DR-5)와 **별개**. 누구나(개인·상업) SDK를 참조해 플러그인을 자유롭게 개발·배포·판매 가능 | 플러그인 생태계 활성화(VS Code식). 제한 라이선스면 서드파티 개발이 위축 → SDK만 개방, 앱 본체는 보호 → [13 §7](13-licensing.md)·[36](36-plugin-development.md) |
 
 > **저장소 가시성(보완)**: 현재 **private**. 소스공개(DR-5) 방향에 따라 **어느 정도 진행된 뒤 public 전환 예정**.
 > 그때까지도 공개 대비 비밀 커밋 금지 규율을 적용한다(시점 변경은 journal로 추적). [STATUS](STATUS.md)·[14](14-context-sharing.md) 동일 반영.

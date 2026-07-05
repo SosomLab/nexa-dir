@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Nexa.Plugins — 플러그인 SDK/계약 (미리보기 공급자 등).
+       라이선스 = 퍼미시브 MIT(앱 본체 PolyForm Noncommercial과 별개, DR-6):
+       누구나(개인·상업) 이 SDK를 참조해 플러그인을 개발·배포할 수 있다.
+       WinUI 타입(FrameworkElement)을 계약에 사용하므로 WinUI 라이브러리로 구성(XAML 없음). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Nexa.Plugins</RootNamespace>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- ── 제품/패키지 메타 (NuGet 배포) ── -->
+    <PackageId>SosomLab.Nexa.Plugins</PackageId>
+    <Version>0.0.0</Version>
+    <Product>Nexa.Plugins</Product>
+    <Authors>Sangyong Bae</Authors>
+    <Company>SosomLab</Company>
+    <Copyright>Copyright (c) 2026 SosomLab</Copyright>
+    <Description>Nexa Dir 플러그인 SDK/계약 — 미리보기 공급자(IPreviewProvider) 등. 퍼미시브 MIT: 누구나 플러그인 개발·배포 가능.</Description>
+    <PackageProjectUrl>https://sosomlab.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SosomLab/nexa-dir</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+</Project>
