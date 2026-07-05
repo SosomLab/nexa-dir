@@ -1,10 +1,20 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
 
 namespace Nexa.App;
+
+/// <summary>덮어쓰기 확인 결과 — 아니오(이 항목 건너뜀) · 예(이 항목) · 모두 예(이후 충돌 자동) · 취소(전체 중단).</summary>
+public enum OverwriteChoice
+{
+    No,
+    Yes,
+    YesToAll,
+    Cancel,
+}
 
 /// <summary>
 /// 파일 전송(복사/이동) <b>진행 창</b>(별도 Window) — 탐색기식. 시작 시 표시하고 바이트 진행률을 라이브 갱신,
@@ -22,8 +32,13 @@ public sealed partial class TransferProgressWindow : Window
         Title = $"{verb} 진행";
         TitleText.Text = $"{verb} 중…";
         AppWindow.Resize(new SizeInt32(480, 230));   // 작은 고정 크기
-        // 완료 전에 창을 닫으면(사용자 X) 전송 취소로 간주.
-        Closed += (_, _) => { if (!_finished) { _cts.Cancel(); } };
+        // 완료 전에 창을 닫으면(사용자 X) 전송 취소로 간주. 대기 중 확인이 있으면 취소로 정리(await 해제).
+        Closed += (_, _) =>
+        {
+            if (!_finished) { _cts.Cancel(); }
+            _promptTcs?.TrySetResult(OverwriteChoice.Cancel);
+            _promptTcs = null;
+        };
     }
 
     /// <summary>전송 취소 토큰 — 취소 버튼/완료 전 닫기 시 신호.</summary>
@@ -89,4 +104,30 @@ public sealed partial class TransferProgressWindow : Window
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
+
+    // ── 덮어쓰기 확인(창 안에 직접 표시) ─────────────────────────────────
+    private TaskCompletionSource<OverwriteChoice>? _promptTcs;
+
+    /// <summary>진행 창 <b>안에서</b> 덮어쓰기 확인을 띄우고 선택을 기다린다(ContentDialog XamlRoot 문제 회피).</summary>
+    public Task<OverwriteChoice> AskOverwriteAsync(string fileName, bool copy)
+    {
+        PromptText.Text = $"'{fileName}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?";
+        _promptTcs = new TaskCompletionSource<OverwriteChoice>();
+        PromptOverlay.Visibility = Visibility.Visible;
+        ActivateForeground();   // 확인이 필요하니 맨 앞으로
+        return _promptTcs.Task;
+    }
+
+    private void ResolvePrompt(OverwriteChoice choice)
+    {
+        PromptOverlay.Visibility = Visibility.Collapsed;
+        var tcs = _promptTcs;
+        _promptTcs = null;
+        tcs?.TrySetResult(choice);
+    }
+
+    private void OnOwYes(object sender, RoutedEventArgs e) => ResolvePrompt(OverwriteChoice.Yes);
+    private void OnOwAll(object sender, RoutedEventArgs e) => ResolvePrompt(OverwriteChoice.YesToAll);
+    private void OnOwNo(object sender, RoutedEventArgs e) => ResolvePrompt(OverwriteChoice.No);
+    private void OnOwCancel(object sender, RoutedEventArgs e) => ResolvePrompt(OverwriteChoice.Cancel);
 }
