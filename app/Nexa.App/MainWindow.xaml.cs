@@ -2118,6 +2118,7 @@ public sealed partial class MainWindow : Window
     {
         int count = items.SelectionCount;
         StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+        RefreshBottomDocks();   // 선택 변경 → 하단 정보 뷰 갱신 (BP-2)
     }
 
     /// <summary>
@@ -2409,9 +2410,28 @@ public sealed partial class MainWindow : Window
         BottomRightDockView.InfoText = DockInfo(_right);
     }
 
-    /// <summary>도킹 정보 텍스트 — 현재 폴더 경로(후속: 선택 항목 속성·미리보기·터미널).</summary>
+    /// <summary>도킹 정보 텍스트(BP-2) — 선택/캐럿 항목의 속성(이름·종류·크기·수정·경로),
+    /// 다중 선택이면 개수, 선택 없으면 현재 폴더. (후속: 총 크기·미리보기·터미널.)</summary>
     private static string DockInfo(PanelView p)
     {
+        var items = p.Active.Items;
+        int selCount = items.SelectionCount;
+        if (selCount >= 2)
+        {
+            return $"선택: {selCount}개 항목";
+        }
+        if (selCount == 1 && items.CaretItem is DirItem it)
+        {
+            var lines = new List<string?>
+            {
+                it.Name,
+                $"종류: {it.KindText}",
+                it.IsDir ? null : $"크기: {it.SizeLabel}",
+                string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : $"수정: {it.ModifiedDateTimeLabel}",
+                $"경로: {it.FullPath}",
+            };
+            return string.Join("\n", lines.Where(s => !string.IsNullOrEmpty(s)));
+        }
         string cur = p.Active.Current;
         return string.IsNullOrEmpty(cur) ? "(폴더 없음)" : $"현재 폴더:\n{cur}";
     }
