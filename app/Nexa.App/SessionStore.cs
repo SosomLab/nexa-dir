@@ -40,6 +40,17 @@ internal sealed class SessionState
     public bool ActiveLeft { get; set; } = true;
     public PanelSession Left { get; set; } = new();
     public PanelSession Right { get; set; } = new();
+    public BottomPanelState Bottom { get; set; } = new();
+}
+
+/// <summary>하단 도킹 패널 상태(표시/높이/좌우 분리/콘텐츠 종류) — BP-1.</summary>
+internal sealed class BottomPanelState
+{
+    public bool Visible { get; set; } = true;
+    public double Height { get; set; } = 180;
+    public bool Split { get; set; } = true;
+    public int LeftKind { get; set; }    // BottomPanelKind
+    public int RightKind { get; set; }
 }
 
 /// <summary>패널(좌 또는 우) 세션 — 활성 탭 + 열린 탭 목록.</summary>

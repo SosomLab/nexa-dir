@@ -131,6 +131,10 @@ public sealed partial class MainWindow : Window
         // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
         RestoreOrDefaultSession();
         UpdateBottomDock();
+        RefreshBottomDocks();   // 하단 도킹 초기 정보 (BP-1)
+        // 하단 패널 콘텐츠 종류 변경 → 세션 저장 예약 (BP-1c)
+        BottomLeftDockView.KindChanged += (_, _) => _session?.MarkDirty();
+        BottomRightDockView.KindChanged += (_, _) => _session?.MarkDirty();
         Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
         // 외부 앱이 클립보드를 바꾸면(다른 파일/텍스트 복사) 앱 내부 클립보드는 낡음 → 비워서 최신(OS 클립보드) 우선.
         try { Clipboard.ContentChanged += (_, _) => FileClipboard.Clear(); } catch { /* 클립보드 미가용 격리 */ }
@@ -152,6 +156,19 @@ public sealed partial class MainWindow : Window
         ActiveLeft = _activeLeft,
         Left = CapturePanel(_left),
         Right = CapturePanel(_right),
+        Bottom = CaptureBottom(),
+    };
+
+    /// <summary>하단 도킹 패널 상태 캡처(표시/높이/분리/콘텐츠 종류) — BP-1c.</summary>
+    private BottomPanelState CaptureBottom() => new()
+    {
+        Visible = ToggleTerminalBtn.IsChecked == true,
+        Height = TerminalPanel.Visibility == Visibility.Visible && TermRow.ActualHeight > 40
+            ? TermRow.ActualHeight
+            : 180,
+        Split = ToggleBottomSplitBtn.IsChecked == true,
+        LeftKind = (int)BottomLeftDockView.Kind,
+        RightKind = (int)BottomRightDockView.Kind,
     };
 
     /// <summary>패널 하나의 탭 목록·정렬을 세션 형태로 캡처. (정렬은 현재 패널 단위 → 각 탭에 동일 기록.)</summary>
@@ -193,6 +210,7 @@ public sealed partial class MainWindow : Window
             {
                 SetActivePanel(s.ActiveLeft);
             }
+            RestoreBottom(s.Bottom);   // 하단 패널 상태 복원(탭 복원과 독립, BP-1c)
         }
         if (!restored)
         {
@@ -200,6 +218,23 @@ public sealed partial class MainWindow : Window
             Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
         }
     }
+
+    /// <summary>하단 도킹 패널 상태 복원(표시/높이/분리/콘텐츠 종류) — BP-1c.</summary>
+    private void RestoreBottom(BottomPanelState b)
+    {
+        BottomLeftDockView.Kind = ValidKind(b.LeftKind);
+        BottomRightDockView.Kind = ValidKind(b.RightKind);
+        ToggleBottomSplitBtn.IsChecked = b.Split;
+        ToggleTerminalBtn.IsChecked = b.Visible;
+        OnToggleTerminal(ToggleTerminalBtn, null!);   // 표시/숨김 반영(+UpdateBottomDock)
+        if (b.Visible && b.Height > 40)
+        {
+            TermRow.Height = new GridLength(b.Height);   // 저장된 높이 복원(토글이 180으로 덮은 뒤)
+        }
+    }
+
+    private static BottomPanelKind ValidKind(int k) =>
+        System.Enum.IsDefined(typeof(BottomPanelKind), k) ? (BottomPanelKind)k : BottomPanelKind.Info;
 
     /// <summary>패널 하나를 세션에서 복원(탭 목록·펼침·정렬·활성 탭). 존재하는 폴더 탭이 하나도 없으면 false.</summary>
     private bool RestorePanel(bool left, PanelSession ps)
@@ -481,6 +516,7 @@ public sealed partial class MainWindow : Window
         nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
         LoadDirectory(left, nav, onLoaded);
         UpdateNavButtons(left);
+        RefreshBottomDocks();    // 하단 도킹 정보(현재 폴더) 갱신 (BP-1)
         _session?.MarkDirty();   // 경로 변경 → 세션 저장 예약(디바운스)
     }
 
@@ -2098,6 +2134,14 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // Ctrl+` (VK_OEM_3): 하단 패널 표시/숨김 토글(설계 FR-K2b, BP-1).
+        if (e.Key == (VirtualKey)0xC0 && IsCtrlDown())
+        {
+            ToggleBottomPanel();
+            e.Handled = true;
+            return;
+        }
+
         // F2: 캐럿 항목 인라인 이름 변경(표준 단축키). 캐럿 행이 실체화돼 있을 때.
         if (e.Key == VirtualKey.F2)
         {
@@ -2300,6 +2344,13 @@ public sealed partial class MainWindow : Window
         UpdateBottomDock();
     }
 
+    /// <summary>하단 패널 표시/숨김 토글(Ctrl+`, BP-1) — 토글 버튼 상태를 뒤집고 동일 경로로 반영.</summary>
+    private void ToggleBottomPanel()
+    {
+        ToggleTerminalBtn.IsChecked = !(ToggleTerminalBtn.IsChecked == true);
+        OnToggleTerminal(ToggleTerminalBtn, null!);
+    }
+
     private void OnToggleTerminal(object sender, RoutedEventArgs e)
     {
         bool show = ToggleTerminalBtn.IsChecked == true;
@@ -2313,10 +2364,15 @@ public sealed partial class MainWindow : Window
         {
             UpdateBottomDock();
         }
+        _session?.MarkDirty();   // 하단 패널 표시/숨김 → 세션 저장 예약 (BP-1c)
     }
 
     /// <summary>하단 도킹 좌/우 분리 토글 → 실제 반영은 UpdateBottomDock가 정책적으로 결정.</summary>
-    private void OnToggleBottomSplit(object sender, RoutedEventArgs e) => UpdateBottomDock();
+    private void OnToggleBottomSplit(object sender, RoutedEventArgs e)
+    {
+        UpdateBottomDock();
+        _session?.MarkDirty();   // 하단 좌/우 분리 → 세션 저장 예약 (BP-1c)
+    }
 
     /// <summary>
     /// 하단 도킹의 좌/우 분리 상태를 패널 구성과 연동한다(docs/20).
@@ -2341,6 +2397,24 @@ public sealed partial class MainWindow : Window
 
     private static Visibility Vis(bool? on)
         => on == true ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>하단 도킹 패널의 정보 콘텐츠를 각 패널의 현재 폴더로 갱신한다(BP-1). 콘텐츠 종류=정보일 때 표시.</summary>
+    private void RefreshBottomDocks()
+    {
+        if (BottomLeftDockView is null || BottomRightDockView is null)
+        {
+            return;   // ctor 초기화 순서 방어
+        }
+        BottomLeftDockView.InfoText = DockInfo(_left);
+        BottomRightDockView.InfoText = DockInfo(_right);
+    }
+
+    /// <summary>도킹 정보 텍스트 — 현재 폴더 경로(후속: 선택 항목 속성·미리보기·터미널).</summary>
+    private static string DockInfo(PanelView p)
+    {
+        string cur = p.Active.Current;
+        return string.IsNullOrEmpty(cur) ? "(폴더 없음)" : $"현재 폴더:\n{cur}";
+    }
 
     // ── 스플리터 스냅 (자석식) ─────────────────────────────────────
     // 좌/우 분리선을 ① 창 중앙(50:50) ② 상↔하 분리선 위치에 자석처럼 정렬한다(양방향).
