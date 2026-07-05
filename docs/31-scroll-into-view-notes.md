@@ -1,7 +1,7 @@
 # 31 · 네비게이션 스크롤 위치 — 기존 vs 현재 (검토용 노트)
 
 > C1(코어 트리 가상화 소비) 전환 중 발생한 **"폴더 이동 시 스크롤 위치" 회귀**와 그 해결 과정을 기록한다.
-> 나중에 재검토(특히 가변 행 높이·성능 개선 시)용. 관련: [29 ADR-0004](29-adr-0004-core-tree-model.md)·[refactor-001 worklog](journal/refactor-001-worklog.md) QA #5~#7.
+> 나중에 재검토(특히 가변 행 높이·성능 개선 시)용. 관련: [29 ADR-0004](29-adr-0004-core-tree-model.md)·[refactor-001 worklog](journal/archive/refactor-001-worklog.md) QA #5~#7.
 
 ## 1. 요구 동작
 - **폴더 진입**(더블클릭): 새 목록의 **첫 항목이 맨 위**에 보인다.

@@ -19,7 +19,7 @@
 - **refactor/003-audit → main 병합**(`bd45f86`).
 - **파일 전송 단일 엔진 통일**: DnD·붙여넣기(Ctrl+V·컨텍스트)가 `TransferPathsInto` 하나로 — **덮어쓰기 확인**(예/모두 예/건너뛰기/취소)·**바이트 진행률**·**진행 창**(맨앞·취소·자동닫기 off) · 확인 프롬프트를 진행 창 안에 embed(ContentDialog XamlRoot 오류 해결) · **OS 클립보드 붙여넣기**(탐색기 복사 인식) · 외부 DnD **StorageItems**(대상이 파일 열기)/Alt=경로.
 - **탭 세션 저장/복원**(`session.json`, 요청/수행 분리·단일 Tick 코얼레싱) · **새로 만들기**(폴더/파일/바로가기) · **수정 날짜/시간 컬럼**(DateTime) · **경로 바 환경변수 해석**(%VAR%·$env:) · cargo fmt(CI 게이트) · 이 PC 식별 문서.
-- 상세: [journal/refactor-003-worklog.md](journal/refactor-003-worklog.md)(세션 요약 2026-07-05) · [journal/bottom-panel-worklog.md](journal/bottom-panel-worklog.md).
+- 상세: [journal/archive/refactor-003-worklog.md](journal/archive/refactor-003-worklog.md)(세션 요약 2026-07-05) · [journal/archive/bottom-panel-worklog.md](journal/archive/bottom-panel-worklog.md).
 
 ## 2026-07-04
 
@@ -27,20 +27,20 @@
 - **DnD 탐색기 파리티**: 라이브 캡션("…에 복사/이동")·자기 폴더 드롭 규칙. 관리형 한계(DND-KEY/FONT/STACK)는 셸/OLE 트랙으로 보류.
 - **헤더 정렬 COL-2/3**: 코어 비교자(SortKey/SortSpec)·ABI v6·UI(3상태 순환·▲▼·원문자 순번)·다중열(Shift)·좌우 패널 독립.
 - **타입어헤드 설계 확정**([docs/32](32-typeahead-find.md)): A/B/C 범위·EphemeralOverlay.
-- 상세: [journal/refactor-003-worklog.md](journal/refactor-003-worklog.md)(세션 요약 2026-07-04).
+- 상세: [journal/archive/refactor-003-worklog.md](journal/archive/refactor-003-worklog.md)(세션 요약 2026-07-04).
 
 ## 2026-07-03
 
 - **refactor/003-audit 착수**: 4축 통합 감사(설계·성능·구조·FR/NFR) → 트랙 A~E 백로그. **B-6 인라인 이름 변경**(선택 후 재클릭/F2).
 - **타입어헤드 TA-1/2/4·5**: 코어 `find_prefix`(ABI v7)·`TypeAheadBuffer`·앱 배선.
 - **refactor/002-audit → main 병합**(`1d9d312`).
-- 상세: [journal/refactor-003-worklog.md](journal/refactor-003-worklog.md) · [journal/refactor-002-worklog.md](journal/refactor-002-worklog.md).
+- 상세: [journal/archive/refactor-003-worklog.md](journal/archive/refactor-003-worklog.md) · [journal/archive/refactor-002-worklog.md](journal/archive/refactor-002-worklog.md).
 
 ## 2026-07-02
 
 - **refactor/001-audit**: 1차 통합 감사 + **C1 코어 트리/선택 이관**(`nexa-tree` 가시행 스트림·C ABI·호스트 안전계층·앱 가상화 재배선·10만 노드 벤치·핸들 캐시) → **main 병합**(`b38e6b3`, 태그 `0.1.0`).
 - **refactor/002-audit 착수**: 트랙 A 성능(백그라운드 열거·범위 diff·아이콘 LRU 캐시·경로→NodeId ABI v5) + 트랙 B 구조(PanelView·`Nexa.ViewModels`+C# xUnit).
-- 상세: [journal/refactor-001-worklog.md](journal/refactor-001-worklog.md) · [journal/refactor-002-worklog.md](journal/refactor-002-worklog.md).
+- 상세: [journal/archive/refactor-001-worklog.md](journal/archive/refactor-001-worklog.md) · [journal/archive/refactor-002-worklog.md](journal/archive/refactor-002-worklog.md).
 
 ## 2026-07-01
 

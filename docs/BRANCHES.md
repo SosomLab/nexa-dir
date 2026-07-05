@@ -9,10 +9,10 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 워크로그 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `refactor/001-audit` | 2026-07-02 | 2026-07-02 (`b38e6b3`, 태그 `0.1.0`) | 2026-07-05 | — | 1차 감사 + **C1 코어 트리/선택 이관** | [refactor-001-worklog](journal/refactor-001-worklog.md) |
-| `refactor/002-audit` | 2026-07-02 | 2026-07-03 (`1d9d312`) | 2026-07-05 | — | 2차 감사 — 트랙 A 성능 + B 구조 | [refactor-002-worklog](journal/refactor-002-worklog.md) |
-| `refactor/003-audit` | 2026-07-03 | 2026-07-05 (`bd45f86`) | 2026-07-05 | 77 | 3차 감사 — 파일 조작·전송 엔진·정렬·타입어헤드 | [refactor-003-worklog](journal/refactor-003-worklog.md) |
-| `feat/bottom-panel` | 2026-07-05 | 2026-07-05 (`01c85a7`) | 2026-07-05 | 4 | 하단 패널 컨테이너 프레임워크(BP-1) | [bottom-panel-worklog](journal/bottom-panel-worklog.md) |
+| `refactor/001-audit` | 2026-07-02 | 2026-07-02 (`b38e6b3`, 태그 `0.1.0`) | 2026-07-05 | — | 1차 감사 + **C1 코어 트리/선택 이관** | [refactor-001-worklog](journal/archive/refactor-001-worklog.md) |
+| `refactor/002-audit` | 2026-07-02 | 2026-07-03 (`1d9d312`) | 2026-07-05 | — | 2차 감사 — 트랙 A 성능 + B 구조 | [refactor-002-worklog](journal/archive/refactor-002-worklog.md) |
+| `refactor/003-audit` | 2026-07-03 | 2026-07-05 (`bd45f86`) | 2026-07-05 | 77 | 3차 감사 — 파일 조작·전송 엔진·정렬·타입어헤드 | [refactor-003-worklog](journal/archive/refactor-003-worklog.md) |
+| `feat/bottom-panel` | 2026-07-05 | 2026-07-05 (`01c85a7`) | 2026-07-05 | 4 | 하단 패널 컨테이너 프레임워크(BP-1) | [bottom-panel-worklog](journal/archive/bottom-panel-worklog.md) |
 
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
@@ -26,7 +26,7 @@
   10만 노드 코어 벤치, 탭별 트리 핸들 캐시, id→가시 인덱스 조회, 죽은 코드 정리.
 - **병합**: 2026-07-02 23:20 (`b38e6b3`) → main. 병합 전 베이스라인에 태그 `0.1.0`.
 - **삭제**: 2026-07-05 (원격 `origin/refactor/001-audit`).
-- **상세 커밋 이력**: [journal/refactor-001-worklog.md](journal/refactor-001-worklog.md).
+- **상세 커밋 이력**: [journal/archive/refactor-001-worklog.md](journal/archive/refactor-001-worklog.md).
 
 ## refactor/002-audit
 
@@ -35,7 +35,7 @@
   A-4 아이콘 LRU 캐시+로딩 큐) + **트랙 B 구조**(PanelView 그룹 객체 · `Nexa.ViewModels`(net8.0) 추출 + C# xUnit 도입) + 문서·QA. BUG-001 해결.
 - **병합**: 2026-07-03 19:51 (`1d9d312`) → main.
 - **삭제**: 2026-07-05 (원격 `origin/refactor/002-audit`).
-- **상세 커밋 이력**: [journal/refactor-002-worklog.md](journal/refactor-002-worklog.md).
+- **상세 커밋 이력**: [journal/archive/refactor-002-worklog.md](journal/archive/refactor-002-worklog.md).
 
 ## refactor/003-audit
 
@@ -48,7 +48,7 @@
   **새로 만들기**(폴더/파일/바로가기) · **새 PC 식별 문서**.
 - **병합**: 2026-07-05 17:31 (`bd45f86`) → main. 로컬 빌드·테스트 green(코어 · ViewModels xUnit 57 · 앱 0/0).
 - **삭제**: 2026-07-05 (로컬 + 원격 `origin/refactor/003-audit`).
-- **상세 커밋 이력**: [journal/refactor-003-worklog.md](journal/refactor-003-worklog.md).
+- **상세 커밋 이력**: [journal/archive/refactor-003-worklog.md](journal/archive/refactor-003-worklog.md).
 
 ## feat/bottom-panel
 
@@ -63,4 +63,4 @@
   - `704d125` docs(bottom-panel): BP-1 프레임워크(호스트·Ctrl+\` 토글·세션 저장) 진행 기록
 - **병합**: 2026-07-05 18:02 (`01c85a7`) → main. 코어·앱 빌드 green.
 - **삭제**: 2026-07-05 (로컬 + 원격 `origin/feat/bottom-panel`).
-- **상세**: [journal/bottom-panel-worklog.md](journal/bottom-panel-worklog.md).
+- **상세**: [journal/archive/bottom-panel-worklog.md](journal/archive/bottom-panel-worklog.md).

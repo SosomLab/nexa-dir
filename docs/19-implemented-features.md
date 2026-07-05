@@ -377,7 +377,7 @@
 
 ### F26. 코어 트리/선택 모델 `nexa-tree` (C1 슬라이스 1 — 아직 UI 미연결)
 
-- **무엇**: 인라인 트리 + 교차 선택을 **Rust 코어**로 이관하는 첫 슬라이스. 트리를 **가시 노드 평면 스트림**(`VisibleRow`)으로 투영하고, 펼침/접힘을 **행 범위 diff**(`RangeChange`)로, 선택을 **`OrderedSet<NodeId>`**(임의 부모 혼합=교차 선택)로 모델링. 설계 [29 ADR-0004](29-adr-0004-core-tree-model.md)·[07](07-flagship-tree-multiselect.md). 감사 [refactor-001](journal/20260702_130615_refactor-001-audit.md) A1/A2 정정의 착수.
+- **무엇**: 인라인 트리 + 교차 선택을 **Rust 코어**로 이관하는 첫 슬라이스. 트리를 **가시 노드 평면 스트림**(`VisibleRow`)으로 투영하고, 펼침/접힘을 **행 범위 diff**(`RangeChange`)로, 선택을 **`OrderedSet<NodeId>`**(임의 부모 혼합=교차 선택)로 모델링. 설계 [29 ADR-0004](29-adr-0004-core-tree-model.md)·[07](07-flagship-tree-multiselect.md). 감사 [refactor-001](journal/archive/20260702_130615_refactor-001-audit.md) A1/A2 정정의 착수.
 - **왜**: 기존 인라인 트리/선택은 앱(C#) 코드비하인드에 O(n)로 축적 → NFR(10만/60fps) 위배·맥 테스트 불가. 코어 이관으로 **UI 비종속 순수 로직 → 맥 단위테스트** + 후속 가상화/성능 기반.
 - **구현 위치**: [core/crates/nexa-tree/src/lib.rs](../core/crates/nexa-tree/src/lib.rs) — `Tree::open/expand/collapse/row/visible_len`, `select/select_range/select_all_visible/toggle/clear`, `selected_ids/selected_paths`. 워크스페이스 멤버 추가([core/Cargo.toml](../core/Cargo.toml)).
 - **동작**: `expand`=지연 열거(폴더 우선+이름 정렬) + 접힌 하위의 펼침 상태 복원, `collapse`=후속 `depth>base` 연속 구간 제거(하위 펼침 보존).

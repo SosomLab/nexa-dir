@@ -1,6 +1,6 @@
 # 29 · ADR-0004 — 코어 트리/선택 모델 (VisibleRow 스트림, C1)
 
-- 상태: **Accepted** (2026-07-02) · 관련: [07 플래그십](07-flagship-tree-multiselect.md)·[01 아키텍처](01-architecture.md)·[10 결정](10-decision-record.md)·[refactor-001 감사](journal/20260702_130615_refactor-001-audit.md)
+- 상태: **Accepted** (2026-07-02) · 관련: [07 플래그십](07-flagship-tree-multiselect.md)·[01 아키텍처](01-architecture.md)·[10 결정](10-decision-record.md)·[refactor-001 감사](journal/archive/20260702_130615_refactor-001-audit.md)
 - 대상 단위: **C1**(백로그 STATUS §6). 리팩토링 감사 A1/A2의 “핵심 정정”.
 
 ## 맥락 (문제)
