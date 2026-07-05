@@ -127,11 +127,119 @@ public sealed partial class MainWindow : Window
         // 경로 바(브레드크럼/편집) 이동 요청 → 실제 네비게이션(존재 확인 후). 좌/우 각각.
         PathBarL.Navigated += (_, e) => OnPathBarNavigated(true, e.Path);
         PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
-        // 좌/우 패널 모두 파일 목록 표시(초안: 좌=홈, 우=문서).
-        Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
-        Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
+        // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
+        RestoreOrDefaultSession();
         UpdateBottomDock();
         Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
+
+        // 세션 저장 엔진 가동(일반 설정과 별도 파일 session.json) — 디바운스+유휴+주기+종료 flush(급종료 대비).
+        // 복원 이후에 생성 → 복원 중 MarkDirty 소음 없음(훅은 _session? 널가드).
+        _session = new SessionStore(SessionStore.DefaultPath(), DispatcherQueue, CaptureSession);
+        Closed += (_, _) => _session?.Flush();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => _session?.Flush();
+    }
+
+    // ── 세션(탭) 상태 영속화 — session.json (SessionStore) ────────────────────
+    // 저장 대상: 활성 패널 · 패널별(활성 탭 인덱스 · 열린 탭 목록[경로·펼침 집합·정렬]). 상세는 SessionStore.cs.
+    private SessionStore? _session;
+
+    /// <summary>현재 좌/우 패널·탭 상태를 세션 스냅샷으로 캡처(저장용). UI 스레드에서 호출.</summary>
+    private SessionState CaptureSession() => new()
+    {
+        ActiveLeft = _activeLeft,
+        Left = CapturePanel(_left),
+        Right = CapturePanel(_right),
+    };
+
+    /// <summary>패널 하나의 탭 목록·정렬을 세션 형태로 캡처. (정렬은 현재 패널 단위 → 각 탭에 동일 기록.)</summary>
+    private static PanelSession CapturePanel(PanelView p)
+    {
+        var sort = new List<SortKeyState>();
+        foreach (var k in p.SortKeys ?? Array.Empty<NativeInterop.NexaSortKey>())
+        {
+            sort.Add(new SortKeyState { Key = k.Key, Descending = k.Desc != 0 });
+        }
+        var sess = new PanelSession { ActiveTab = Math.Max(0, p.Tabs.IndexOf(p.Active)) };
+        foreach (var t in p.Tabs)
+        {
+            if (string.IsNullOrEmpty(t.Current))
+            {
+                continue;
+            }
+            sess.Tabs.Add(new TabSession
+            {
+                Path = t.Current,
+                Expanded = new List<string>(t.Expanded),
+                Sort = sort,
+            });
+        }
+        return sess;
+    }
+
+    /// <summary>세션 파일이 있으면 마지막 탭 상태를 복원, 없으면 기본 시작(좌=홈·우=문서).</summary>
+    private void RestoreOrDefaultSession()
+    {
+        var s = SessionStore.Load(SessionStore.DefaultPath());
+        bool restored = false;
+        if (s is not null)
+        {
+            bool l = RestorePanel(true, s.Left);
+            bool r = RestorePanel(false, s.Right);
+            restored = l || r;
+            if (restored)
+            {
+                SetActivePanel(s.ActiveLeft);
+            }
+        }
+        if (!restored)
+        {
+            Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
+            Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
+        }
+    }
+
+    /// <summary>패널 하나를 세션에서 복원(탭 목록·펼침·정렬·활성 탭). 존재하는 폴더 탭이 하나도 없으면 false.</summary>
+    private bool RestorePanel(bool left, PanelSession ps)
+    {
+        // 존재하는 폴더만 탭으로 복원(삭제/이동된 경로는 제외).
+        var valid = ps.Tabs.Where(t => !string.IsNullOrEmpty(t.Path) && Directory.Exists(t.Path)).ToList();
+        if (valid.Count == 0)
+        {
+            return false;
+        }
+        var p = Panel(left);
+        int activeIdx = Math.Clamp(ps.ActiveTab, 0, valid.Count - 1);
+        // 패널 정렬 복원(현재 아키텍처=패널 단위 → 활성 탭 스냅샷의 정렬 사용).
+        var sortSrc = valid[activeIdx].Sort;
+        p.SortKeys = sortSrc.Count == 0
+            ? null
+            : sortSrc.Select(k => new NativeInterop.NexaSortKey(k.Key, k.Descending)).ToArray();
+
+        // 기존 기본 탭(ctor에서 1개) 정리 후 세션 탭으로 재구성.
+        foreach (var old in p.Tabs)
+        {
+            old.Items.Dispose();
+        }
+        p.Tabs.Clear();
+        foreach (var t in valid)
+        {
+            var tab = new PanelTab();
+            tab.Nav.NavigateTo(t.Path, record: false);
+            tab.Title = PathDisplay.TabTitle(t.Path);
+            foreach (var ex in t.Expanded)
+            {
+                tab.Expanded.Add(ex);
+            }
+            p.Tabs.Add(tab);
+        }
+        var activeTab = p.Tabs[activeIdx];
+        p.Active = activeTab;
+        foreach (var tab in p.Tabs)
+        {
+            tab.IsActive = ReferenceEquals(tab, activeTab);
+        }
+        LoadDirectory(left, activeTab);   // 활성 탭만 즉시 로드(펼침·정렬 적용) · 나머지는 전환 시 지연 로드
+        return true;
     }
 
     /// <summary>
@@ -178,6 +286,7 @@ public sealed partial class MainWindow : Window
             .ToArray();
         Panel(left).SortKeys = keys;   // 빈 배열=명시적 "없음"(열거 순서), null과 구분
         Panel(left).Active.Items.SetSort(keys, foldersFirst: true);
+        _session?.MarkDirty();   // 정렬 변경 → 세션 저장 예약
     }
 
     // ── 타입어헤드 찾기 (docs/32 TA-5) ───────────────────────────────────
@@ -369,6 +478,7 @@ public sealed partial class MainWindow : Window
         nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
         LoadDirectory(left, nav, onLoaded);
         UpdateNavButtons(left);
+        _session?.MarkDirty();   // 경로 변경 → 세션 저장 예약(디바운스)
     }
 
     private void GoUp(bool left)
@@ -557,6 +667,7 @@ public sealed partial class MainWindow : Window
         {
             set.Remove(key);
         }
+        _session?.MarkDirty();   // 펼침/접힘 → 세션 저장 예약
     }
 
     /// <summary>펼친 목록에서 부모 행 인덱스(현재보다 Depth가 1 작은 최근접 상위 행). 없으면 -1(최상위).</summary>
@@ -999,6 +1110,21 @@ public sealed partial class MainWindow : Window
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
         flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // 새로 만들기 ▶ 폴더 / 파일 / 바로 가기 (BG-N1/N2/N3) — 생성 후 즉시 인라인 이름변경.
+        var newSub = new MenuFlyoutSubItem { Text = "새로 만들기" };
+        var newFolder = new MenuFlyoutItem { Text = "폴더" };
+        newFolder.Click += (_, _) => CreateNewFolder(left);
+        newSub.Items.Add(newFolder);
+        var newFile = new MenuFlyoutItem { Text = "파일" };
+        newFile.Click += (_, _) => CreateNewFile(left);
+        newSub.Items.Add(newFile);
+        var newLink = new MenuFlyoutItem { Text = "바로 가기" };
+        newLink.Click += (_, _) => CreateNewShortcut(left);
+        newSub.Items.Add(newLink);
+        flyout.Items.Add(newSub);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
         var refresh = new MenuFlyoutItem { Text = "새로고침(F5)" };
         refresh.Click += (_, _) => ReloadPanel(left);
         flyout.Items.Add(refresh);
@@ -1012,6 +1138,137 @@ public sealed partial class MainWindow : Window
             flyout.ShowAt(fe);
         }
         e.Handled = true;
+    }
+
+    // ── 새로 만들기 (빈영역 컨텍스트 · New submenu) — 폴더/파일/바로가기 (BG-N1/N2/N3) ─────
+
+    /// <summary>현재 폴더에 새 폴더를 만들고(충돌 없는 이름) 즉시 인라인 이름변경을 시작한다.</summary>
+    private void CreateNewFolder(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string path = UniqueChildPath(dir, "새 폴더", "");
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"폴더 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>현재 폴더에 새 빈 텍스트 파일을 만들고 즉시 인라인 이름변경을 시작한다.</summary>
+    private void CreateNewFile(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string path = UniqueChildPath(dir, "새 파일", ".txt");
+        try
+        {
+            using (File.Create(path)) { }   // 빈 파일 생성 후 즉시 닫기
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"파일 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>대상 파일을 선택받아 현재 폴더에 바로 가기(.lnk)를 만들고 즉시 인라인 이름변경을 시작한다.
+    /// (폴더 대상 바로 가기는 후속 — FileOpenPicker는 파일만 선택.)</summary>
+    private async void CreateNewShortcut(bool left)
+    {
+        string dir = Panel(left).Active.Current;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return;
+        }
+        string? target = await PickShortcutTargetAsync();
+        if (string.IsNullOrEmpty(target))
+        {
+            return;   // 취소
+        }
+        string baseName = Path.GetFileNameWithoutExtension(target.TrimEnd('\\', '/'));
+        if (string.IsNullOrEmpty(baseName))
+        {
+            baseName = "새 바로 가기";
+        }
+        string path = UniqueChildPath(dir, $"{baseName} - 바로 가기", ".lnk");
+        try
+        {
+            ShellLink.Create(path, target);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"바로 가기 만들기 실패: {ex.Message}";
+            return;
+        }
+        RevealAndRename(left, path);
+    }
+
+    /// <summary>바로 가기 대상 파일 선택 — FileOpenPicker(데스크톱은 창 핸들 초기화 필요). 취소 시 null.</summary>
+    private async Task<string?> PickShortcutTargetAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
+    /// <summary><paramref name="dir"/> 안에서 충돌하지 않는 경로("base"+ext, 있으면 " (2)", " (3)"…).</summary>
+    private static string UniqueChildPath(string dir, string baseName, string ext)
+    {
+        string path = Path.Combine(dir, baseName + ext);
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            return path;
+        }
+        for (int n = 2; ; n++)
+        {
+            path = Path.Combine(dir, $"{baseName} ({n}){ext}");
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                return path;
+            }
+        }
+    }
+
+    /// <summary>새로 만든 항목을 현재 폴더 재로드 후 선택·스크롤로 드러내고 즉시 인라인 이름변경을 시작한다.
+    /// 오프스크린 행은 <see cref="SelectByPath"/>가 강제 실체화하므로 다음 디스패치에 행 요소를 얻어 편집.</summary>
+    private void RevealAndRename(bool left, string path)
+    {
+        var tab = Panel(left).Active;
+        tab.Loaded = false;
+        LoadDirectory(left, tab, onLoaded: () =>
+        {
+            SelectByPath(left, path);   // 선택+캐럿+스크롤(오프스크린 강제 실체화)
+            var items = Panel(left).Items;
+            int i = items.IndexOfPath(path);
+            if (i < 0)
+            {
+                return;
+            }
+            var grid = Panel(left).Grid;
+            grid.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (grid.RowElement(i) is FrameworkElement row && items[i] is DirItem it)
+                {
+                    BeginRename(row, it, left);
+                }
+            });
+        });
     }
 
     /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).</summary>
@@ -1460,6 +1717,7 @@ public sealed partial class MainWindow : Window
     {
         _activeLeft = left;
         RefreshSelectionFocus();
+        _session?.MarkDirty();   // 활성 패널 변경 → 세션 저장 예약
     }
 
     /// <summary>탭 바(빈 영역) 클릭 → 그 패널을 활성화하고 목록에 포커스(키보드 이동 대상).</summary>
@@ -1488,6 +1746,7 @@ public sealed partial class MainWindow : Window
         }
         SetActivePanel(left);
         ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
+        _session?.MarkDirty();   // 활성 탭 전환 → 세션 저장 예약
     }
 
     /// <summary>
@@ -1571,6 +1830,7 @@ public sealed partial class MainWindow : Window
         {
             SwitchToTab(left, tabs[Math.Min(idx, tabs.Count - 1)]);
         }
+        _session?.MarkDirty();   // 탭 닫기 → 세션 저장 예약
     }
 
     /// <summary>탭 더블클릭 → 설정된 동작(기본: 닫기). 빈 영역 더블클릭(추가)과 구분되도록 여기서 소비.</summary>
