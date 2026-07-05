@@ -42,6 +42,8 @@
     <ProjectReference Include="..\Nexa.ViewModels\Nexa.ViewModels.csproj" />
     <!-- 플러그인 SDK/계약(미리보기 공급자 등) — 퍼미시브 MIT, 누구나 플러그인 개발 가능(DR-6) -->
     <ProjectReference Include="..\Nexa.Plugins\Nexa.Plugins.csproj" />
+    <!-- 플러그인 샘플(텍스트/이미지 공급자) — 앱 내장 미리보기로도 등록(dogfooding) -->
+    <ProjectReference Include="..\Nexa.Plugins.Samples\Nexa.Plugins.Samples.csproj" />
   </ItemGroup>
 
   <!-- ── Rust 코어 인터롭 통합 (cdylib → 앱 출력) ──────────────────────────────

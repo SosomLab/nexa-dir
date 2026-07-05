@@ -24,8 +24,9 @@ public interface IPreviewProvider
 
 - **레지스트리** `PreviewRegistry`: 등록 순서 역순(나중 등록 우선)으로 첫 `CanPreview` 매치를 사용. **플러그인은 `Register`로 추가**해
   우선권을 가진다(내장 공급자 대체/보강 가능).
-- **계약 = 퍼미시브 MIT SDK**(DR-6): `IPreviewProvider`·`PreviewRegistry`는 [`app/Nexa.Plugins/Preview/`](../app/Nexa.Plugins/)(누구나 플러그인 개발 가능, [36](36-plugin-development.md)).
-  내장 공급자(앱): [`app/Nexa.App/Preview/`](../app/Nexa.App/Preview/) `TextPreviewProvider`·`ImagePreviewProvider`(앱 시작 시 `App.xaml.cs`에서 등록).
+- **계약 = 퍼미시브 MIT SDK**(DR-6): `IPreviewProvider`·`PreviewRequest`·`PreviewRegistry`는 [`app/Nexa.Plugins/Preview/`](../app/Nexa.Plugins/)(누구나 플러그인 개발, [36](36-plugin-development.md)).
+- **공급자 = 샘플 플러그인**: 텍스트·이미지 공급자는 [`app/Nexa.Plugins.Samples/`](../app/Nexa.Plugins.Samples/)(MIT, SDK만 참조)에 있고 앱이 `App.xaml.cs`에서 등록(dogfooding).
+- **크기 상호연동**: 호스트가 미리보기 영역 크기를 `PreviewRequest`로 전달하고, **영역 리사이즈 시 재렌더**한다(이미지 디코드 해상도 등 적응). 텍스트=`ScrollViewer`+`TextBlock`으로 가로/세로 스크롤(WinUI TextBox는 LF 텍스트를 1줄로 렌더하는 문제가 있어 TextBlock 사용).
 
 ## 3. 내장 공급자 (구현)
 

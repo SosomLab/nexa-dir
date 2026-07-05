@@ -27,6 +27,8 @@ public sealed partial class BottomDockView : UserControl
     public BottomDockView()
     {
         InitializeComponent();
+        // 미리보기 영역이 리사이즈되면 공급자에 새 크기로 다시 렌더(크기 상호연동, BP-2).
+        PreviewHost.SizeChanged += OnPreviewHostSizeChanged;
         Render();
     }
 
@@ -113,6 +115,7 @@ public sealed partial class BottomDockView : UserControl
 
     // ── 미리보기 렌더(BP-2) ───────────────────────────────────────────
     private CancellationTokenSource? _previewCts;
+    private double _lastRenderW, _lastRenderH;   // 마지막 렌더 시 영역 크기(리사이즈 재렌더 임계 비교)
 
     private void OnPreviewPathChanged()
     {
@@ -120,6 +123,21 @@ public sealed partial class BottomDockView : UserControl
         {
             _ = RenderPreviewAsync();
         }
+    }
+
+    /// <summary>미리보기 영역 크기 변경 → 공급자에 새 크기로 재렌더(임계 초과 시). 크기 상호연동.</summary>
+    private void OnPreviewHostSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_kind != BottomPanelKind.Preview || string.IsNullOrEmpty(PreviewPath))
+        {
+            return;
+        }
+        // 작은 변동엔 재렌더하지 않음(리사이즈 드래그 중 과도 방지).
+        if (Math.Abs(e.NewSize.Width - _lastRenderW) < 40 && Math.Abs(e.NewSize.Height - _lastRenderH) < 40)
+        {
+            return;
+        }
+        _ = RenderPreviewAsync();
     }
 
     private async Task RenderPreviewAsync()
@@ -145,9 +163,12 @@ public sealed partial class BottomDockView : UserControl
         }
 
         SetPreviewMessage("불러오는 중…");
+        _lastRenderW = PreviewHost.ActualWidth;
+        _lastRenderH = PreviewHost.ActualHeight;
         try
         {
-            var element = await provider.CreatePreviewAsync(path, ct);
+            var request = new PreviewRequest(path, _lastRenderW, _lastRenderH);
+            var element = await provider.CreatePreviewAsync(request, ct);
             if (ct.IsCancellationRequested)
             {
                 return;   // 다른 선택으로 대체됨

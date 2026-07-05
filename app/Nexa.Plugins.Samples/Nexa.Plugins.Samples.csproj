@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Nexa.Plugins.Samples — 플러그인 샘플(미리보기 공급자 예제).
+       Nexa.Plugins(MIT SDK)만 참조하는 순수 예제 = 서드파티 플러그인이 따르는 구조 그대로.
+       라이선스 퍼미시브 MIT(DR-6): 복사·개조·배포 자유. 개발 가이드 docs/36.
+       ★ 이 프로젝트의 공급자(Text/Image)가 앱의 실제 내장 미리보기로도 등록된다(dogfooding). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Nexa.Plugins.Samples</RootNamespace>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <PackageId>SosomLab.Nexa.Plugins.Samples</PackageId>
+    <Version>0.0.0</Version>
+    <Product>Nexa.Plugins.Samples</Product>
+    <Authors>Sangyong Bae</Authors>
+    <Company>SosomLab</Company>
+    <Copyright>Copyright (c) 2026 SosomLab</Copyright>
+    <Description>Nexa Dir 미리보기 플러그인 샘플 — 텍스트/이미지 공급자 예제. 퍼미시브 MIT.</Description>
+    <PackageProjectUrl>https://sosomlab.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SosomLab/nexa-dir</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+  <!-- 플러그인 SDK(계약)만 참조 — 서드파티 플러그인과 동일한 의존 구조 -->
+  <ItemGroup>
+    <ProjectReference Include="..\Nexa.Plugins\Nexa.Plugins.csproj" />
+  </ItemGroup>
+
+</Project>

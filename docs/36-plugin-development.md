@@ -12,6 +12,7 @@
 - **구현 방식**: `Nexa.Plugins`의 `IPreviewProvider`를 구현하고 `PreviewRegistry`에 등록.
 - **로딩(현재)**: 컴파일된 어셈블리로 참조·등록(인프로세스). **동적 로딩(.dll/.wasm 배포)** 은 로드맵(M6, [09](09-plugin-architecture.md)) — 계약(`IPreviewProvider`)은 그때도 동일하게 유지됩니다.
 - 향후 기여점: 명령·컨텍스트 메뉴·커스텀 컬럼·VFS 공급자 등([09](09-plugin-architecture.md)). 현재 문서는 **미리보기**를 다룹니다.
+- **★ 바로 쓸 수 있는 샘플 소스**: [`app/Nexa.Plugins.Samples/`](../app/Nexa.Plugins.Samples/) — **텍스트**([TextPreviewProvider.cs](../app/Nexa.Plugins.Samples/TextPreviewProvider.cs))·**이미지**([ImagePreviewProvider.cs](../app/Nexa.Plugins.Samples/ImagePreviewProvider.cs)) 공급자의 **완성 소스**(MIT). `Nexa.Plugins`(SDK)만 참조하는 별도 프로젝트 = **여러분의 플러그인과 동일한 구조**. 이 샘플이 앱의 실제 내장 미리보기로도 등록됩니다(dogfooding). 복사·개조해서 시작하세요.
 
 ## 1. 준비
 
@@ -34,12 +35,22 @@ public interface IPreviewProvider
 {
     string Name { get; }                                   // 표시 이름
     bool CanPreview(string path);                          // 처리 가능 판정(예외 던지지 말 것)
-    Task<FrameworkElement?> CreatePreviewAsync(string path, CancellationToken ct);
+    Task<FrameworkElement?> CreatePreviewAsync(PreviewRequest request, CancellationToken ct);
+}
+
+public sealed class PreviewRequest        // 대상 + 미리보기 영역 크기(px, 0=미확정)
+{
+    public string Path { get; }
+    public double AvailableWidth { get; }
+    public double AvailableHeight { get; }
 }
 ```
 
 **표시 표준**: 공급자는 **완성된 `FrameworkElement`** 를 반환합니다. 호스트는 그 요소를 미리보기 영역에 얹기만 하므로,
-스크롤·맞춤·상호작용은 여러분의 요소가 스스로 처리합니다(텍스트=스크롤되는 TextBox, 이미지=Uniform Image 등).
+스크롤·맞춤·상호작용은 여러분의 요소가 스스로 처리합니다(텍스트=`ScrollViewer`+`TextBlock`으로 가로/세로 스크롤, 이미지=Uniform Image 등).
+
+**크기 상호연동**: `PreviewRequest.AvailableWidth/Height`로 **미리보기 영역 크기**를 받아 적응할 수 있습니다(예: 이미지 디코드 해상도).
+영역이 리사이즈되면 호스트가 `CreatePreviewAsync`를 **다시 호출**하므로, 크기에 맞춰 더 선명하게/다르게 렌더할 수 있습니다.
 
 ## 3. 5분 예제 — CSV를 표로 미리보기
 
@@ -63,11 +74,11 @@ public sealed class CsvPreviewProvider : IPreviewProvider
         !Directory.Exists(path) &&
         Path.GetExtension(path).Equals(".csv", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<FrameworkElement?> CreatePreviewAsync(string path, CancellationToken ct)
+    public async Task<FrameworkElement?> CreatePreviewAsync(PreviewRequest request, CancellationToken ct)
     {
-        // 무거운 I/O는 백그라운드로(UI 무블록). 앞 200줄만.
+        // 무거운 I/O는 백그라운드로(UI 무블록). 앞 200줄만.  (request.AvailableWidth/Height로 영역 크기도 활용 가능)
         string[][] rows = await Task.Run(() =>
-            File.ReadLines(path).Take(200)
+            File.ReadLines(request.Path).Take(200)
                 .Select(line => line.Split(','))
                 .ToArray(), ct);
         ct.ThrowIfCancellationRequested();

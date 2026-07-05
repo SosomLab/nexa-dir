@@ -20,8 +20,30 @@ public interface IPreviewProvider
     bool CanPreview(string path);
 
     /// <summary>미리보기 요소를 만든다. <b>UI 스레드</b>에서 호출(요소 생성). 무거운 I/O는 내부에서 <c>Task.Run</c>으로 오프로드.
-    /// 빠른 선택 전환에 대비해 <paramref name="ct"/>를 존중(취소 시 중단).</summary>
-    Task<FrameworkElement?> CreatePreviewAsync(string path, CancellationToken ct);
+    /// 빠른 선택 전환에 대비해 <paramref name="ct"/>를 존중(취소 시 중단).
+    /// <para><see cref="PreviewRequest"/>로 <b>미리보기 영역 크기</b>를 받아 적응할 수 있다(예: 이미지 디코드 해상도).
+    /// 영역이 리사이즈되면 호스트가 다시 호출한다(크기 상호연동).</para></summary>
+    Task<FrameworkElement?> CreatePreviewAsync(PreviewRequest request, CancellationToken ct);
+}
+
+/// <summary>미리보기 요청 — 대상 경로 + <b>미리보기 영역 크기</b>(px, 0=미확정). 공급자가 크기에 맞춰 렌더할 수 있게 한다.</summary>
+public sealed class PreviewRequest
+{
+    public PreviewRequest(string path, double availableWidth, double availableHeight)
+    {
+        Path = path;
+        AvailableWidth = availableWidth;
+        AvailableHeight = availableHeight;
+    }
+
+    /// <summary>미리볼 파일 경로.</summary>
+    public string Path { get; }
+
+    /// <summary>미리보기 영역 가용 폭(px). 0이면 아직 확정되지 않음.</summary>
+    public double AvailableWidth { get; }
+
+    /// <summary>미리보기 영역 가용 높이(px). 0이면 아직 확정되지 않음.</summary>
+    public double AvailableHeight { get; }
 }
 
 /// <summary>

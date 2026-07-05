@@ -9,9 +9,14 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Nexa.Plugins.Preview;
 
-namespace Nexa.App.Preview;
+namespace Nexa.Plugins.Samples;
 
-/// <summary>텍스트 파일 미리보기(BP-2) — 앞부분(≤256KB)을 읽어 고정폭 읽기전용 TextBox로 표시. 큰 파일은 잘림 표시.</summary>
+/// <summary>
+/// [샘플 플러그인] 텍스트 파일 미리보기 — 앞부분(≤256KB)을 <b>고정폭 TextBlock</b>로 표시하고
+/// <b>ScrollViewer로 가로/세로 스크롤</b>한다. TextBlock을 쓰는 이유: WinUI TextBox는 LF(<c>\n</c>)만
+/// 있는 텍스트를 <b>한 줄로 렌더</b>하는 문제가 있어(줄바꿈 미인식) 텍스트가 1줄로만 보였다.
+/// TextBlock은 <c>\n</c>을 정상적으로 줄바꿈한다.
+/// </summary>
 public sealed class TextPreviewProvider : IPreviewProvider
 {
     private const int MaxBytes = 256 * 1024;
@@ -22,7 +27,7 @@ public sealed class TextPreviewProvider : IPreviewProvider
         ".yml", ".yaml", ".toml", ".env", ".gitignore", ".gitattributes",
         ".cs", ".js", ".ts", ".jsx", ".tsx", ".html", ".htm", ".css", ".scss",
         ".c", ".h", ".cpp", ".hpp", ".rs", ".go", ".py", ".rb", ".java", ".kt", ".swift", ".php", ".sql",
-        ".sh", ".ps1", ".bat", ".cmd", ".ps1xml", ".props", ".targets", ".csproj", ".sln", ".editorconfig",
+        ".sh", ".ps1", ".bat", ".cmd", ".props", ".targets", ".csproj", ".sln", ".editorconfig",
     };
 
     public string Name => "텍스트";
@@ -34,7 +39,6 @@ public sealed class TextPreviewProvider : IPreviewProvider
             return false;
         }
         string ext = Path.GetExtension(path);
-        // 확장자 없는 흔한 텍스트(예: LICENSE, README, Dockerfile)도 허용.
         if (ext.Length == 0)
         {
             string name = Path.GetFileName(path);
@@ -43,29 +47,37 @@ public sealed class TextPreviewProvider : IPreviewProvider
         return Exts.Contains(ext);
     }
 
-    public async Task<FrameworkElement?> CreatePreviewAsync(string path, CancellationToken ct)
+    public async Task<FrameworkElement?> CreatePreviewAsync(PreviewRequest request, CancellationToken ct)
     {
-        var (text, truncated) = await Task.Run(() => ReadHead(path), ct);
+        var (text, truncated) = await Task.Run(() => ReadHead(request.Path), ct);
         ct.ThrowIfCancellationRequested();
         if (truncated)
         {
             text += "\n\n… (이하 생략 — 파일이 256KB보다 큼)";
         }
-        var box = new TextBox
+
+        // 고정폭 TextBlock(줄바꿈 정상) + 선택 가능. NoWrap → 긴 줄은 가로 스크롤.
+        var block = new TextBlock
         {
             Text = text,
-            IsReadOnly = true,
-            AcceptsReturn = true,
-            TextWrapping = TextWrapping.NoWrap,
             FontFamily = new FontFamily("Consolas"),
             FontSize = 12,
-            BorderThickness = new Thickness(0),
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            IsSpellCheckEnabled = false,
+            TextWrapping = TextWrapping.NoWrap,
+            IsTextSelectionEnabled = true,
+            Padding = new Thickness(6, 4, 12, 8),
         };
-        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
-        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Auto);
-        return box;
+
+        // 미리보기 영역 안에서 가로/세로 스크롤. 표시 표준: 완성된 요소(스크롤 포함)를 반환.
+        return new ScrollViewer
+        {
+            Content = block,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollMode = ScrollMode.Enabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+        };
     }
 
     private static (string text, bool truncated) ReadHead(string path)
@@ -84,8 +96,9 @@ public sealed class TextPreviewProvider : IPreviewProvider
             }
             read += n;
         }
-        // UTF-8(BOM 허용, 유효하지 않은 바이트는 대체문자). 후속: 인코딩 감지.
         string text = new UTF8Encoding(true, false).GetString(buf, 0, read);
+        // 줄바꿈 정규화(CR/CRLF/LF → LF). TextBlock은 LF를 정상 줄바꿈.
+        text = text.Replace("\r\n", "\n").Replace('\r', '\n');
         return (text, len > MaxBytes);
     }
 }
