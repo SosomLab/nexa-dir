@@ -1739,7 +1739,7 @@ public sealed partial class MainWindow : Window
 
         // 진행 창(별도 Window) — 시작 시 표시, 완료 후 기본은 열린 채 유지(자동 닫기 off).
         var win = new TransferProgressWindow(verb);
-        win.Activate();
+        win.ActivateForeground();   // 맨 앞으로 + 포커스
         win.SetPreparing();
         var ct = win.Token;
 

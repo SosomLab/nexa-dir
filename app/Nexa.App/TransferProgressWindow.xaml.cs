@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
@@ -27,6 +28,18 @@ public sealed partial class TransferProgressWindow : Window
 
     /// <summary>전송 취소 토큰 — 취소 버튼/완료 전 닫기 시 신호.</summary>
     public CancellationToken Token => _cts.Token;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    /// <summary>창을 활성화하고 <b>맨 앞으로</b> 올려 포커스를 준다(Activate만으론 전경 보장 안 됨).</summary>
+    public void ActivateForeground()
+    {
+        Activate();
+        AppWindow.MoveInZOrderAtTop();   // z-order 최상위
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        SetForegroundWindow(hwnd);       // 전경 창 + 포커스
+    }
 
     /// <summary>총 크기 합산 동안 부정형(indeterminate).</summary>
     public void SetPreparing()
