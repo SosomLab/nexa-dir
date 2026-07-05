@@ -1851,6 +1851,11 @@ public sealed partial class MainWindow : Window
                         var choice = overwriteAll
                             ? OverwriteChoice.Yes
                             : await ConfirmOverwriteAsync(copy, p, win.Content.XamlRoot);
+                        if (choice == OverwriteChoice.Cancel)
+                        {
+                            cancelled = true;   // 전체 전송 중단
+                            break;
+                        }
                         if (choice == OverwriteChoice.No)
                         {
                             skipped++;
@@ -1911,33 +1916,50 @@ public sealed partial class MainWindow : Window
     private static void OverwriteMove(string src, string dest, Action<long>? onBytes, CancellationToken ct)
         => FileOps.MoveOntoWithProgress(src, dest, overwrite: true, onBytes, ct);
 
-    /// <summary>덮어쓰기 확인 결과 — 아니오(건너뜀) · 예(이 항목) · 모두 예(이후 충돌 자동 덮어쓰기).</summary>
+    /// <summary>덮어쓰기 확인 결과 — 아니오(이 항목 건너뜀) · 예(이 항목) · 모두 예(이후 충돌 자동) · 취소(전체 중단).</summary>
     private enum OverwriteChoice
     {
         No,
         Yes,
         YesToAll,
+        Cancel,
     }
 
-    /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예 / <b>모두 예</b> / 아니오). 진행 창 위에 표시. 다중 파일은 충돌 항목마다 순차 호출.</summary>
+    /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예 / <b>모두 예</b> / 아니오 / <b>취소</b>). 진행 창 위에 표시.
+    /// ContentDialog 표준 버튼은 3개뿐이라 커스텀 버튼 레이아웃 사용. 다중 파일은 충돌 항목마다 순차 호출.</summary>
     private async Task<OverwriteChoice> ConfirmOverwriteAsync(bool copy, string sourcePath, XamlRoot xamlRoot)
     {
-        var dialog = new ContentDialog
+        var result = OverwriteChoice.No;   // Esc/영역밖 = 건너뜀(기본)
+        var dialog = new ContentDialog { Title = "덮어쓰기 확인", XamlRoot = xamlRoot };
+        var message = new TextBlock
         {
-            Title = "덮어쓰기 확인",
-            Content = $"'{FileOps.LeafName(sourcePath)}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?",
-            PrimaryButtonText = "덮어쓰기(예)",
-            SecondaryButtonText = "모두 예",
-            CloseButtonText = "건너뛰기(아니오)",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = xamlRoot,   // 진행 창 위에 표시(WinUI 3 데스크톱 필수)
+            Text = $"'{FileOps.LeafName(sourcePath)}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?",
+            TextWrapping = TextWrapping.Wrap,
         };
-        return await dialog.ShowAsync() switch
+        var buttons = new StackPanel
         {
-            ContentDialogResult.Primary => OverwriteChoice.Yes,
-            ContentDialogResult.Secondary => OverwriteChoice.YesToAll,
-            _ => OverwriteChoice.No,
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 16, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
+        void AddButton(string text, OverwriteChoice choice, bool accent = false)
+        {
+            var b = new Button { Content = text, FontSize = 12, MinWidth = 0 };
+            if (accent)
+            {
+                b.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+            }
+            b.Click += (_, _) => { result = choice; dialog.Hide(); };
+            buttons.Children.Add(b);
+        }
+        AddButton("덮어쓰기(예)", OverwriteChoice.Yes, accent: true);
+        AddButton("모두 예", OverwriteChoice.YesToAll);
+        AddButton("건너뛰기(아니오)", OverwriteChoice.No);
+        AddButton("취소", OverwriteChoice.Cancel);
+        dialog.Content = new StackPanel { Children = { message, buttons } };
+        await dialog.ShowAsync();
+        return result;
     }
 
     private bool _activeLeft = true;
