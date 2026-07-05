@@ -376,10 +376,7 @@
             <Border x:Name="BottomLeftPaneRoot" Grid.Column="0" Background="#3322C0C0"
                     BorderBrush="#33000000" BorderThickness="0,1,0,0"
                     SizeChanged="OnBottomSplitSizeChanged">
-                <StackPanel Padding="8" Spacing="4">
-                    <TextBlock Text="좌 패널 — 정보/미리보기/Hex/터미널 (placeholder)" Opacity="0.75" />
-                    <TextBlock Text="left> macbook@host ~/Documents %" Opacity="0.55" />
-                </StackPanel>
+                <local:BottomDockView x:Name="BottomLeftDockView" />
             </Border>
 
             <!-- 하단 좌↔우 splitter (얇게 + 스냅: 중앙/상단 분리선 정렬) -->
@@ -389,10 +386,7 @@
 
             <!-- 하단 우 도킹 (자주) -->
             <Border x:Name="BottomRightDock" Grid.Column="2" Background="#33CC55CC" BorderBrush="#33000000" BorderThickness="0,1,0,0">
-                <StackPanel Padding="8" Spacing="4">
-                    <TextBlock Text="우 패널 — 정보/미리보기/Hex/터미널 (placeholder)" Opacity="0.75" />
-                    <TextBlock Text="right> macbook@host ~/Projects %" Opacity="0.55" />
-                </StackPanel>
+                <local:BottomDockView x:Name="BottomRightDockView" />
             </Border>
         </Grid>
 

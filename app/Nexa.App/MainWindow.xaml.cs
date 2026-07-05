@@ -131,6 +131,7 @@ public sealed partial class MainWindow : Window
         // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
         RestoreOrDefaultSession();
         UpdateBottomDock();
+        RefreshBottomDocks();   // 하단 도킹 초기 정보 (BP-1)
         Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
         // 외부 앱이 클립보드를 바꾸면(다른 파일/텍스트 복사) 앱 내부 클립보드는 낡음 → 비워서 최신(OS 클립보드) 우선.
         try { Clipboard.ContentChanged += (_, _) => FileClipboard.Clear(); } catch { /* 클립보드 미가용 격리 */ }
@@ -481,6 +482,7 @@ public sealed partial class MainWindow : Window
         nav.Loaded = false;                              // 새 경로 → 재-Open 필요(탭 캐시 무효화)
         LoadDirectory(left, nav, onLoaded);
         UpdateNavButtons(left);
+        RefreshBottomDocks();    // 하단 도킹 정보(현재 폴더) 갱신 (BP-1)
         _session?.MarkDirty();   // 경로 변경 → 세션 저장 예약(디바운스)
     }
 
@@ -2341,6 +2343,24 @@ public sealed partial class MainWindow : Window
 
     private static Visibility Vis(bool? on)
         => on == true ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>하단 도킹 패널의 정보 콘텐츠를 각 패널의 현재 폴더로 갱신한다(BP-1). 콘텐츠 종류=정보일 때 표시.</summary>
+    private void RefreshBottomDocks()
+    {
+        if (BottomLeftDockView is null || BottomRightDockView is null)
+        {
+            return;   // ctor 초기화 순서 방어
+        }
+        BottomLeftDockView.InfoText = DockInfo(_left);
+        BottomRightDockView.InfoText = DockInfo(_right);
+    }
+
+    /// <summary>도킹 정보 텍스트 — 현재 폴더 경로(후속: 선택 항목 속성·미리보기·터미널).</summary>
+    private static string DockInfo(PanelView p)
+    {
+        string cur = p.Active.Current;
+        return string.IsNullOrEmpty(cur) ? "(폴더 없음)" : $"현재 폴더:\n{cur}";
+    }
 
     // ── 스플리터 스냅 (자석식) ─────────────────────────────────────
     // 좌/우 분리선을 ① 창 중앙(50:50) ② 상↔하 분리선 위치에 자석처럼 정렬한다(양방향).
