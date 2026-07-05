@@ -40,3 +40,15 @@ ConPTY 호스팅·크래시 격리·코어 `pty` 이식 추상화. 하단 패널
 - ConPTY 위치: 정석은 코어 `pty`(이식 격리) — BP-T1에서 확정.
 
 <!-- 진행마다 아래에 6하원칙 항목 append -->
+
+## BP-1 · 2026-07-05 · 패널 컨테이너 프레임워크 (착수·구현)
+
+- **BP-1a 콘텐츠 호스트** `(커밋)`: placeholder → 재사용 `BottomDockView`([.xaml](../../app/Nexa.App/BottomDockView.xaml)/[.cs](../../app/Nexa.App/BottomDockView.xaml.cs)). 콘텐츠 종류 선택(정보/미리보기/Hex/터미널, 라디오식) → 콘텐츠 스왑. 지금은 **정보만 실제**(현재 폴더), 나머지 "준비 중". 좌/우 도킹에 각각 배치. `MainWindow.RefreshBottomDocks`가 각 패널 현재 폴더를 `InfoText`로 전달(네비 시 갱신).
+- **BP-1b Ctrl+\` 토글** `(커밋)`: `VK_OEM_3`+Ctrl → `ToggleBottomPanel`(토글 버튼 상태 뒤집기 + 기존 표시 경로). 설계 FR-K2b.
+- **BP-1c 세션 저장/복원** `(커밋)`: `BottomPanelState`(표시/높이/좌우 분리/콘텐츠 종류)를 `session.json`에 저장·복원. 토글·분리·종류 변경 시 `MarkDirty`, 시작 시 `RestoreBottom`(높이는 토글 후 복원, 종류는 `Enum.IsDefined` 검증). 왕복 실증(session.json `Bottom` 섹션 기록 확인).
+- **검증**: 앱 빌드 0/0 · 시작 스모크 · 세션 왕복. **실기 QA 대기**: Ctrl+\` 토글·콘텐츠 종류 전환·재시작 시 상태 복원.
+- **남음(BP-1d)**: 정보 콘텐츠를 현재 폴더 외 **선택 항목 속성**(크기/날짜/속성)으로 확장 — BP-2와 함께.
+
+### 다음
+- **BP-2**: 정보/미리보기 뷰 실제 콘텐츠(선택 항목 속성·간단 미리보기).
+- **BP-T1**: 터미널 스파이크(코어 `pty` ConPTY) — 에뮬레이터 방식은 이 시점 결정.
