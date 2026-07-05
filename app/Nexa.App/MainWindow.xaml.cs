@@ -2410,6 +2410,8 @@ public sealed partial class MainWindow : Window
         BottomRightDockView.InfoText = DockInfo(_right);
         BottomLeftDockView.PreviewPath = PreviewTarget(_left);
         BottomRightDockView.PreviewPath = PreviewTarget(_right);
+        BottomLeftDockView.CurrentFolder = _left.Active.Current;    // 터미널 작업 디렉터리 등 (BP-T)
+        BottomRightDockView.CurrentFolder = _right.Active.Current;
     }
 
     /// <summary>미리보기 대상 — 단일 선택된 <b>파일</b>의 경로(폴더/다중/없음은 빈 문자열). (BP-2)</summary>

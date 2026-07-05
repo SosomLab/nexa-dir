@@ -1,9 +1,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Nexa.App.Terminal;
 using Nexa.Plugins.Preview;
 
 namespace Nexa.App;
@@ -24,12 +26,30 @@ public enum BottomPanelKind
 /// </summary>
 public sealed partial class BottomDockView : UserControl
 {
+    private readonly DispatcherQueueTimer _previewTimer;   // 미리보기 로딩 부하 방지(디바운스, 아이콘 로딩식 wrapper)
+
     public BottomDockView()
     {
         InitializeComponent();
         // 미리보기 영역이 리사이즈되면 공급자에 새 크기로 다시 렌더(크기 상호연동, BP-2).
         PreviewHost.SizeChanged += OnPreviewHostSizeChanged;
+        // 미리보기 디바운스: 선택이 빠르게 바뀌어도 마지막 것만 렌더(부하 방지). 호스트가 처리 → 공급자는 몰라도 됨.
+        _previewTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _previewTimer.Interval = TimeSpan.FromMilliseconds(150);
+        _previewTimer.IsRepeating = false;
+        _previewTimer.Tick += (_, _) => { _ = RenderPreviewAsync(); };
+        Unloaded += (_, _) => _terminalView?.Stop();   // 창/패널 닫힘 → 터미널 세션 종료
         Render();
+    }
+
+    /// <summary>현재 폴더(터미널 작업 디렉터리 등). 호스트(MainWindow)가 패널 경로로 설정.</summary>
+    public static readonly DependencyProperty CurrentFolderProperty = DependencyProperty.Register(
+        nameof(CurrentFolder), typeof(string), typeof(BottomDockView), new PropertyMetadata(string.Empty));
+
+    public string CurrentFolder
+    {
+        get => (string)GetValue(CurrentFolderProperty);
+        set => SetValue(CurrentFolderProperty, value);
     }
 
     /// <summary>정보 콘텐츠 텍스트(예: 현재 폴더/선택 항목). 호스트(MainWindow)가 설정.</summary>
@@ -95,12 +115,19 @@ public sealed partial class BottomDockView : UserControl
     private void Render()
     {
         bool preview = _kind == BottomPanelKind.Preview;
+        bool terminal = _kind == BottomPanelKind.Terminal;
         PreviewHost.Visibility = preview ? Visibility.Visible : Visibility.Collapsed;
-        TextScroll.Visibility = preview ? Visibility.Collapsed : Visibility.Visible;
+        TerminalHost.Visibility = terminal ? Visibility.Visible : Visibility.Collapsed;
+        TextScroll.Visibility = (preview || terminal) ? Visibility.Collapsed : Visibility.Visible;
 
         if (preview)
         {
-            _ = RenderPreviewAsync();
+            SchedulePreview();   // 디바운스 렌더(부하 방지)
+            return;
+        }
+        if (terminal)
+        {
+            EnsureTerminal();    // lazy — 이 시점(터미널 탭 활성)에만 세션 생성/시작
             return;
         }
 
@@ -108,20 +135,41 @@ public sealed partial class BottomDockView : UserControl
         {
             BottomPanelKind.Info => string.IsNullOrEmpty(InfoText) ? "(정보 없음)" : InfoText,
             BottomPanelKind.Hex => "Hex 뷰 — 준비 중 (후속 구현)",
-            BottomPanelKind.Terminal => "터미널(ConPTY) — 준비 중 (후속 구현)",
             _ => string.Empty,
         };
     }
 
-    // ── 미리보기 렌더(BP-2) ───────────────────────────────────────────
+    // ── 터미널 lazy 로딩(BP-T) ────────────────────────────────────────
+    private TerminalView? _terminalView;
+
+    /// <summary>터미널 탭이 실제 활성화될 때만 TerminalView 생성 + 세션 시작(lazy). 이후 유지(탭 전환에도 세션 생존).</summary>
+    private void EnsureTerminal()
+    {
+        if (_terminalView is null)
+        {
+            _terminalView = new TerminalView();
+            TerminalHost.Child = _terminalView;
+        }
+        _terminalView.Start(string.IsNullOrEmpty(CurrentFolder) ? null : CurrentFolder);   // 멱등(이미 시작이면 포커스만)
+    }
+
+    // ── 미리보기 렌더(BP-2) — 로딩 부하 방지 wrapper(디바운스·취소·중복 스킵). 공급자는 몰라도 됨 ─────
     private CancellationTokenSource? _previewCts;
     private double _lastRenderW, _lastRenderH;   // 마지막 렌더 시 영역 크기(리사이즈 재렌더 임계 비교)
+    private string _lastRenderedPath = string.Empty;
+
+    /// <summary>디바운스 예약 — 빠른 선택 전환 시 마지막 것만 렌더(부하 방지).</summary>
+    private void SchedulePreview()
+    {
+        _previewTimer.Stop();
+        _previewTimer.Start();
+    }
 
     private void OnPreviewPathChanged()
     {
         if (_kind == BottomPanelKind.Preview)
         {
-            _ = RenderPreviewAsync();
+            SchedulePreview();
         }
     }
 
@@ -137,27 +185,38 @@ public sealed partial class BottomDockView : UserControl
         {
             return;
         }
-        _ = RenderPreviewAsync();
+        SchedulePreview();   // 디바운스로 재렌더
     }
 
     private async Task RenderPreviewAsync()
     {
-        // 빠른 선택 전환 시 이전 렌더 취소.
+        string path = PreviewPath;
+        if (string.IsNullOrEmpty(path))
+        {
+            _previewCts?.Cancel();
+            _lastRenderedPath = string.Empty;
+            SetPreviewMessage("미리볼 항목이 없습니다 (파일을 선택하세요).");
+            return;
+        }
+
+        // 중복 스킵(부하 방지): 같은 파일 + 영역 크기 변화 없으면 이미 표시 중 → 재렌더 안 함.
+        if (path == _lastRenderedPath &&
+            Math.Abs(PreviewHost.ActualWidth - _lastRenderW) < 40 &&
+            Math.Abs(PreviewHost.ActualHeight - _lastRenderH) < 40)
+        {
+            return;
+        }
+
+        // 이전 렌더 취소(빠른 선택 전환).
         _previewCts?.Cancel();
         var cts = new CancellationTokenSource();
         _previewCts = cts;
         var ct = cts.Token;
 
-        string path = PreviewPath;
-        if (string.IsNullOrEmpty(path))
-        {
-            SetPreviewMessage("미리볼 항목이 없습니다 (파일을 선택하세요).");
-            return;
-        }
-
         var provider = PreviewRegistry.Find(path);
         if (provider is null)
         {
+            _lastRenderedPath = path;
             SetPreviewMessage($"미리보기 지원 형식이 아닙니다.\n{System.IO.Path.GetFileName(path)}");
             return;
         }
@@ -173,6 +232,7 @@ public sealed partial class BottomDockView : UserControl
             {
                 return;   // 다른 선택으로 대체됨
             }
+            _lastRenderedPath = path;
             PreviewHost.Child = element ?? MessageBlock("미리보기를 만들 수 없습니다.");
         }
         catch (OperationCanceledException)

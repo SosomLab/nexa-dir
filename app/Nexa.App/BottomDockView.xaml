@@ -30,6 +30,8 @@
             </ScrollViewer>
             <!-- 미리보기(BP-2): 공급자가 만든 FrameworkElement를 여기 얹는다(표준 표시 영역) -->
             <Border x:Name="PreviewHost" Padding="4" Visibility="Collapsed" />
+            <!-- 터미널(BP-T): lazy — 터미널 탭이 처음 활성화될 때만 TerminalView 생성/세션 시작 -->
+            <Border x:Name="TerminalHost" Visibility="Collapsed" />
         </Grid>
     </Grid>
 </UserControl>
