@@ -400,9 +400,6 @@
         <Border Grid.Row="6" Background="#33888888" Padding="8,4">
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
-                <!-- 파일 전송 진행률(복사/이동) — 전송 중에만 표시. 짧은 작업은 잠깐 보였다 숨겨짐(DND-OW2) -->
-                <ProgressBar x:Name="TransferProgress" Width="130" Minimum="0" Visibility="Collapsed" VerticalAlignment="Center" />
-                <TextBlock x:Name="TransferProgressText" Opacity="0.7" Visibility="Collapsed" VerticalAlignment="Center" />
                 <AppBarSeparator />
                 <TextBlock Text="표시:" Opacity="0.6" VerticalAlignment="Center" />
                 <ToggleButton x:Name="ToggleLauncherBtn" Content="런처" IsChecked="True" Click="OnToggleLauncher" />

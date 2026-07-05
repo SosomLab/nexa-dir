@@ -70,6 +70,12 @@ internal sealed class ViewOptions
 
     /// <summary>타입어헤드 입력 버퍼 리셋·검색어 표시 소거 타임아웃(ms, 기본 1000). 설정 UI 예정.</summary>
     public long TypeAheadTimeoutMs { get; set; } = 1000;
+
+    /// <summary>
+    /// 파일 전송(복사/이동) <b>진행 창</b>을 완료 후 자동으로 닫을지(기본 <c>false</c>=열린 채 유지 → 사용자가 닫음).
+    /// 탐색기처럼 완료 후에도 결과를 보여준다. 자동 닫기 토글의 설정 UI 노출은 후속(DND-OW2).
+    /// </summary>
+    public bool AutoCloseTransferWindow { get; set; }
 }
 
 /// <summary>
