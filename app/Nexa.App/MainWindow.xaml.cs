@@ -132,6 +132,8 @@ public sealed partial class MainWindow : Window
         RestoreOrDefaultSession();
         UpdateBottomDock();
         Activated += OnWindowActivated;   // 윈도우 포커스 상실 시 선택 회색화
+        // 외부 앱이 클립보드를 바꾸면(다른 파일/텍스트 복사) 앱 내부 클립보드는 낡음 → 비워서 최신(OS 클립보드) 우선.
+        try { Clipboard.ContentChanged += (_, _) => FileClipboard.Clear(); } catch { /* 클립보드 미가용 격리 */ }
 
         // 세션 저장 엔진 가동(일반 설정과 별도 파일 session.json) — 디바운스+유휴+주기+종료 flush(급종료 대비).
         // 복원 이후에 생성 → 복원 중 MarkDirty 소음 없음(훅은 _session? 널가드).
@@ -1068,7 +1070,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(copy);
         if (item.IsDir)
         {
-            var pasteInto = new MenuFlyoutItem { Text = "폴더에 붙여넣기", IsEnabled = FileClipboard.HasContent };
+            var pasteInto = new MenuFlyoutItem { Text = "폴더에 붙여넣기", IsEnabled = CanPaste() };
             pasteInto.Click += (_, _) => PasteIntoDir(left, item.FullPath);
             flyout.Items.Add(pasteInto);
         }
@@ -1108,7 +1110,7 @@ public sealed partial class MainWindow : Window
         SetActivePanel(left);
 
         var flyout = new MenuFlyout();
-        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = FileClipboard.HasContent };
+        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = CanPaste() };
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
         flyout.Items.Add(new MenuFlyoutSeparator());
@@ -1324,21 +1326,90 @@ public sealed partial class MainWindow : Window
     /// <summary>클립보드 내용을 지정 패널의 <b>현재 폴더</b>에 붙여넣는다(cut=이동·copy=복사).</summary>
     private void PasteInto(bool left) => PasteIntoDir(left, Panel(left).Active.Current);
 
-    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더).
-    /// DnD와 <b>동일 경로</b>(<see cref="TransferPathsInto"/>)로 처리 → 진행 창·덮어쓰기 확인·진행률·취소 공용.</summary>
-    private void PasteIntoDir(bool left, string destDir)
+    /// <summary>붙여넣을 내용이 있는가 — <b>앱 내부 클립보드</b> 또는 <b>OS 클립보드</b>(탐색기 등에서 복사한 파일).
+    /// 컨텍스트 메뉴 "붙여넣기" 활성화 판정에 사용.</summary>
+    private static bool CanPaste()
     {
-        if (!FileClipboard.HasContent || string.IsNullOrEmpty(destDir))
+        if (FileClipboard.HasContent)
+        {
+            return true;
+        }
+        try
+        {
+            return Clipboard.GetContent().Contains(StandardDataFormats.StorageItems);
+        }
+        catch
+        {
+            return false;   // 클립보드 접근 실패는 격리
+        }
+    }
+
+    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더).
+    /// 앱 내부 클립보드 우선, 없으면 <b>OS 클립보드</b>(탐색기 복사)에서 파일을 가져온다. 실제 전송은 DnD와
+    /// <b>동일 경로</b>(<see cref="TransferPathsInto"/>) → 진행 창·덮어쓰기 확인·진행률·취소 공용.</summary>
+    private async void PasteIntoDir(bool left, string destDir)
+    {
+        if (string.IsNullOrEmpty(destDir))
         {
             return;
         }
-        bool cut = FileClipboard.IsCut;
-        var paths = new List<string>(FileClipboard.Paths);   // 스냅샷(아래 Clear 대비)
-        if (cut)
+        // 1) 앱 내부 클립보드 우선.
+        if (FileClipboard.HasContent)
         {
-            FileClipboard.Clear();   // 잘라내기 붙여넣기 = 1회성(TransferPathsInto가 paths를 즉시 복사하므로 안전)
+            bool cut = FileClipboard.IsCut;
+            var paths = new List<string>(FileClipboard.Paths);   // 스냅샷(아래 Clear 대비)
+            if (cut)
+            {
+                FileClipboard.Clear();   // 잘라내기 붙여넣기 = 1회성
+            }
+            TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
+            return;
         }
-        TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
+        // 2) OS 클립보드(탐색기 등에서 복사/잘라낸 파일).
+        try
+        {
+            var view = Clipboard.GetContent();
+            if (!view.Contains(StandardDataFormats.StorageItems))
+            {
+                return;
+            }
+            var items = await view.GetStorageItemsAsync();
+            var paths = items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (paths.Count == 0)
+            {
+                return;
+            }
+            bool cut = await OsClipboardIsCutAsync(view);
+            TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"붙여넣기 실패: {ex.Message}";
+        }
+    }
+
+    /// <summary>OS 클립보드의 "Preferred DropEffect"로 잘라내기(이동) 여부 판정 — 실패/없으면 복사로 간주.</summary>
+    private static async Task<bool> OsClipboardIsCutAsync(Windows.ApplicationModel.DataTransfer.DataPackageView view)
+    {
+        try
+        {
+            if (!view.Contains("Preferred DropEffect"))
+            {
+                return false;
+            }
+            if (await view.GetDataAsync("Preferred DropEffect") is Windows.Storage.Streams.IRandomAccessStream ras)
+            {
+                var reader = new Windows.Storage.Streams.DataReader(ras.GetInputStreamAt(0))
+                {
+                    ByteOrder = Windows.Storage.Streams.ByteOrder.LittleEndian,
+                };
+                await reader.LoadAsync(4);
+                uint effect = reader.ReadUInt32();   // DROPEFFECT_COPY=1 · MOVE=2
+                return (effect & 2) != 0;
+            }
+        }
+        catch { /* 격리 → 복사 */ }
+        return false;
     }
 
     /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
