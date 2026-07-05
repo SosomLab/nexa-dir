@@ -5,6 +5,24 @@
 
 ---
 
+## TRANSFER-ENGINE · 복사/이동 단일 경로(TransferPathsInto) ★
+
+> 원칙: **"진입 방식(과정)은 달라도 최종 복사/이동 행위는 하나의 로직으로."** 모든 파일 전송은
+> `MainWindow.TransferPathsInto(sourceLeft, paths, destDir, op)` **단일 엔진**을 지난다(2026-07-05 통일).
+
+- **진입점(모두 이 엔진으로 수렴)**:
+  - DnD — 폴더 행 드롭(`OnRowDrop`) · 빈영역 드롭(`OnPanelBackgroundDrop`) · 탭 드롭(`OnTabDrop`).
+  - 클립보드 붙여넣기 — `PasteIntoDir`(Ctrl+V · 컨텍스트 "붙여넣기"/"폴더에 붙여넣기") → 같은 엔진(op=cut?Move:Copy).
+- **엔진이 보장하는 공통 동작**(어느 진입점이든 동일): 같은 폴더 규칙(이동=무동작/복사=순번 복제) · 다른 폴더 이름
+  충돌 시 **덮어쓰기 확인**(충돌 항목만 순차, 예=덮어씀/아니오=건너뜀) · **바이트 진행률 + 진행 창**(맨앞·포커스,
+  자동 닫기 off 기본) · **취소**(CancellationToken) · 백그라운드 I/O(UI 무블록) · 완료 후 양쪽 재로드.
+- **분리 대상(전송 아님, 별개 로직 유지)**: 인라인 **이름변경**(제자리 `File.Move`, 진행 불필요) · **삭제**(휴지통/완전,
+  `DeletePaths`) · **새로 만들기**(생성) · 세션 파일 원자적 저장.
+- **하위 구현**: `Nexa.ViewModels.FileOps`(순수 I/O — `CopyOntoWithProgress`/`MoveOntoWithProgress`/`SizeOf`/`SameVolume`,
+  덮어쓰기·바이트 진행 지원). 향후 **nexa-ops**(코어, 트랜잭션·저우선순위 I/O·Undo)로 이관 시 **seam은 이 엔진 1곳**.
+
+---
+
 ## B-14dnd · DnD 디스크별 기본 동작 + 표준 수정키(Ctrl/Shift)
 
 ### 요구

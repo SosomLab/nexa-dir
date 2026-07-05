@@ -1324,7 +1324,8 @@ public sealed partial class MainWindow : Window
     /// <summary>클립보드 내용을 지정 패널의 <b>현재 폴더</b>에 붙여넣는다(cut=이동·copy=복사).</summary>
     private void PasteInto(bool left) => PasteIntoDir(left, Panel(left).Active.Current);
 
-    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더). 완료 후 재로드.</summary>
+    /// <summary>클립보드 내용을 <paramref name="destDir"/>에 붙여넣는다(폴더 우클릭=그 폴더, 빈영역=현재 폴더).
+    /// DnD와 <b>동일 경로</b>(<see cref="TransferPathsInto"/>)로 처리 → 진행 창·덮어쓰기 확인·진행률·취소 공용.</summary>
     private void PasteIntoDir(bool left, string destDir)
     {
         if (!FileClipboard.HasContent || string.IsNullOrEmpty(destDir))
@@ -1332,26 +1333,12 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool cut = FileClipboard.IsCut;
-        int ok = 0;
-        string? err = null;
-        foreach (var src in FileClipboard.Paths)
-        {
-            try
-            {
-                _ = cut ? FileOps.MoveInto(src, destDir) : FileOps.CopyInto(src, destDir);
-                ok++;
-            }
-            catch (Exception ex)
-            {
-                err = ex.Message;
-            }
-        }
+        var paths = new List<string>(FileClipboard.Paths);   // 스냅샷(아래 Clear 대비)
         if (cut)
         {
-            FileClipboard.Clear();
+            FileClipboard.Clear();   // 잘라내기 붙여넣기 = 1회성(TransferPathsInto가 paths를 즉시 복사하므로 안전)
         }
-        StatusText.Text = err is null ? $"{(cut ? "이동" : "복사")} {ok}개 완료" : $"붙여넣기 일부 실패: {err}";
-        ReloadBothPanels();   // 양쪽 갱신(다른 패널이 같은 폴더를 볼 때 반영, BUG-006 임시 — watcher 전까지)
+        TransferPathsInto(left, paths, destDir, cut ? DataPackageOperation.Move : DataPackageOperation.Copy);
     }
 
     /// <summary>대상 경로를 <b>완전 삭제</b>한다(휴지통 아님). 확인 대화상자 후 실행, 재로드.</summary>
