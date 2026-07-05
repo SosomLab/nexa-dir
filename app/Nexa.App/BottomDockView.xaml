@@ -22,10 +22,14 @@
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
         </StackPanel>
 
-        <!-- 콘텐츠(종류별 스왑) — 지금은 정보만 실제, 나머지는 준비 중 -->
-        <ScrollViewer Grid.Row="1" Padding="8,2,8,6" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto">
-            <TextBlock x:Name="ContentText" FontSize="12" Opacity="0.8" TextWrapping="Wrap"
-                       IsTextSelectionEnabled="True" />
-        </ScrollViewer>
+        <!-- 콘텐츠(종류별 스왑) — 텍스트(정보/Hex/터미널 placeholder) + 미리보기 요소 호스트 -->
+        <Grid Grid.Row="1">
+            <ScrollViewer x:Name="TextScroll" Padding="8,2,8,6" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto">
+                <TextBlock x:Name="ContentText" FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                           IsTextSelectionEnabled="True" />
+            </ScrollViewer>
+            <!-- 미리보기(BP-2): 공급자가 만든 FrameworkElement를 여기 얹는다(표준 표시 영역) -->
+            <Border x:Name="PreviewHost" Padding="4" Visibility="Collapsed" />
+        </Grid>
     </Grid>
 </UserControl>

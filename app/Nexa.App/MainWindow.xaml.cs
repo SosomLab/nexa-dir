@@ -2408,6 +2408,19 @@ public sealed partial class MainWindow : Window
         }
         BottomLeftDockView.InfoText = DockInfo(_left);
         BottomRightDockView.InfoText = DockInfo(_right);
+        BottomLeftDockView.PreviewPath = PreviewTarget(_left);
+        BottomRightDockView.PreviewPath = PreviewTarget(_right);
+    }
+
+    /// <summary>미리보기 대상 — 단일 선택된 <b>파일</b>의 경로(폴더/다중/없음은 빈 문자열). (BP-2)</summary>
+    private static string PreviewTarget(PanelView p)
+    {
+        var items = p.Active.Items;
+        if (items.SelectionCount == 1 && items.CaretItem is DirItem it && !it.IsDir)
+        {
+            return it.FullPath;
+        }
+        return string.Empty;
     }
 
     /// <summary>도킹 정보 텍스트(BP-2) — 선택/캐럿 항목의 속성(이름·종류·크기·수정·경로),
