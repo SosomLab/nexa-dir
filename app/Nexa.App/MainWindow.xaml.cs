@@ -1734,12 +1734,30 @@ public sealed partial class MainWindow : Window
         string verb = copy ? "복사" : "이동";
         int done = 0, skipped = 0;
         string? err = null;
-        BeginTransferProgress(verb, items.Count);
+
+        BeginTransferProgress(verb);   // 크기 합산 동안 부정형(indeterminate) 표시
+        long total = await Task.Run(() =>
+        {
+            long s = 0;
+            foreach (var it in items) { s += FileOps.SizeOf(it); }
+            return s;
+        });
+        long copied = 0;
+        int fileNo = 0;
+        // 진행 보고(백그라운드 → UI 스레드로 마샬). 증분 바이트 누적 → 상태바 갱신.
+        var progress = new Progress<long>(delta =>
+        {
+            copied += delta;
+            SetTransferProgress(verb, copied, total, fileNo, items.Count);
+        });
+        void OnBytes(long b) => ((IProgress<long>)progress).Report(b);
+        SetTransferDeterminate(total);
         try
         {
             for (int i = 0; i < items.Count; i++)
             {
-                UpdateTransferProgress(verb, i, items.Count);
+                fileNo = i + 1;
+                SetTransferProgress(verb, copied, total, fileNo, items.Count);
                 string p = items[i];
                 try
                 {
@@ -1749,7 +1767,9 @@ public sealed partial class MainWindow : Window
                     {
                         if (copy)
                         {
-                            await Task.Run(() => FileOps.CopyInto(p, destDir));   // 같은 폴더 복사 = 순번 복제
+                            // 같은 폴더 복사 = 순번 복제(진행 보고). I/O는 백그라운드.
+                            string dup = FileOps.UniqueDest(destDir, FileOps.LeafName(p), Directory.Exists(p));
+                            await Task.Run(() => FileOps.CopyOntoWithProgress(p, dup, overwrite: false, OnBytes));
                             done++;
                         }
                         // 같은 폴더 이동 = 무동작
@@ -1760,21 +1780,23 @@ public sealed partial class MainWindow : Window
                         bool overwrite = await ConfirmOverwriteAsync(copy, p);
                         if (!overwrite)
                         {
-                            skipped++;   // 아니오 → 이 항목만 건너뛰고 다음으로
+                            skipped++;
+                            OnBytes(FileOps.SizeOf(p));   // 건너뛴 항목만큼 진행 전진(막대가 끝까지)
                             continue;
                         }
                         // 예 → 덮어쓰기(복사/이동 분리 — 지금은 동일, 향후 분기 가능). I/O는 백그라운드.
-                        await Task.Run(() => { if (copy) { OverwriteCopy(p, destDir); } else { OverwriteMove(p, destDir); } });
+                        string dest = FileOps.NaturalDest(destDir, p);
+                        await Task.Run(() => { if (copy) { OverwriteCopy(p, dest, OnBytes); } else { OverwriteMove(p, dest, OnBytes); } });
                         done++;
                     }
                     else
                     {
-                        // 충돌 없음 → 그대로(순번 부여 없이) 대상 이름으로 처리. I/O는 백그라운드(UI 무블록).
+                        // 충돌 없음 → 순번 없이 대상 이름으로 처리. I/O는 백그라운드(UI 무블록).
                         string dest = FileOps.NaturalDest(destDir, p);
                         await Task.Run(() =>
                         {
-                            if (copy) { FileOps.CopyOnto(p, dest, overwrite: false); }
-                            else { FileOps.MoveOnto(p, dest, overwrite: false); }
+                            if (copy) { FileOps.CopyOntoWithProgress(p, dest, overwrite: false, OnBytes); }
+                            else { FileOps.MoveOntoWithProgress(p, dest, overwrite: false, OnBytes); }
                         });
                         done++;
                     }
@@ -1796,13 +1818,13 @@ public sealed partial class MainWindow : Window
         ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
     }
 
-    /// <summary>덮어쓰기 <b>복사</b>(현재 이동과 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
-    private static void OverwriteCopy(string src, string destDir)
-        => FileOps.CopyOnto(src, FileOps.NaturalDest(destDir, src), overwrite: true);
+    /// <summary>덮어쓰기 <b>복사</b>(진행 보고 · 현재 이동과 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteCopy(string src, string dest, Action<long>? onBytes)
+        => FileOps.CopyOntoWithProgress(src, dest, overwrite: true, onBytes);
 
-    /// <summary>덮어쓰기 <b>이동</b>(현재 복사와 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
-    private static void OverwriteMove(string src, string destDir)
-        => FileOps.MoveOnto(src, FileOps.NaturalDest(destDir, src), overwrite: true);
+    /// <summary>덮어쓰기 <b>이동</b>(진행 보고 · 현재 복사와 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteMove(string src, string dest, Action<long>? onBytes)
+        => FileOps.MoveOntoWithProgress(src, dest, overwrite: true, onBytes);
 
     /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예=덮어씀 / 아니오=건너뜀). 다중 파일은 충돌 항목마다 순차 호출.</summary>
     private async Task<bool> ConfirmOverwriteAsync(bool copy, string sourcePath)
@@ -1819,28 +1841,39 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
-    // ── 파일 전송 진행률(상태바) — DND-OW2 ────────────────────────────────
+    // ── 파일 전송 진행률(상태바) — DND-OW2 · 바이트 단위(대용량 파일 진행 가시화) ─────
     // 짧은 작업은 보였다 숨겨지는 짧은 전환. 향후 임계(예상 크기/개수) 기준으로 표시 생략 개선 예정.
 
-    private void BeginTransferProgress(string verb, int total)
+    private void BeginTransferProgress(string verb)
     {
-        TransferProgress.Maximum = total;
+        TransferProgress.IsIndeterminate = true;   // 크기 합산 동안 부정형
         TransferProgress.Value = 0;
         TransferProgress.Visibility = Visibility.Visible;
         TransferProgressText.Visibility = Visibility.Visible;
-        TransferProgressText.Text = $"{verb} 0/{total}";
+        TransferProgressText.Text = $"{verb} 준비 중…";
     }
 
-    private void UpdateTransferProgress(string verb, int index, int total)
+    private void SetTransferDeterminate(long totalBytes)
     {
-        TransferProgress.Value = index;
-        TransferProgressText.Text = $"{verb} {index}/{total}";
+        TransferProgress.IsIndeterminate = false;
+        TransferProgress.Maximum = totalBytes > 0 ? totalBytes : 1;
+        TransferProgress.Value = 0;
+    }
+
+    private void SetTransferProgress(string verb, long copiedBytes, long totalBytes, int fileNo, int fileTotal)
+    {
+        TransferProgress.Value = Math.Min(copiedBytes, TransferProgress.Maximum);
+        int pct = totalBytes > 0 ? (int)(copiedBytes * 100 / totalBytes) : 100;
+        TransferProgressText.Text = fileTotal > 1
+            ? $"{verb} {pct}% ({fileNo}/{fileTotal})"
+            : $"{verb} {pct}%";
     }
 
     private void EndTransferProgress()
     {
         TransferProgress.Visibility = Visibility.Collapsed;
         TransferProgressText.Visibility = Visibility.Collapsed;
+        TransferProgress.IsIndeterminate = false;
     }
 
     private bool _activeLeft = true;

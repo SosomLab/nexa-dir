@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Threading;
 
 namespace Nexa.ViewModels;
 
@@ -109,6 +111,119 @@ public static class FileOps
         else
         {
             File.Move(src, destPath);
+        }
+    }
+
+    // ── 진행률 지원 전송(대용량 파일 진행바용, DND-OW2) ──────────────────
+    // File.Copy/Move는 바이트 진행 콜백이 없어 대용량 단일 파일에서 진행이 안 보인다.
+    // 스트림 청크 복사로 바이트를 보고한다. onBytes는 이번에 복사한 증분 바이트(누적은 호출자).
+
+    private const int CopyBufferSize = 4 * 1024 * 1024;   // 4MB 청크
+
+    /// <summary>파일/폴더의 총 바이트 크기(폴더는 재귀 합계). 접근 실패/없음은 0으로 격리.</summary>
+    public static long SizeOf(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                long sum = 0;
+                foreach (var f in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+                {
+                    try { sum += new FileInfo(f).Length; } catch { /* 개별 격리 */ }
+                }
+                return sum;
+            }
+            if (File.Exists(path))
+            {
+                return new FileInfo(path).Length;
+            }
+        }
+        catch { /* 격리 */ }
+        return 0;
+    }
+
+    /// <summary>파일을 스트림으로 복사하며 <paramref name="onBytes"/>로 진행(증분 바이트)을 보고한다.</summary>
+    public static void CopyFileWithProgress(string src, string dest, bool overwrite, Action<long>? onBytes, CancellationToken ct = default)
+    {
+        using var input = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var output = new FileStream(dest, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        var buffer = new byte[CopyBufferSize];
+        int read;
+        while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            output.Write(buffer, 0, read);
+            onBytes?.Invoke(read);
+        }
+    }
+
+    /// <summary>원본(파일/폴더)을 정확히 <paramref name="destPath"/>로 <b>복사</b>하며 진행 보고. overwrite면 기존 대체.</summary>
+    public static void CopyOntoWithProgress(string sourcePath, string destPath, bool overwrite, Action<long>? onBytes, CancellationToken ct = default)
+    {
+        if (Directory.Exists(sourcePath))
+        {
+            if (overwrite && Directory.Exists(destPath))
+            {
+                Directory.Delete(destPath, recursive: true);
+            }
+            CopyDirectoryWithProgress(sourcePath, destPath, onBytes, ct);
+        }
+        else
+        {
+            CopyFileWithProgress(sourcePath, destPath, overwrite, onBytes, ct);
+        }
+    }
+
+    /// <summary>원본(파일/폴더)을 정확히 <paramref name="destPath"/>로 <b>이동</b>하며 진행 보고. 같은 볼륨=즉시 이동(전체 크기 1회 보고), 다른 볼륨=복사 후 원본 삭제.</summary>
+    public static void MoveOntoWithProgress(string sourcePath, string destPath, bool overwrite, Action<long>? onBytes, CancellationToken ct = default)
+    {
+        string src = sourcePath.TrimEnd('\\', '/');
+        bool isDir = Directory.Exists(src);
+        if (isDir && IsSameOrSubPath(src, destPath))
+        {
+            throw new IOException("폴더를 자기 자신 또는 하위 폴더로 이동할 수 없습니다.");
+        }
+        if (overwrite)
+        {
+            if (Directory.Exists(destPath)) { Directory.Delete(destPath, recursive: true); }
+            else if (File.Exists(destPath)) { File.Delete(destPath); }
+        }
+        if (SameVolume(src, destPath))
+        {
+            if (isDir) { Directory.Move(src, destPath); } else { File.Move(src, destPath); }
+            onBytes?.Invoke(SizeOf(destPath));   // 메타데이터 이동(즉시) → 전체 크기 1회 보고
+        }
+        else
+        {
+            CopyOntoWithProgress(src, destPath, overwrite: true, onBytes, ct);   // 다른 볼륨 = 복사(+진행)
+            if (isDir) { Directory.Delete(src, recursive: true); } else { File.Delete(src); }
+        }
+    }
+
+    /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(보수적).</summary>
+    public static bool SameVolume(string a, string b)
+    {
+        try
+        {
+            string ra = Path.GetPathRoot(Path.GetFullPath(a.TrimEnd('\\', '/'))) ?? string.Empty;
+            string rb = Path.GetPathRoot(Path.GetFullPath(b.TrimEnd('\\', '/'))) ?? string.Empty;
+            return string.Equals(ra, rb, StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return true; }
+    }
+
+    private static void CopyDirectoryWithProgress(string src, string dest, Action<long>? onBytes, CancellationToken ct)
+    {
+        Directory.CreateDirectory(dest);
+        foreach (var f in Directory.GetFiles(src))
+        {
+            ct.ThrowIfCancellationRequested();
+            CopyFileWithProgress(f, Path.Combine(dest, Path.GetFileName(f)), overwrite: true, onBytes, ct);
+        }
+        foreach (var d in Directory.GetDirectories(src))
+        {
+            CopyDirectoryWithProgress(d, Path.Combine(dest, Path.GetFileName(d)), onBytes, ct);
         }
     }
 

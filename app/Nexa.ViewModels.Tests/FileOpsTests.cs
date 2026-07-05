@@ -189,6 +189,50 @@ public sealed class FileOpsTests : IDisposable
     }
 
     [Fact]
+    public void SizeOf_sums_file_and_directory()
+    {
+        string src = Dir("src");
+        File_(src, "a.txt", "12345");   // 5 bytes
+        string sub = Path.Combine(src, "s");
+        Directory.CreateDirectory(sub);
+        File_(sub, "b.txt", "678");     // 3 bytes
+
+        Assert.Equal(5, FileOps.SizeOf(Path.Combine(src, "a.txt")));
+        Assert.Equal(8, FileOps.SizeOf(src));
+        Assert.Equal(0, FileOps.SizeOf(Path.Combine(src, "missing")));
+    }
+
+    [Fact]
+    public void CopyOntoWithProgress_reports_total_bytes_and_copies()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "big.bin", new string('x', 10000));
+
+        long reported = 0;
+        FileOps.CopyOntoWithProgress(f, FileOps.NaturalDest(dst, f), overwrite: false, b => reported += b);
+
+        Assert.Equal(10000, reported);
+        Assert.True(System.IO.File.Exists(Path.Combine(dst, "big.bin")));
+        Assert.Equal(10000, new FileInfo(Path.Combine(dst, "big.bin")).Length);
+    }
+
+    [Fact]
+    public void MoveOntoWithProgress_same_volume_reports_size_and_moves()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "m.bin", new string('y', 2048));
+
+        long reported = 0;
+        FileOps.MoveOntoWithProgress(f, FileOps.NaturalDest(dst, f), overwrite: false, b => reported += b);
+
+        Assert.Equal(2048, reported);                                   // 같은 볼륨 → 전체 크기 1회 보고
+        Assert.True(System.IO.File.Exists(Path.Combine(dst, "m.bin")));
+        Assert.False(System.IO.File.Exists(f));                        // 원본 제거
+    }
+
+    [Fact]
     public void DeletePermanent_removes_file_and_directory()
     {
         string src = Dir("src");
