@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
@@ -148,8 +149,23 @@ public sealed partial class BottomDockView : UserControl
         if (_terminalView is null)
         {
             _terminalView = new TerminalView();
-            // (재)시작 시점의 선택 탭 폴더를 작업 디렉터리로. 시작 후 폴더 변경/탭 이동은 무영향.
-            _terminalView.WorkingDirectoryProvider = () => CurrentFolder;
+            // (재)시작 시점의 활성 탭 폴더를 작업 디렉터리로. 없거나 유효하지 않으면 사용자 홈으로 폴백.
+            _terminalView.WorkingDirectoryProvider = () =>
+            {
+                string cur = CurrentFolder;
+                try
+                {
+                    if (!string.IsNullOrEmpty(cur) && Directory.Exists(cur))
+                    {
+                        return cur;
+                    }
+                }
+                catch
+                {
+                    // 접근 예외 등 → 홈 폴백
+                }
+                return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            };
             TerminalHost.Child = _terminalView;
         }
         _terminalView.Start();   // 멱등(이미 시작이면 포커스만)

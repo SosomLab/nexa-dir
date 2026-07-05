@@ -9,7 +9,7 @@
     PointerPressed="OnPointerPressed">
 
     <Grid Background="#0C0F12">
-        <ScrollViewer x:Name="Scroll" Padding="6,4"
+        <ScrollViewer x:Name="Scroll" Padding="6,4" IsTabStop="False"
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollMode="Enabled" HorizontalScrollMode="Enabled">
             <!-- VtScreen 셀 그리드를 색과 함께 렌더(라인=가로 StackPanel of 색 runs) -->

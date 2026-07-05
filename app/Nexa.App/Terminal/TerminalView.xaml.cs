@@ -52,12 +52,19 @@ public sealed partial class TerminalView : UserControl
     {
         if (_started)
         {
-            Focus(FocusState.Programmatic);
+            FocusSoon();
             return;
         }
         _started = true;
         StartSession(reset: true);
+        FocusSoon();
+    }
+
+    /// <summary>레이아웃/가시화 직후 포커스(즉시 Focus가 실패하는 타이밍 회피) — 키보드 입력 캡처.</summary>
+    private void FocusSoon()
+    {
         Focus(FocusState.Programmatic);
+        _dispatcher.TryEnqueue(() => Focus(FocusState.Programmatic));
     }
 
     /// <summary>새 셸 세션 시작(<paramref name="reset"/>이면 화면 버퍼도 초기화 = 리셋). 작업 디렉터리는 이 시점의 선택 탭 폴더.</summary>

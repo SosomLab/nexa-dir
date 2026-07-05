@@ -2125,8 +2125,30 @@ public sealed partial class MainWindow : Window
     /// 키보드 이동: ↑/↓ 선택 이동(Shift=범위 확장, Ctrl=위치만 이동), →/← 폴더 펼침/접힘,
     /// Space=캐럿 항목 선택(Ctrl+Space=비연속 다중 선택 토글). 대상은 활성 패널(포커스 비의존).
     /// </summary>
+    /// <summary>키보드를 입력 컨트롤(터미널·텍스트박스)이 소유 중인가 — 그렇다면 전역 파일목록 단축키는 개입 금지.</summary>
+    private bool IsKeyboardOwnedByInput()
+    {
+        var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(Content.XamlRoot) as DependencyObject;
+        while (focused is not null)
+        {
+            if (focused is Terminal.TerminalView or TextBox)
+            {
+                return true;
+            }
+            focused = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(focused);
+        }
+        return false;
+    }
+
     private void OnGridKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 터미널·텍스트 입력이 포커스면 전역 파일목록 단축키는 개입 안 함(터미널이 키를 소유).
+        // (RootGrid 핸들러는 handledEventsToo=true라 터미널이 Handled해도 여기까지 오므로 명시적으로 차단.)
+        if (IsKeyboardOwnedByInput())
+        {
+            return;
+        }
+
         // Ctrl+W: 활성 패널의 활성 탭 닫기.
         if (e.Key == VirtualKey.W && IsCtrlDown())
         {
