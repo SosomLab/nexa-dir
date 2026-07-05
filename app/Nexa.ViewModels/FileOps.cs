@@ -56,6 +56,62 @@ public static class FileOps
         return dest;
     }
 
+    /// <summary><paramref name="destDir"/> 안에서 원본이 놓일 자연스러운 대상 경로(destDir + 잎 이름). 충돌 판정·덮어쓰기용.</summary>
+    public static string NaturalDest(string destDir, string sourcePath) =>
+        Path.Combine(destDir, LeafName(sourcePath));
+
+    /// <summary><paramref name="sourcePath"/>를 <paramref name="destDir"/>에 넣을 때 <b>이름 충돌</b>이 있는가(같은 이름 존재).</summary>
+    public static bool Conflicts(string destDir, string sourcePath) => Exists(NaturalDest(destDir, sourcePath));
+
+    /// <summary>원본(파일/폴더)을 정확히 <paramref name="destPath"/>로 <b>복사</b>한다(순번 부여 안 함).
+    /// <paramref name="overwrite"/>면 기존 대상을 대체(폴더는 삭제 후 재귀 복사).</summary>
+    public static void CopyOnto(string sourcePath, string destPath, bool overwrite)
+    {
+        if (Directory.Exists(sourcePath))
+        {
+            if (overwrite && Directory.Exists(destPath))
+            {
+                Directory.Delete(destPath, recursive: true);
+            }
+            CopyDirectory(sourcePath, destPath);
+        }
+        else
+        {
+            File.Copy(sourcePath, destPath, overwrite);
+        }
+    }
+
+    /// <summary>원본(파일/폴더)을 정확히 <paramref name="destPath"/>로 <b>이동</b>한다(순번 부여 안 함).
+    /// <paramref name="overwrite"/>면 기존 대상을 대체. 자기 자신/하위로의 폴더 이동은 예외.</summary>
+    public static void MoveOnto(string sourcePath, string destPath, bool overwrite)
+    {
+        string src = sourcePath.TrimEnd('\\', '/');
+        bool isDir = Directory.Exists(src);
+        if (isDir && IsSameOrSubPath(src, destPath))
+        {
+            throw new IOException("폴더를 자기 자신 또는 하위 폴더로 이동할 수 없습니다.");
+        }
+        if (overwrite)
+        {
+            if (Directory.Exists(destPath))
+            {
+                Directory.Delete(destPath, recursive: true);
+            }
+            else if (File.Exists(destPath))
+            {
+                File.Delete(destPath);
+            }
+        }
+        if (isDir)
+        {
+            Directory.Move(src, destPath);
+        }
+        else
+        {
+            File.Move(src, destPath);
+        }
+    }
+
     /// <summary>파일/폴더를 <b>완전 삭제</b>한다(휴지통 아님, 폴더는 재귀). 없으면 무동작.</summary>
     public static void DeletePermanent(string path)
     {

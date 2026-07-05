@@ -120,6 +120,75 @@ public sealed class FileOpsTests : IDisposable
     }
 
     [Fact]
+    public void Conflicts_detects_existing_name_in_dest()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "c.txt");
+        Assert.False(FileOps.Conflicts(dst, f));   // 아직 없음
+        File_(dst, "c.txt", "old");
+        Assert.True(FileOps.Conflicts(dst, f));    // 같은 이름 존재
+    }
+
+    [Fact]
+    public void CopyOnto_overwrite_replaces_existing_file()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "o.txt", "new");
+        File_(dst, "o.txt", "old");
+        string dest = FileOps.NaturalDest(dst, f);
+
+        FileOps.CopyOnto(f, dest, overwrite: true);
+
+        Assert.Equal("new", System.IO.File.ReadAllText(dest));   // 순번 안 붙고 덮어씀
+        Assert.True(System.IO.File.Exists(f));                   // 복사라 원본 보존
+    }
+
+    [Fact]
+    public void CopyOnto_without_overwrite_throws_on_conflict()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "o.txt", "new");
+        File_(dst, "o.txt", "old");
+        Assert.Throws<IOException>(() => FileOps.CopyOnto(f, FileOps.NaturalDest(dst, f), overwrite: false));
+    }
+
+    [Fact]
+    public void MoveOnto_overwrite_replaces_and_removes_source()
+    {
+        string src = Dir("src");
+        string dst = Dir("dst");
+        string f = File_(src, "o.txt", "new");
+        File_(dst, "o.txt", "old");
+        string dest = FileOps.NaturalDest(dst, f);
+
+        FileOps.MoveOnto(f, dest, overwrite: true);
+
+        Assert.Equal("new", System.IO.File.ReadAllText(dest));   // 덮어씀
+        Assert.False(System.IO.File.Exists(f));                  // 이동이라 원본 제거
+    }
+
+    [Fact]
+    public void CopyOnto_overwrite_replaces_directory()
+    {
+        string src = Dir("src");
+        string sub = Path.Combine(src, "d");
+        Directory.CreateDirectory(sub);
+        File_(sub, "new.txt", "n");
+        string dst = Dir("dst");
+        string old = Path.Combine(dst, "d");
+        Directory.CreateDirectory(old);
+        File_(old, "old.txt", "o");   // 기존 대상 폴더에 다른 내용
+
+        FileOps.CopyOnto(sub, FileOps.NaturalDest(dst, sub), overwrite: true);
+
+        Assert.True(System.IO.File.Exists(Path.Combine(old, "new.txt")));   // 새 내용
+        Assert.False(System.IO.File.Exists(Path.Combine(old, "old.txt")));  // 기존은 대체됨
+    }
+
+    [Fact]
     public void DeletePermanent_removes_file_and_directory()
     {
         string src = Dir("src");

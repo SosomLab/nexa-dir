@@ -1718,41 +1718,129 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary><paramref name="paths"/>를 <paramref name="destDir"/>로 <paramref name="op"/>(이동/복사)한다. 제자리 이동 제외, 양쪽 재로드.</summary>
-    private void TransferPathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, DataPackageOperation op)
+    /// <summary>
+    /// <paramref name="paths"/>를 <paramref name="destDir"/>로 <paramref name="op"/>(이동/복사)한다. 규칙(DND-OW):
+    /// <list type="bullet">
+    ///   <item><b>같은 폴더</b>: 이동=무동작 · 복사=순번 복제(" (2)"…).</item>
+    ///   <item><b>다른 폴더</b> & 이름 충돌: 파일별로 <b>덮어쓰기 확인</b>(예=덮어씀 / 아니오=그 항목만 건너뜀).</item>
+    /// </list>
+    /// 충돌 없는 항목은 즉시 처리하고, 충돌 항목만 순차 확인한다. 진행률을 상태바에 표시(DND-OW2).
+    /// (paths는 호출자가 곧 <c>_dragPaths</c>를 비우므로 <b>첫 await 전에 복사</b>해 안전.)
+    /// </summary>
+    private async void TransferPathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, DataPackageOperation op)
     {
         bool copy = op == DataPackageOperation.Copy;
-        int ok = 0;
+        var items = new List<string>(paths);   // 스냅샷(비동기 중 원본 clear 방지)
+        string verb = copy ? "복사" : "이동";
+        int done = 0, skipped = 0;
         string? err = null;
-        foreach (var p in paths)
+        BeginTransferProgress(verb, items.Count);
+        try
         {
-            try
+            for (int i = 0; i < items.Count; i++)
             {
-                if (copy)
-                {
-                    FileOps.CopyInto(p, destDir);
-                    ok++;
-                }
-                else
+                UpdateTransferProgress(verb, i, items.Count);
+                string p = items[i];
+                try
                 {
                     string? parent = System.IO.Path.GetDirectoryName(p.TrimEnd('\\', '/'));
-                    if (parent is not null && PathEq(parent, destDir))
+                    bool sameFolder = parent is not null && PathEq(parent, destDir);
+                    if (sameFolder)
                     {
-                        continue;   // 제자리 이동
+                        if (copy)
+                        {
+                            await Task.Run(() => FileOps.CopyInto(p, destDir));   // 같은 폴더 복사 = 순번 복제
+                            done++;
+                        }
+                        // 같은 폴더 이동 = 무동작
+                        continue;
                     }
-                    FileOps.MoveInto(p, destDir);
-                    ok++;
+                    if (FileOps.Conflicts(destDir, p))
+                    {
+                        bool overwrite = await ConfirmOverwriteAsync(copy, p);
+                        if (!overwrite)
+                        {
+                            skipped++;   // 아니오 → 이 항목만 건너뛰고 다음으로
+                            continue;
+                        }
+                        // 예 → 덮어쓰기(복사/이동 분리 — 지금은 동일, 향후 분기 가능). I/O는 백그라운드.
+                        await Task.Run(() => { if (copy) { OverwriteCopy(p, destDir); } else { OverwriteMove(p, destDir); } });
+                        done++;
+                    }
+                    else
+                    {
+                        // 충돌 없음 → 그대로(순번 부여 없이) 대상 이름으로 처리. I/O는 백그라운드(UI 무블록).
+                        string dest = FileOps.NaturalDest(destDir, p);
+                        await Task.Run(() =>
+                        {
+                            if (copy) { FileOps.CopyOnto(p, dest, overwrite: false); }
+                            else { FileOps.MoveOnto(p, dest, overwrite: false); }
+                        });
+                        done++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    err = ex.Message;
                 }
             }
-            catch (Exception ex)
-            {
-                err = ex.Message;
-            }
         }
-        string verb = copy ? "복사" : "이동";
+        finally
+        {
+            EndTransferProgress();
+        }
         _ = sourceLeft;   // 향후 정밀 갱신용(현재는 양쪽 재로드)
-        StatusText.Text = err is null ? $"{verb} {ok}개" : $"{verb} 일부 실패: {err}";
+        StatusText.Text = err is null
+            ? $"{verb} {done}개 완료{(skipped > 0 ? $" · 건너뜀 {skipped}개" : string.Empty)}"
+            : $"{verb} 일부 실패: {err}";
         ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
+    }
+
+    /// <summary>덮어쓰기 <b>복사</b>(현재 이동과 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteCopy(string src, string destDir)
+        => FileOps.CopyOnto(src, FileOps.NaturalDest(destDir, src), overwrite: true);
+
+    /// <summary>덮어쓰기 <b>이동</b>(현재 복사와 동일 처리 — 향후 분기 가능하도록 분리, 사용자 요청).</summary>
+    private static void OverwriteMove(string src, string destDir)
+        => FileOps.MoveOnto(src, FileOps.NaturalDest(destDir, src), overwrite: true);
+
+    /// <summary>대상에 같은 이름이 있을 때 덮어쓰기 확인(예=덮어씀 / 아니오=건너뜀). 다중 파일은 충돌 항목마다 순차 호출.</summary>
+    private async Task<bool> ConfirmOverwriteAsync(bool copy, string sourcePath)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "덮어쓰기 확인",
+            Content = $"'{FileOps.LeafName(sourcePath)}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?",
+            PrimaryButtonText = "덮어쓰기(예)",
+            CloseButtonText = "건너뛰기(아니오)",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = Content.XamlRoot,   // WinUI 3 데스크톱 필수
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    // ── 파일 전송 진행률(상태바) — DND-OW2 ────────────────────────────────
+    // 짧은 작업은 보였다 숨겨지는 짧은 전환. 향후 임계(예상 크기/개수) 기준으로 표시 생략 개선 예정.
+
+    private void BeginTransferProgress(string verb, int total)
+    {
+        TransferProgress.Maximum = total;
+        TransferProgress.Value = 0;
+        TransferProgress.Visibility = Visibility.Visible;
+        TransferProgressText.Visibility = Visibility.Visible;
+        TransferProgressText.Text = $"{verb} 0/{total}";
+    }
+
+    private void UpdateTransferProgress(string verb, int index, int total)
+    {
+        TransferProgress.Value = index;
+        TransferProgressText.Text = $"{verb} {index}/{total}";
+    }
+
+    private void EndTransferProgress()
+    {
+        TransferProgress.Visibility = Visibility.Collapsed;
+        TransferProgressText.Visibility = Visibility.Collapsed;
     }
 
     private bool _activeLeft = true;
