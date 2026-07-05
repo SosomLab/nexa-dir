@@ -26,6 +26,10 @@
 | TA-1 | 타입어헤드 **코어 find_prefix + ABI v7 + 관리형**(A/B/C 범위) | ✨ | 2026-07-04 | [docs/32 §8](32-typeahead-find.md) | 2026-07-04 | **맥 테스트 코어3·인터롭1 green** | ✅(코어) | FindScope·Node.parent 승격 |
 | TA-2 | 타입어헤드 **버퍼 TypeAheadBuffer**(누적/타임아웃/반복cycle/Backspace) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | **맥 xUnit 7 green(39)** | ✅ | IsExtend(확장=현재포함/새·반복=다음) |
 | TA-4/5 | 타입어헤드 **설정 + 앱 배선**(CharacterReceived→버퍼→find_prefix→선택 이동) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | 실기QA 대기 | 🚧 | 패널별 버퍼·범위/타임아웃 설정. 편집/Ctrl·Alt/Space 가드 |
+| BG-N | 빈영역 **새로 만들기 ▶ 폴더/파일/바로가기**(.lnk=IShellLink COM+대상선택)+생성 후 즉시 이름변경 | ✨ | 2026-07-05 | — | 2026-07-05 (`2a2c0ed`) | CI green(app) | 실기QA 대기 | 🚧 | 중복이름 " (2)" 회피·오프스크린 강제실체화 |
+| COL-D1/D2 | 수정 **날짜/시간 컬럼** — 라벨 3종+기본 DateTime(yy/MM/dd HH:mm) | ✨ | 2026-07-05 | — | 2026-07-05 (`1f1f92d`) | CI green(app) | 실기QA 대기 | 🚧 | Date/Time 개별 컬럼·가시성 토글은 COL-D3/D4 후속 |
+| SESS | **탭 세션 저장/복원**(session.json@LocalAppData) — 활성패널·탭·경로·펼침·정렬 | ✨ | 2026-07-05 | [docs/34](34-settings-and-session-persistence.md) | 2026-07-05 (`2a2c0ed`) | 로컬 왕복 검증 · CI green(app) | 실기QA 대기 | 🚧 | 요청/수행 분리·Tick당 1회·유휴·원자적·안전주기·종료flush |
+| CI-FMT | Rust `cargo fmt` 정리(nexa-interop/tree) — CI fmt 게이트 복구 | 🐞 | 2026-07-05 | — | 2026-07-05 (`1e59fd5`) | clippy -D·test green | 2026-07-05 | ✅ | TA 커밋 rustfmt 누락분(로직 무변경) |
 | TA-3 | 타입어헤드 **검색어 HUD `EphemeralOverlay`**(휘발성 표시) | 📐 | 2026-07-04 | [docs/32 §7-A](32-typeahead-find.md) | — | — | ⏸ 후속 | 이동 자체엔 불필요 · 시각 표시 |
 
 ## 2. 이번 세션 버그 수정 (실사용 리포트)
