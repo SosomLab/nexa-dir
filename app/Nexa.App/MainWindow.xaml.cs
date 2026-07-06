@@ -1592,7 +1592,7 @@ public sealed partial class MainWindow : Window
         DirGrid2.StopDragAutoScroll();
         if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
         {
-            StatusText.Text = "드래그 취소";   // ESC 등으로 취소 → 이동 없음
+            StatusText.Text = "드래그 취소 — 변경 없음";   // ESC 취소 또는 대상이 연산 미보고 → 파일 변화 없음
         }
         else if (args.DropResult.HasFlag(DataPackageOperation.Move) && _dragPaths.Count > 0)
         {
@@ -1863,9 +1863,13 @@ public sealed partial class MainWindow : Window
         ui.IsCaptionVisible = true;
         bool copy = op.HasFlag(DataPackageOperation.Copy) && !op.HasFlag(DataPackageOperation.Move);
         string label = string.IsNullOrEmpty(destName) ? "" : destName;
-        ui.Caption = copy
+        string caption = copy
             ? (label.Length == 0 ? "복사" : $"{label}에 복사")
             : (label.Length == 0 ? "이동" : $"{label}(으)로 이동");
+        if (ui.Caption != caption)
+        {
+            ui.Caption = caption;   // 변경 시만 설정 — DragOver는 마우스 이동마다 오므로 동일 값 재설정(비주얼 갱신) 회피
+        }
     }
 
     /// <summary>드롭 대상 폴더의 표시 이름(캡션용) — 리프 폴더명, 드라이브 루트면 경로 자체.</summary>

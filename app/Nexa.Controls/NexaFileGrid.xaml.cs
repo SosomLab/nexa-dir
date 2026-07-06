@@ -109,9 +109,13 @@ public sealed partial class NexaFileGrid : UserControl
                 e.DragUIOverride.IsContentVisible = true;
                 e.DragUIOverride.IsCaptionVisible = true;
                 bool copy = op == DataPackageOperation.Copy;
-                e.DragUIOverride.Caption = string.IsNullOrEmpty(DropTargetName)
+                string caption = string.IsNullOrEmpty(DropTargetName)
                     ? (copy ? "복사" : "이동")
                     : (copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
+                if (e.DragUIOverride.Caption != caption)
+                {
+                    e.DragUIOverride.Caption = caption;   // 변경 시만 설정(마우스 이동마다 재설정 회피)
+                }
             }
         }
         const double edge = 32;   // 가장자리 감지 폭(px)
