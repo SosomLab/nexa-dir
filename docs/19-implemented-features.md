@@ -1,10 +1,10 @@
 # 19 · 구현 기능 현황 & 검증
 
-> **구현된 기능 단위별 요약 + 검증(테스트) 방법**을 한곳에 모은다.
-> ⚠️ **기능을 추가/변경할 때마다 이 문서에 항목을 더한다**(구현 위치·커밋·테스트 절차 포함).
-> 빌드/실행/디버깅 절차 전반은 [18](18-build-and-test.md), 작업 경위는 [journal/](journal/), 구조는 [16](16-project-structure.md).
+> **구현된 기능 단위별 요약 + 검증(테스트) 방법**을 한곳에 모은다(초기 F1~F28 상세).
+> ⚠️ **2026-07-05~ 규약**: 신규 기능·마일스톤 현황은 **[MILESTONES.md](MILESTONES.md)**(기능 기준)·**[DEVLOG.md](DEVLOG.md)**(시간순)가 단일 출처. 이 문서는 초기 F-단위 검증 상세 아카이브로 유지(파일 조작·컬럼 정렬·하단 패널·터미널·미리보기 등 후속 기능은 MILESTONES 참조).
+> 빌드/실행/디버깅 절차 전반은 [18](18-build-and-test.md), 구조는 [16](16-project-structure.md).
 
-전체 코어 테스트: `cd core && cargo test --workspace` (현재 **21 tests green** — nexa-core 2·nexa-vfs 3·nexa-tree 11·nexa-interop 5, + 벤치 1 ignored, **맥/Windows 공통**). **C# 순수 로직 테스트**: `dotnet test app/Nexa.ViewModels.Tests` (**xUnit 12**, net8.0 크로스플랫폼 — 감사 B-1). 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
+전체 코어 테스트: `cd core && cargo test --workspace` (현재 **34 tests green**, +벤치 1 ignored, **맥/Windows 공통** — 트리/선택·정렬·타입어헤드 등). **C# 순수 로직 테스트**: `dotnet test app/Nexa.ViewModels.Tests` (**xUnit 57**, net8.0 크로스플랫폼 — FileOps·정렬·타입어헤드·경로). 앱 빌드/실행: [18](18-build-and-test.md) §2·§6.
 
 > ⚠️ **`dotnet build/run app/Nexa.App` 검증은 Windows(또는 Windows VM)에서만.** 맥에서 실행 시 `NETSDK1100`(EnableWindowsTargeting) → 이어 XamlCompiler 실패 — [11 §6-1](11-dev-environment.md)·[11 §4-4 VM](11-dev-environment.md). 맥에서는 `cargo test`로 코어를 검증한다.
 

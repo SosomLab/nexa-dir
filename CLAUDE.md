@@ -7,7 +7,7 @@
 ## 1. 이 프로젝트는
 
 **Nexa Dir** = 차세대 **Windows 파일 탐색기**(Windows 기본 탐색기 대체). 네이티브 고성능 + 프로툴 UX.
-원격: `SosomLab/nexa-dir`. 현 단계: **M1 진행**(M0 완료·`0.1.0` 태그). C1 코어 트리/선택 이관 main 병합 후, **2차 감사 `refactor/002-audit`** 진행 — 트랙 A 성능(P1/P2/P3)·트랙 B 구조(PanelView·Nexa.ViewModels+C# 테스트) 완료, B-3/트랙 C 예정. → [docs/STATUS.md](docs/STATUS.md).
+원격: `SosomLab/nexa-dir`. 현 단계: **M1 진행**(M0 완료·`0.1.0`). **1~3차 감사 라운드 + 하단 패널 브랜치 main 병합 완료** — 성능(백그라운드 열거·범위 diff·아이콘 LRU 캐시), 구조(PanelView·`Nexa.ViewModels`), **파일 조작**(복사/이동/삭제[휴지통·완전]/이름변경/새로 만들기·컨텍스트 메뉴·클립보드·DnD **단일 전송엔진**[덮어쓰기·바이트 진행률]), **컬럼 정렬**(3상태·다중열), **타입어헤드**, **하단 패널**(정보·미리보기·**ConPTY 터미널**), **미리보기 플러그인 SDK**(`Nexa.Plugins`, MIT) 구현. 남은 M1 = 교차선택 완성·Undo/Redo·설계 계약(트랙 C)·다수 실기 QA. 현황 → [STATUS](docs/STATUS.md)·[MILESTONES](docs/MILESTONES.md)·[DEVLOG](docs/DEVLOG.md).
 
 - 조직: **SosomLab** (<https://sosomlab.com>) · 상업 라이선스 문의: **kiros33@sosomlab.com**
 - 개발자(maintainer): Sangyong Bae · **kiros33@gmail.com**
@@ -21,6 +21,7 @@
 | DR-3 | 배포 | **MSIX + Releases + winget** + 포터블(폴더/단일exe) 가능 설계 |
 | DR-4 | AI | 보류 (M5 전 별도 ADR) |
 | DR-5 | 라이선스 | **소스공개 제한형 PolyForm Noncommercial**(대안 BSL), **공개 예정(현재 private, 진행 후 public 전환)**, 개인무료/상업유료 |
+| DR-6 | 미리보기 플러그인 SDK | **퍼미시브 MIT `Nexa.Plugins`**(미리보기 계약 분리) + 표준 공급자·샘플 플러그인. 앱 본체 라이선스(DR-5)와 **별개**(SDK는 3자 개발용) → [docs/36](docs/36-plugin-development.md) |
 
 ## 3. 핵심 요구 (우선순위)
 
@@ -35,7 +36,7 @@
 
 - **핫패스는 Rust 코어**(VFS·인덱스 tantivy·프리뷰·ops·pty·plugin 호스트 wasmtime/mlua),
   **UI는 WinUI 3(C#)**. **셸 COM/컨텍스트메뉴는 C# 계층**, 플래그십 트리는 **가시 노드 평면 스트림 + 가상화**.
-- 리포 구조(현재): `core/`(Rust 워크스페이스: nexa-core/vfs/tree/interop ✅) · `app/`(`Nexa.App` WinUI ✅ · `Nexa.Controls` 재사용 컨트롤 · **`Nexa.ViewModels`(net8.0 순수 로직)+`.Tests`(xUnit, 맥/Win 공통)**) · `docs/`(00~31) · `scripts/`(bootstrap.sh/ps1) · `.github/`. (예정: `tools/nexa-license-gen`)
+- 리포 구조(현재): `core/`(Rust: nexa-core/vfs/tree/interop ✅, **ABI v7**) · `app/`(`Nexa.App` WinUI [`Terminal/` ConPTY·VT · `Preview/` 호스트] · `Nexa.Controls` 재사용 컨트롤 · **`Nexa.ViewModels`**(net8.0 순수 로직: `FileOps`·정렬·타입어헤드·경로)+`.Tests`(xUnit) · **`Nexa.Plugins`**(미리보기 SDK, MIT)+`.Samples`) · `docs/`(00~37 + DEVLOG/MILESTONES/BRANCHES/TASKS/BUGS/TODO) · `scripts/` · `.github/`. (예정: `tools/nexa-license-gen`)
 - 상세 구조·파일별 목적 → [docs/16](docs/16-project-structure.md). 현황 → [docs/STATUS.md](docs/STATUS.md).
 
 ## 5. 개발 환경 ([docs/11](docs/11-dev-environment.md))
@@ -69,6 +70,6 @@
 
 ## 8. 다음 단계
 
-1. ~~리포 스캐폴딩~~ ✅ · ~~M0(인터롭·스트리밍 열거·가상화 렌더·CI)~~ ✅(`0.1.0`).
-2. **M1 1순위 묶음**: 계층 경로 바 ✅ · 탭/듀얼 ✅ · 플래그십(인라인 트리+교차선택, 코어 이관 C1) ✅초안 · **컨텍스트 메뉴**·**퀵 런처**(미구현).
-3. **2차 감사(`refactor/002-audit`) 남은 트랙** → [docs/STATUS.md](docs/STATUS.md)·[journal](docs/journal/refactor-002-worklog.md): 트랙 A(P1/P2/P3)·B-2a·B-1 완료. 다음 **B-3(PanelControl XAML dedup)** → 트랙 C(설계 계약: nexa-ops·VFS Provider·watcher·에러 모델 표준) → 트랙 D(NFR 재보정·배포 이원화). 알려진 이슈 [docs/BUGS.md](docs/BUGS.md).
+1. ~~리포 스캐폴딩~~ ✅ · ~~M0~~ ✅(`0.1.0`).
+2. **M1 대부분 구현**: 경로 바·탭/듀얼·플래그십(인라인 트리)·**파일 조작**(복사/이동/삭제/이름변경/새로만들기)·**컨텍스트 메뉴**·**클립보드**·**DnD 전송엔진**·**컬럼 정렬**·**타입어헤드**·**하단 패널**(정보·미리보기·**ConPTY 터미널**)·**미리보기 플러그인 SDK**. (퀵 런처=placeholder.)
+3. **남은 M1·후속** → [MILESTONES](docs/MILESTONES.md)·[TASKS](docs/TASKS.md)·[TODO](docs/TODO.md): 교차폴더 선택 완성(C3/C4)·러버밴드·**Undo/Redo**(B-13u)·**nexa-ops 이관**(현 `Nexa.ViewModels.FileOps` seam)·설계 계약(트랙 C: VFS Provider·watcher 완성·에러 모델)·**다수 실기 QA** [QA-003](docs/QA-003-checklist.md). 알려진 이슈 [BUGS](docs/BUGS.md)(터미널 캐럿 BUG-007·SGR BUG-008 등).

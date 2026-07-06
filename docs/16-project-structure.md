@@ -105,6 +105,7 @@ nexa-dir/
 - `STATUS.md` 현황 요약 · `journal/` 타임스탬프 작업 기록(질문·결정·진행)
 
 ## 3. 현재 상태 요약
-- 코어: `cargo test` green(**4 crates / 21 tests** + 벤치 1 ignored), fmt·clippy clean. nexa-vfs 스트리밍 열거·필터 + nexa-tree 트리/선택 모델 + interop `nexa_tree_*` C ABI(v5).
-- 앱: 듀얼 패널·탭·경로바·인라인 트리 가상화·**비동기 로드** 동작(C# P/Invoke ↔ Rust cdylib) — Windows/CI 빌드 검증, **CI success**.
-- 현재 브랜치: `refactor/002-audit`(2차 감사) — 트랙 A 성능 P3(ABI v5)·P1(백그라운드 열거) 완료, 다음 P2. 상세 [STATUS](STATUS.md)·[journal](journal/archive/refactor-002-worklog.md).
+- 코어: `cargo test` green(**4 crates / 34 tests** + 벤치 1 ignored), fmt·clippy clean. nexa-vfs 스트리밍 열거·필터 + nexa-tree 트리/선택/정렬/타입어헤드 + interop `nexa_tree_*` C ABI(**v7**).
+- ViewModels(net8.0): `dotnet test app/Nexa.ViewModels.Tests` — **xUnit 57 green**(FileOps·정렬·타입어헤드·경로 등 크로스플랫폼).
+- 앱: 듀얼 패널·탭·경로바·인라인 트리·**파일 조작**(전송엔진·컨텍스트메뉴·클립보드·DnD)·**컬럼 정렬**·**하단 패널**(정보·미리보기·ConPTY 터미널)·**미리보기 플러그인 SDK** 동작(C# P/Invoke ↔ Rust cdylib) — Windows/CI 빌드 검증.
+- 현재: **main**(1~3차 감사 + 하단 패널 브랜치 병합 완료). 현황 → [STATUS](STATUS.md)·[MILESTONES](MILESTONES.md)·[DEVLOG](DEVLOG.md).
