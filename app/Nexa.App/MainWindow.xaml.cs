@@ -1922,6 +1922,7 @@ public sealed partial class MainWindow : Window
     /// 원본 볼륨을 (동기) DragOver 중 알 수 없어 기본 <b>복사</b>(안전·비파괴), Shift=이동 강제(DND-EXT).</summary>
     private static DataPackageOperation ExternalDragOp(DragEventArgs e)
     {
+        DebugDnd(e);   // TODO(진단 후 제거): 외부 드래그 포맷 실측
         if (!e.DataView.Contains(StandardDataFormats.StorageItems))
         {
             return DataPackageOperation.None;   // 텍스트 등 파일 아닌 드래그는 금지
@@ -1929,6 +1930,30 @@ public sealed partial class MainWindow : Window
         return e.Modifiers.HasFlag(DragDropModifiers.Shift)
             ? DataPackageOperation.Move
             : DataPackageOperation.Copy;
+    }
+
+    // TODO(진단 후 제거): 외부 드래그가 금지로 보이는 문제 실측용 — DragOver에 도달하는지·포맷이 무엇인지.
+    private static DateTime _dndLogLast;
+    private static void DebugDnd(DragEventArgs e)
+    {
+        if ((DateTime.Now - _dndLogLast).TotalMilliseconds < 500) { return; }   // 로그 폭주 방지
+        _dndLogLast = DateTime.Now;
+        try
+        {
+            string formats = string.Join(" | ", e.DataView.AvailableFormats);
+            bool hasItems = e.DataView.Contains(StandardDataFormats.StorageItems);
+            File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nexa-dnd-debug.log"),
+                $"{DateTime.Now:HH:mm:ss.fff} DragOver formats=[{formats}] StorageItems={hasItems}\r\n");
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nexa-dnd-debug.log"),
+                    $"{DateTime.Now:HH:mm:ss.fff} DragOver EX: {ex.Message}\r\n");
+            }
+            catch { }
+        }
     }
 
     /// <summary>외부 드롭의 DataView에서 파일시스템 경로 목록 추출. 경로 없는 가상 항목(zip 내부 등)은 제외.</summary>

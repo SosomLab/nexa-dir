@@ -124,3 +124,14 @@ grid.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority
 - **원인**: SGR 중 **faint(2, 흐리게)** 를 렌더에 미반영(파서는 플래그만 보관). 일부 확장/드문 시퀀스 미처리. 파워라인 글리프는 별개(Nerd Font 문제).
 - **해결(faint)**: `TermCell.Faint` 필드 추가 → `Put`에서 셀에 보관, `SameStyle`에 포함, `TerminalView` 렌더에서 `Opacity=0.45`로 표시. PSReadLine 인라인 예측(history)이 **VS Code처럼 연한 회색 미리보기**로 보인다.
 - **해결 방향(잔여)**: 미처리 확장 SGR/CSI 보강. (파워라인 글리프는 Nerd Font 적용 — 별도.)
+
+## BUG-009 · 외부(탐색기→앱) 드래그가 금지 커서로 표시 (🔍 조사 중)
+
+- **심각도**: 중 · **상태**: 🔍 조사 중(2026-07-07) — 진단 로그 심어둠. 관련 [docs/33](33-file-ops-dnd-design.md) DND-EXT.
+- **증상**: DND-EXT 구현(`09ec2b2`) 후에도 **탐색기에서 앱으로 파일 드래그 시 빨간 금지 표시**. 드롭 불가.
+- **배제한 원인**: UIPI(권한 불일치) — 관리자 셸에서 띄운 앱은 차단이 맞았으나(docs/33 함정 기록), **탐색기에서 직접 실행(일반 권한)해도 재현** → UIPI 단독 원인 아님.
+- **의심**: unpackaged(`WindowsPackageType=None`) WinUI 3에서 외부 드래그의 `DataView.Contains(StorageItems)`가 DragOver 중 false이거나, DragOver 자체가 미도달(WinAppSDK 이슈 계열).
+- **진단(임시 코드)**: `ExternalDragOp`에 `DebugDnd` 로그 — 외부 드래그 DragOver 도달 시 `%TEMP%\nexa-dnd-debug.log`에 `AvailableFormats`·`StorageItems` 여부 기록(0.5s 스로틀).
+  - **로그 기록 있음** → 핸들러 도달, 포맷 판정 문제 → 판정 로직 수정.
+  - **로그 비어 있음** → DragOver 미도달 → 권한/WinUI unpackaged 쪽 조사(패키징 실행 비교 등).
+- **다음**: 탐색기에서 파일을 목록 위로 드래그(드롭 불요) 후 로그 확인 → 원인 분기. 진단 후 `DebugDnd` 제거.

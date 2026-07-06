@@ -13,6 +13,7 @@
 
 ## 2026-07-07
 
+- **🔴 [BUG-009](BUGS.md) 등록(긴급, [TODO B-16dnd](TODO.md))**: 외부(탐색기→앱) 드래그가 여전히 금지 커서 — UIPI 배제(일반 권한 재현), unpackaged WinUI 3의 StorageItems 미노출/DragOver 미도달 의심. **진단 로그 심음**(`%TEMP%\nexa-dnd-debug.log`) → 다음 세션 로그로 원인 분기. UIPI 함정(관리자 실행 시 DnD 차단)은 docs/33에 기록.
 - **Drag & Drop 전면 검토 → P1/P2/P3 개선**(3커밋): **외부(탐색기→앱) 파일 드롭 수신**(DND-EXT — 행·탭·빈 영역, deferral+StorageItems→기존 전송 엔진 합류, 복사 기본/Shift=이동; 기존 "수락 표시 후 무동작" 버그 해소) · **자기/하위 폴더 드롭 UI 차단**(DND-CYCLE) · **드래그 시작 StorageItem 병렬 취득**(대량 선택 지연 완화) · **외부 이동 드롭 후 패널 갱신** · 캡션 변경 시만 설정·문구 정리. 상세 [docs/33](33-file-ops-dnd-design.md) 07-07 절 · [journal/2026-07-07.md](journal/2026-07-07.md).
 - **내장 터미널 UX 일괄 개선**(BP-T 후속): **캐럿 표시**([BUG-007](BUGS.md) ☑ — 오버레이 블록·포커스 시 깜빡임/비포커스 중공) · **클릭 포커스 안정화**(handledEventsToo+enqueue 재포커스) · **Tab 자동완성**(포커스 이동 차단·Shift+Tab 역방향) · **Backspace=DEL(0x7F)**(0x08=단어삭제 오매핑 수정) · **faint(SGR 2) 렌더**([BUG-008](BUGS.md) ◐ — PSReadLine 예측을 VS Code처럼 연한 회색으로) · **고정폭 셀 렌더**(Canvas 절대 배치 + 전각 2칸 — 캐럿/열 드리프트 해소) · **ECH(CSI X)·DECSC/DECRC** 구현(백스페이스 잔상 제거). 빌드 경고 0·에러 0. 상세 [journal/2026-07-07.md](journal/2026-07-07.md).
 
