@@ -1,5 +1,7 @@
 # STATUS — Nexa Dir 진행 현황
 
+> 🏷️ **릴리스 `0.2.0`** (2026-07-06) — `0.1.0`(C1 이전 베이스라인) 이후 M1 대규모 진행분. [Releases](https://github.com/SosomLab/nexa-dir/releases). (아티팩트=소스/마일스톤 태그; MSIX/포터블은 패키징 후속.)
+>
 > **갱신: 2026-07-06 (KST) · `feat/bottom-panel-info` → main 병합**(하단 패널 콘텐츠). 하단 패널(Ctrl+` 토글·세션 저장) 안에:
 > **정보**(선택 항목 속성) · **미리보기**(텍스트·이미지 — 표준 공급자 + 플러그인, BP-2) · **ConPTY 임베디드 터미널**(VT 에뮬레이터·색/화면버퍼·exit 재시작·선택 탭 cwd·키보드 캡처, BP-T) ·
 > **미리보기 플러그인 SDK `Nexa.Plugins`**(퍼미시브 MIT, DR-6) + 샘플 플러그인(텍스트·이미지). 알려진 이슈: 터미널 캐럿 미표시([BUG-007](BUGS.md))·일부 SGR 색 미반영([BUG-008](BUGS.md)).

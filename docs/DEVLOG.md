@@ -13,6 +13,7 @@
 
 ## 2026-07-06
 
+- **🏷️ 릴리스 `0.2.0`** — `0.1.0` 이후 M1 대규모 진행분(파일 조작 전체·컬럼 정렬·타입어헤드·하단 패널[정보·미리보기·ConPTY 터미널]·미리보기 플러그인 SDK·문서 위키)을 묶어 태그·GitHub Release. 버전 동기화(Cargo/csproj 0.2.0). 아티팩트(MSIX/포터블)는 패키징 인프라 미비로 후속([12](12-packaging-portable.md)). 상세 [journal/2026-07-06.md](journal/2026-07-06.md).
 - **전체 문서 통합 최신화**(다른 PC 병합분 정합): 이 PC 저장소 최신화(main FF 98커밋)·앱 빌드 green 후, 지연된 기준·참조 문서를 맞춤 — `CLAUDE.md`(현단계·구조·DR-6·다음단계)·`STATUS`(07-06 하단패널 블록)·`MILESTONES`(BP-2/터미널/플러그인 ☐→✅·M2 🚧)·`docs/16`·`docs/19`(카운트 34/57·ABI v7). 상세 [journal/2026-07-06.md](journal/2026-07-06.md).
 - **하단 패널 콘텐츠 `feat/bottom-panel-info` → main 병합**(`3dd423a`): BP-2(정보·미리보기·플러그인 SDK) + BP-T(터미널).
   - **미리보기 시스템 + 플러그인**: 표준 `IPreviewProvider`+레지스트리(텍스트/이미지) · **퍼미시브 MIT SDK `Nexa.Plugins`**(DR-6)+샘플+**개발 매뉴얼**([36](36-plugin-development.md)) · 크기 상호연동 · 로딩 부하 방지 wrapper(디바운스/취소).
