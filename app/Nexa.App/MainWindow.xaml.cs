@@ -82,11 +82,11 @@ public sealed partial class MainWindow : Window
             p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
         }
         // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
-        DirGrid.BodyDropped += m => OnPanelBackgroundDrop(true, m);
-        DirGrid2.BodyDropped += m => OnPanelBackgroundDrop(false, m);
-        // 빈 영역 드래그 커서/캡션 연산 결정(자기 폴더로 Move는 금지·Copy는 복제 허용, B-14dnd/DND-SELF).
-        DirGrid.BodyDragOperation = m => BackgroundDragOp(true, m);
-        DirGrid2.BodyDragOperation = m => BackgroundDragOp(false, m);
+        DirGrid.BodyDropped += e => OnPanelBackgroundDrop(true, e);
+        DirGrid2.BodyDropped += e => OnPanelBackgroundDrop(false, e);
+        // 빈 영역 드래그 커서/캡션 연산 결정(자기 폴더로 Move는 금지·Copy는 복제 허용·외부=복사, B-14dnd/DND-SELF/DND-EXT).
+        DirGrid.BodyDragOperation = e => BackgroundDragOp(true, e);
+        DirGrid2.BodyDragOperation = e => BackgroundDragOp(false, e);
         // 드래그 중 탭 위에 머물면 그 탭으로 전환(폴더가 보이게, B-13 · 시간=설정 TabDwellMs, B-15h).
         _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
         _tabDwellTimer.Tick += (_, _) =>
@@ -1595,16 +1595,19 @@ public sealed partial class MainWindow : Window
         _dragPaths.Clear();
     }
 
-    /// <summary>폴더 행 위 드래그 → 자기 자신이 아닌 폴더면 이동 수락(캡션 표시).</summary>
+    /// <summary>폴더 행 위 드래그 → 수락(캡션 표시). 내부=볼륨/수정키 규칙(자기·하위 폴더 금지), 외부=파일 드래그면 복사 기본(DND-EXT).</summary>
     private void OnRowDragOver(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir
-            && _dragPaths.Count > 0 && !_dragPaths.Any(p => PathEq(p, item.FullPath)))
+        var op = DataPackageOperation.None;
+        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir)
         {
-            e.AcceptedOperation = DragOp(item.FullPath, e.Modifiers);   // 같은 디스크=이동/다른=복사, Ctrl/Shift 강제(B-14dnd)
-            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(item.FullPath));  // 탐색기식 라이브 캡션(SHELL-DND)
-            // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h).
-            if (!ReferenceEquals(_folderDwellTarget, item))
+            op = _dragPaths.Count > 0
+                ? DragOp(item.FullPath, e.Modifiers)              // 내부: 같은 디스크=이동/다른=복사, Ctrl/Shift 강제(B-14dnd) + 자기/하위 금지
+                : ExternalDragOp(e);                              // 외부(탐색기 등): StorageItems면 복사 기본
+            e.AcceptedOperation = op;
+            ApplyDragCaption(e.DragUIOverride, op, FolderLabel(item.FullPath));  // 탐색기식 라이브 캡션(SHELL-DND)
+            // 이 폴더에 일정 시간 머물면 진입(spring-load, B-15h) — 수락된 대상에서만.
+            if (op != DataPackageOperation.None && !ReferenceEquals(_folderDwellTarget, item))
             {
                 _folderDwellTarget = item;
                 _folderDwellLeft = PanelUnderPointer(fe) ?? _activeLeft;
@@ -1616,6 +1619,9 @@ public sealed partial class MainWindow : Window
         {
             e.AcceptedOperation = DataPackageOperation.None;
             ApplyDragCaption(e.DragUIOverride, DataPackageOperation.None, null);   // 금지 대상 → 캡션 숨김
+        }
+        if (op == DataPackageOperation.None)
+        {
             CancelFolderDwell();
         }
     }
@@ -1629,48 +1635,101 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>폴더 행에 드롭 → 그 폴더로 이동/복사(디스크·Alt에 따라). 파일/빈 영역은 본문으로 버블(현재 폴더로, B-12).</summary>
-    private void OnRowDrop(object sender, DragEventArgs e)
+    /// <summary>폴더 행에 드롭 → 그 폴더로 이동/복사(내부) 또는 외부 파일 드롭 수신(DND-EXT). 파일/빈 영역은 본문으로 버블(현재 폴더로, B-12).</summary>
+    private async void OnRowDrop(object sender, DragEventArgs e)
     {
         CancelFolderDwell();
-        if (sender is FrameworkElement fe && fe.Tag is DirItem item && item.IsDir && _dragPaths.Count > 0)
+        if (sender is not FrameworkElement fe || fe.Tag is not DirItem item || !item.IsDir)
         {
-            TransferPathsInto(_dragSourceLeft, _dragPaths, item.FullPath, DragOp(item.FullPath, e.Modifiers));
+            return;   // 파일 행 등 → 본문으로 버블(현재 폴더 드롭)
+        }
+        if (_dragPaths.Count > 0)
+        {
+            var op = DragOp(item.FullPath, e.Modifiers);
+            if (op != DataPackageOperation.None)   // 자기/하위 폴더 등 금지면 무동작(방어 — DragOver가 이미 차단)
+            {
+                TransferPathsInto(_dragSourceLeft, _dragPaths, item.FullPath, op);
+            }
             _dragPaths.Clear();
             e.Handled = true;   // 폴더 드롭만 소비
+            return;
+        }
+        // 외부(탐색기/다른 인스턴스) 드롭: StorageItems에서 경로 추출(비동기 → deferral) 후 동일 엔진으로.
+        var extOp = ExternalDragOp(e);
+        if (extOp != DataPackageOperation.None)
+        {
+            e.Handled = true;
+            var deferral = e.GetDeferral();
+            try
+            {
+                var paths = await GetExternalPathsAsync(e.DataView);
+                if (paths.Count > 0)
+                {
+                    TransferPathsInto(_activeLeft, paths, item.FullPath, extOp);
+                }
+            }
+            finally
+            {
+                deferral.Complete();
+            }
         }
     }
 
-    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동/복사(좌우 겸용, B-12/B-14dnd).</summary>
-    private void OnPanelBackgroundDrop(bool destLeft, DragDropModifiers mods)
+    /// <summary>패널 빈 영역(행이 소비하지 않은 곳)에 드롭 → 그 패널의 현재 폴더로 이동/복사(좌우 겸용, B-12/B-14dnd).
+    /// 내부 드래그는 <c>_dragPaths</c>, 외부(탐색기 등)는 <c>DataView</c>의 StorageItems에서 경로 추출(DND-EXT).</summary>
+    private async void OnPanelBackgroundDrop(bool destLeft, DragEventArgs e)
     {
-        if (_dragPaths.Count == 0)
+        string destDir = Panel(destLeft).Active.Current;
+        if (_dragPaths.Count > 0)
+        {
+            var op = BackgroundDragOp(destLeft, e);
+            if (op != DataPackageOperation.None && !string.IsNullOrEmpty(destDir))
+            {
+                TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, op);   // 자기폴더 Move는 None → 무시
+            }
+            _dragPaths.Clear();
+            return;
+        }
+        // 외부(탐색기/다른 인스턴스) 드롭: StorageItems 경로 추출(비동기 → deferral) 후 동일 엔진으로.
+        var extOp = ExternalDragOp(e);
+        if (extOp == DataPackageOperation.None || string.IsNullOrEmpty(destDir))
         {
             return;
         }
-        string destDir = Panel(destLeft).Active.Current;
-        var op = BackgroundDragOp(destLeft, mods);
-        if (op != DataPackageOperation.None && !string.IsNullOrEmpty(destDir))
+        var deferral = e.GetDeferral();
+        try
         {
-            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, op);   // 자기폴더 Move는 None → 무시
+            var paths = await GetExternalPathsAsync(e.DataView);
+            if (paths.Count > 0)
+            {
+                TransferPathsInto(destLeft, paths, destDir, extOp);
+            }
         }
-        _dragPaths.Clear();
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     /// <summary>
     /// 빈 영역(현재 폴더) 드롭의 연산 — 기본 <see cref="DragOp"/>에 <b>자기 폴더 규칙</b> 추가:
     /// 드래그 항목이 이미 이 폴더 소속인데 <b>Move면 무의미 → None(금지)</b>, <b>Copy는 복제 허용</b>(…(2)).
     /// (탐색기 동일: 같은 폴더로 그냥 끌면 아무 일 없음, Ctrl+끌면 사본 생성.)
+    /// 외부(파일) 드래그는 <see cref="ExternalDragOp"/>(복사 기본), 파일 아닌 외부 드래그(텍스트 등)는 금지.
     /// </summary>
-    private DataPackageOperation BackgroundDragOp(bool destLeft, DragDropModifiers mods)
+    private DataPackageOperation BackgroundDragOp(bool destLeft, DragEventArgs e)
     {
         string destDir = Panel(destLeft).Active.Current;
         if (string.IsNullOrEmpty(destDir))
         {
             return DataPackageOperation.None;
         }
-        var op = DragOp(destDir, mods);
-        if (op == DataPackageOperation.Move && _dragPaths.Count > 0
+        if (_dragPaths.Count == 0)
+        {
+            return ExternalDragOp(e);   // 외부: 파일 드래그(StorageItems)만 수락 — 예전 "수락 표시 후 무동작" 방지
+        }
+        var op = DragOp(destDir, e.Modifiers);
+        if (op == DataPackageOperation.Move
             && _dragPaths.All(p => PathEq(ParentDir(p), destDir)))
         {
             return DataPackageOperation.None;   // 자기 폴더로 이동 = no-op → 금지
@@ -1701,14 +1760,15 @@ public sealed partial class MainWindow : Window
         _folderDwellTarget = null;
     }
 
-    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(디스크·Alt).</summary>
+    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(내부=디스크·수정키, 외부=복사 기본).</summary>
     private void OnTabDragOver(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0)
+        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && !string.IsNullOrEmpty(tab.Current))
         {
-            e.AcceptedOperation = DragOp(tab.Current, e.Modifiers);
-            ApplyDragCaption(e.DragUIOverride, e.AcceptedOperation, FolderLabel(tab.Current));   // 탐색기식 라이브 캡션(SHELL-DND)
-            if (!ReferenceEquals(_tabDwellTarget, tab))
+            var op = _dragPaths.Count > 0 ? DragOp(tab.Current, e.Modifiers) : ExternalDragOp(e);
+            e.AcceptedOperation = op;
+            ApplyDragCaption(e.DragUIOverride, op, FolderLabel(tab.Current));   // 탐색기식 라이브 캡션(SHELL-DND)
+            if (op != DataPackageOperation.None && !ReferenceEquals(_tabDwellTarget, tab))
             {
                 _tabDwellTarget = tab;
                 _tabDwellTimer.Stop();
@@ -1732,18 +1792,45 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동(즉시, 2초 기다림 없이도 가능).</summary>
-    private void OnTabDrop(object sender, DragEventArgs e)
+    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동/복사(즉시, 2초 기다림 없이도 가능). 외부 파일 드롭도 수신(DND-EXT).</summary>
+    private async void OnTabDrop(object sender, DragEventArgs e)
     {
         _tabDwellTimer.Stop();
         _tabDwellTarget = null;
-        if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && _dragPaths.Count > 0
-            && !string.IsNullOrEmpty(tab.Current))
-        {
-            TransferPathsInto(_dragSourceLeft, _dragPaths, tab.Current, DragOp(tab.Current, e.Modifiers));
-        }
-        _dragPaths.Clear();
         e.Handled = true;
+        if (sender is not FrameworkElement fe || fe.Tag is not PanelTab tab || string.IsNullOrEmpty(tab.Current))
+        {
+            _dragPaths.Clear();
+            return;
+        }
+        if (_dragPaths.Count > 0)
+        {
+            var op = DragOp(tab.Current, e.Modifiers);
+            if (op != DataPackageOperation.None)   // 자기/하위 폴더 금지 방어
+            {
+                TransferPathsInto(_dragSourceLeft, _dragPaths, tab.Current, op);
+            }
+            _dragPaths.Clear();
+            return;
+        }
+        var extOp = ExternalDragOp(e);
+        if (extOp == DataPackageOperation.None)
+        {
+            return;
+        }
+        var deferral = e.GetDeferral();
+        try
+        {
+            var paths = await GetExternalPathsAsync(e.DataView);
+            if (paths.Count > 0)
+            {
+                TransferPathsInto(_activeLeft, paths, tab.Current, extOp);
+            }
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     /// <summary>
@@ -1786,6 +1873,10 @@ public sealed partial class MainWindow : Window
 
     private DataPackageOperation DragOp(string destDir, DragDropModifiers mods)
     {
+        if (DragIntoSelfOrChild(destDir))
+        {
+            return DataPackageOperation.None;   // 자기 자신/하위 폴더로는 이동·복사 모두 금지(탐색기 동일, 순환 방지)
+        }
         if (mods.HasFlag(DragDropModifiers.Control))
         {
             return DataPackageOperation.Copy;   // Ctrl = 복사 강제
@@ -1796,6 +1887,58 @@ public sealed partial class MainWindow : Window
         }
         bool sameVol = _dragPaths.Count == 0 || VolumeEq(_dragPaths[0], destDir);
         return sameVol ? DataPackageOperation.Move : DataPackageOperation.Copy;   // 기본: 디스크별
+    }
+
+    /// <summary>드롭 대상이 드래그 원본(폴더) <b>자신 또는 그 하위</b>인가 — UI 단계에서 금지(커서/캡션).
+    /// (기존엔 전송 단계 FileOps 예외로만 걸려 "일부 실패"로 끝났음 — 탐색기는 드래그 중 금지 커서.)</summary>
+    private bool DragIntoSelfOrChild(string destDir)
+    {
+        string dest = destDir.TrimEnd('\\', '/');
+        foreach (var p in _dragPaths)
+        {
+            string src = p.TrimEnd('\\', '/');
+            if (dest.Equals(src, StringComparison.OrdinalIgnoreCase)
+                || dest.StartsWith(src + "\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>외부(다른 앱/탐색기/다른 인스턴스) 드래그의 연산 — <b>파일 항목(StorageItems)일 때만</b> 수락.
+    /// 원본 볼륨을 (동기) DragOver 중 알 수 없어 기본 <b>복사</b>(안전·비파괴), Shift=이동 강제(DND-EXT).</summary>
+    private static DataPackageOperation ExternalDragOp(DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return DataPackageOperation.None;   // 텍스트 등 파일 아닌 드래그는 금지
+        }
+        return e.Modifiers.HasFlag(DragDropModifiers.Shift)
+            ? DataPackageOperation.Move
+            : DataPackageOperation.Copy;
+    }
+
+    /// <summary>외부 드롭의 DataView에서 파일시스템 경로 목록 추출. 경로 없는 가상 항목(zip 내부 등)은 제외.</summary>
+    private static async Task<List<string>> GetExternalPathsAsync(Windows.ApplicationModel.DataTransfer.DataPackageView view)
+    {
+        var paths = new List<string>();
+        try
+        {
+            var items = await view.GetStorageItemsAsync();
+            foreach (var it in items)
+            {
+                if (!string.IsNullOrEmpty(it.Path))
+                {
+                    paths.Add(it.Path);
+                }
+            }
+        }
+        catch
+        {
+            // 원본 앱이 이미 닫혔거나 마샬링 실패 등 → 빈 목록(무동작)
+        }
+        return paths;
     }
 
     /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(같은 디스크=이동 취급, 보수적).</summary>

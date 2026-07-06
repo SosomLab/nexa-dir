@@ -80,14 +80,15 @@ public sealed partial class NexaFileGrid : UserControl
     private readonly DispatcherTimer _autoScroll = new();
     private double _autoScrollDelta;
 
-    /// <summary>본문 빈 영역(행이 소비하지 않은 곳)에 드롭됨 — 호스트가 현재 폴더로 이동/복사 처리(수정키 전달, B-12/B-14dnd).</summary>
-    public event Action<DragDropModifiers>? BodyDropped;
+    /// <summary>본문 빈 영역(행이 소비하지 않은 곳)에 드롭됨 — 호스트가 현재 폴더로 이동/복사 처리
+    /// (이벤트 인자 전달 — 외부 드롭은 호스트가 <c>DataView</c>/deferral 사용, B-12/B-14dnd/DND-EXT).</summary>
+    public event Action<DragEventArgs>? BodyDropped;
 
     /// <summary>빈 영역 드롭 캡션에 쓸 대상 폴더 표시명(호스트가 현재 폴더 변경 시 갱신). 비면 일반 "복사/이동" 캡션.</summary>
     public string? DropTargetName { get; set; }
 
-    /// <summary>빈 영역 드래그의 연산 결정(호스트가 자기폴더 Move 금지 등 판단). 미설정 시 수정키 근사.</summary>
-    public Func<DragDropModifiers, DataPackageOperation>? BodyDragOperation { get; set; }
+    /// <summary>빈 영역 드래그의 연산 결정(호스트가 자기폴더 Move 금지·외부 드래그 등 판단). 미설정 시 금지(None).</summary>
+    public Func<DragEventArgs, DataPackageOperation>? BodyDragOperation { get; set; }
 
     /// <summary>본문 위 드래그 → 자동 스크롤 + <b>빈 영역만</b> 연산/캡션 결정(폴더 행은 호스트 <c>OnRowDragOver</c>가 이미 수락 → 덮어쓰지 않음).</summary>
     private void OnBodyDragOver(object sender, DragEventArgs e)
@@ -96,8 +97,7 @@ public sealed partial class NexaFileGrid : UserControl
         // 그 폴더명 캡션/연산을 유지(덮어쓰면 폴더 위에서도 현재 폴더 캡션이 돼버림). None(파일 행·진짜 빈 영역)일 때만 배경 처리.
         if (e.AcceptedOperation == DataPackageOperation.None)
         {
-            var op = BodyDragOperation?.Invoke(e.Modifiers)
-                ?? (e.Modifiers.HasFlag(DragDropModifiers.Control) ? DataPackageOperation.Copy : DataPackageOperation.Move);
+            var op = BodyDragOperation?.Invoke(e) ?? DataPackageOperation.None;
             e.AcceptedOperation = op;
             e.DragUIOverride.IsGlyphVisible = false;
             if (op == DataPackageOperation.None)
@@ -134,7 +134,7 @@ public sealed partial class NexaFileGrid : UserControl
     private void OnBodyDragEnd(object sender, DragEventArgs e)
     {
         StopAutoScroll();
-        BodyDropped?.Invoke(e.Modifiers);   // 행이 소비하지 않은 드롭 = 빈 영역 → 현재 폴더로(수정키 전달)
+        BodyDropped?.Invoke(e);   // 행이 소비하지 않은 드롭 = 빈 영역 → 현재 폴더로(외부 드롭은 호스트가 DataView 읽음)
     }
 
     private void StopAutoScroll()
