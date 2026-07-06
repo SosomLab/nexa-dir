@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Nexa.App.Terminal;
 
-/// <summary>터미널 셀 하나 — 문자 + 전경/배경색(ARGB) + 굵게/반전.</summary>
+/// <summary>터미널 셀 하나 — 문자 + 전경/배경색(ARGB) + 굵게/반전/흐리게(faint).</summary>
 public struct TermCell
 {
     public char Ch;
@@ -11,6 +11,7 @@ public struct TermCell
     public uint Bg;
     public bool Bold;
     public bool Reverse;
+    public bool Faint;   // SGR 2 — PSReadLine 인라인 예측(history) 등이 연한 회색으로 표시하는 데 사용.
 }
 
 /// <summary>
@@ -29,6 +30,7 @@ public sealed class VtScreen
     private const int MaxScrollback = 800;
 
     private int _cx, _cy;
+    private int _savedCx, _savedCy;   // DECSC/DECRC(ESC 7/8)·CSI s/u 커서 저장/복원
     private uint _fg = DefaultFg, _bg = DefaultBg;
     private bool _bold, _reverse, _faint;
 
@@ -37,12 +39,20 @@ public sealed class VtScreen
     private S _state = S.Ground;
     private readonly List<int> _pars = new();
     private int _cur = -1;         // 현재 파라미터 누적(-1=없음)
-    private bool _priv;            // CSI ? private
 
     public VtScreen(int cols, int rows) => Resize(cols, rows);
 
     public int Cols => _cols;
     public int Rows => _rows;
+
+    /// <summary>커서 열(0-기준, 가시 화면 좌표). 렌더가 캐럿 위치 계산에 사용.</summary>
+    public int CursorCol => _cx;
+
+    /// <summary>커서 행(0-기준, 가시 화면 내). 절대 라인 인덱스 = <see cref="ScrollbackCount"/> + 이 값.</summary>
+    public int CursorRow => _cy;
+
+    /// <summary>스크롤백 라인 수(<see cref="Lines"/>에서 가시 화면 앞에 오는 라인 수).</summary>
+    public int ScrollbackCount => _scrollback.Count;
 
     /// <summary>렌더용 라인 목록(스크롤백 + 현재 화면). 각 라인은 셀 배열.</summary>
     public IReadOnlyList<TermCell[]> Lines
@@ -131,10 +141,12 @@ public sealed class VtScreen
     {
         switch (ch)
         {
-            case '[': _state = S.Csi; _pars.Clear(); _cur = -1; _priv = false; break;
+            case '[': _state = S.Csi; _pars.Clear(); _cur = -1; break;
             case ']': _state = S.Osc; break;
             case '(': case ')': case '*': case '+': _state = S.Ground; break;   // charset 지정 — 다음 1글자는 무시(간이)
             case 'M': ReverseIndex(); _state = S.Ground; break;
+            case '7': _savedCx = _cx; _savedCy = _cy; _state = S.Ground; break;   // DECSC 커서 저장
+            case '8': RestoreCursor(); _state = S.Ground; break;                  // DECRC 커서 복원
             case '=': case '>': _state = S.Ground; break;
             case 'c': FullReset(); _state = S.Ground; break;
             default: _state = S.Ground; break;
@@ -145,8 +157,7 @@ public sealed class VtScreen
     {
         if (ch == '?')
         {
-            _priv = true;
-            return;
+            return;   // private CSI(?) 마커 — 현재 미사용(?…h/l 등은 최종 바이트에서 무시)
         }
         if (ch >= '0' && ch <= '9')
         {
@@ -201,22 +212,38 @@ public sealed class VtScreen
             case 'M': DeleteLines(Math.Max(1, p0)); break;
             case 'P': DeleteChars(Math.Max(1, p0)); break;
             case '@': InsertChars(Math.Max(1, p0)); break;
-            case 's': break;   // 커서 저장(간이 무시)
-            case 'u': break;
+            case 'X': EraseChars(Math.Max(1, p0)); break;   // ECH — ConPTY가 라인 일부 지울 때 다용(잔상 방지 필수)
+            case 's': _savedCx = _cx; _savedCy = _cy; break;   // 커서 저장
+            case 'u': RestoreCursor(); break;                  // 커서 복원
             default: break;    // 미지원은 무시
         }
     }
 
     private void Put(char ch)
     {
-        if (_cx >= _cols)
+        int w = IsWide(ch) ? 2 : 1;   // 셸(ConPTY)은 CJK 전각을 2칸으로 계산 — 버퍼도 동일하게 전진해야 커서가 맞는다.
+        if (_cx + w > _cols)
         {
             _cx = 0;
             LineFeed();
         }
-        _screen[_cy][_cx] = new TermCell { Ch = ch, Fg = _fg, Bg = _bg, Bold = _bold, Reverse = _reverse };
-        _cx++;
+        _screen[_cy][_cx] = new TermCell { Ch = ch, Fg = _fg, Bg = _bg, Bold = _bold, Reverse = _reverse, Faint = _faint };
+        if (w == 2 && _cx + 1 < _cols)
+        {
+            _screen[_cy][_cx + 1] = new TermCell { Ch = '\0', Fg = _fg, Bg = _bg };   // 연속(continuation) 셀 — 렌더는 스킵
+        }
+        _cx += w;
     }
+
+    /// <summary>전각(2칸) 문자인가 — wcwidth 근사(한글·CJK·전각 기호). BMP 주요 범위만(간이).</summary>
+    public static bool IsWide(char ch) =>
+        (ch >= 0x1100 && ch <= 0x115F) ||   // Hangul Jamo
+        (ch >= 0x2E80 && ch <= 0xA4CF) ||   // CJK Radicals~Yi
+        (ch >= 0xAC00 && ch <= 0xD7A3) ||   // Hangul Syllables
+        (ch >= 0xF900 && ch <= 0xFAFF) ||   // CJK Compat Ideographs
+        (ch >= 0xFE30 && ch <= 0xFE4F) ||   // CJK Compat Forms
+        (ch >= 0xFF00 && ch <= 0xFF60) ||   // Fullwidth Forms
+        (ch >= 0xFFE0 && ch <= 0xFFE6);     // Fullwidth Signs
 
     private void LineFeed()
     {
@@ -311,6 +338,23 @@ public sealed class VtScreen
             for (int r = _cy; r < _rows - 1; r++) { _screen[r] = _screen[r + 1]; }
             _screen[_rows - 1] = BlankFilledRow();
         }
+    }
+
+    /// <summary>ECH(CSI n X) — 커서 위치부터 n칸을 지운다(커서는 이동하지 않음). PSReadLine 백스페이스 재그리기 등.</summary>
+    private void EraseChars(int n)
+    {
+        var row = _screen[_cy];
+        int to = Math.Min(_cols, _cx + n);
+        for (int c = _cx; c < to; c++)
+        {
+            row[c] = new TermCell { Ch = ' ', Fg = _fg, Bg = _bg };
+        }
+    }
+
+    private void RestoreCursor()
+    {
+        _cx = Math.Clamp(_savedCx, 0, _cols - 1);
+        _cy = Math.Clamp(_savedCy, 0, _rows - 1);
     }
 
     private void DeleteChars(int n)

@@ -23,14 +23,21 @@ public sealed partial class TerminalView : UserControl
     private const double LineH = FontSizePx * 1.35;
     private const int RenderCap = 400;                // 렌더할 최근 라인 상한(성능)
 
+    private const double BlinkMs = 530;               // 캐럿 깜빡임 주기(포커스 시)
+
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcher;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _renderTimer;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _blinkTimer;
     private readonly Dictionary<uint, SolidColorBrush> _brushes = new();
+    // 캐럿: 포커스 시 채운 블록(반투명 accent, 깜빡임) / 비포커스 시 외곽선(중공).
+    private readonly SolidColorBrush _caretFill = new(Windows.UI.Color.FromArgb(0xC8, 0x3A, 0x96, 0xDD));
     private ConPtySession? _session;
     private VtScreen? _vt;
     private bool _started;
     private bool _dirty;
     private bool _stopping;         // Stop()로 인한 종료(재시작 금지) vs exit로 인한 종료(재시작) 구분
+    private bool _focused;          // 캐럿 스타일(블록/중공) 및 깜빡임 제어
+    private bool _caretOn = true;   // 깜빡임 위상(true=보임)
 
     /// <summary>셸 (재)시작 시 작업 디렉터리를 반환(호스트가 선택 탭 폴더 제공). (재)시작 시점 값만 사용 — 이후 폴더 변경/탭 이동은 무영향.</summary>
     public Func<string?>? WorkingDirectoryProvider { get; set; }
@@ -38,11 +45,21 @@ public sealed partial class TerminalView : UserControl
     public TerminalView()
     {
         InitializeComponent();
+        // 클릭 포커스: 내부 ScrollViewer가 포인터 이벤트를 Handled 처리해도 잡히도록 handledEventsToo=true로 등록.
+        // (XAML 속성 핸들러는 Handled된 이벤트를 못 받음 → 클릭이 무시되던 원인.)
+        // Pressed뿐 아니라 Released도 처리 — WinUI가 pointer release 기본 처리에서 포커스를 다시 뺏어가,
+        // "누르는 동안은 입력되다 놓으면 안 되던" 증상. release 후 FocusSoon(enqueue)로 다시 포커스.
+        AddHandler(PointerPressedEvent, new PointerEventHandler(OnPointerPressed), handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerPressed), handledEventsToo: true);
         _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         _renderTimer = _dispatcher.CreateTimer();
         _renderTimer.Interval = TimeSpan.FromMilliseconds(33);   // ~30fps 코얼레싱
         _renderTimer.IsRepeating = false;
         _renderTimer.Tick += (_, _) => { if (_dirty) { _dirty = false; RenderScreen(); } };
+        _blinkTimer = _dispatcher.CreateTimer();
+        _blinkTimer.Interval = TimeSpan.FromMilliseconds(BlinkMs);
+        _blinkTimer.IsRepeating = true;
+        _blinkTimer.Tick += (_, _) => { _caretOn = !_caretOn; UpdateCaret(); };
         SizeChanged += (_, _) => ResizeToView();
         Unloaded += (_, _) => Stop();
     }
@@ -109,6 +126,7 @@ public sealed partial class TerminalView : UserControl
     {
         _stopping = true;
         _renderTimer.Stop();
+        _blinkTimer.Stop();
         _session?.Dispose();
         _session = null;
     }
@@ -149,16 +167,37 @@ public sealed partial class TerminalView : UserControl
                 end--;
             }
 
-            var line = new StackPanel { Orientation = Orientation.Horizontal, Height = LineH };
+            // 고정폭 셀 그리드: run을 Canvas에 열×CharW 절대 위치로 배치 — 폭이 다른 글리프(폴백 폰트·전각)로
+            // 인한 열 드리프트가 다음 run으로 누적되지 않는다(캐럿·열 정렬의 전제).
+            // 명시 Width + 기본 Stretch 정렬은 가운데 배치로 동작 → 반드시 Left 고정.
+            var line = new Canvas { Height = LineH, Width = Math.Max(1, end) * CharW, HorizontalAlignment = HorizontalAlignment.Left };
             int c = 0;
             while (c < end)
             {
+                if (cells[c].Ch == '\0')
+                {
+                    c++;   // 전각(2칸) 연속 셀 — 앞 글자가 이미 두 칸을 차지
+                    continue;
+                }
                 int runStart = c;
                 var sb = new StringBuilder();
-                while (c < end && SameStyle(cells[c], cells[runStart]))
+                int runCols;
+                if (IsAsciiPrintable(cells[c].Ch))
                 {
+                    // ASCII run: Consolas 고정폭이라 run 내부 드리프트 없음 — 스타일 단위로 묶어 요소 수 절감.
+                    while (c < end && IsAsciiPrintable(cells[c].Ch) && SameStyle(cells[c], cells[runStart]))
+                    {
+                        sb.Append(cells[c].Ch);
+                        c++;
+                    }
+                    runCols = c - runStart;
+                }
+                else
+                {
+                    // 비ASCII(한글·글리프 등): 폴백 폰트 폭이 제각각 → 한 글자씩 자기 열에 고정 배치.
                     char ch = cells[c].Ch;
-                    sb.Append(ch == '\0' ? ' ' : ch);
+                    sb.Append(ch);
+                    runCols = VtScreen.IsWide(ch) ? 2 : 1;
                     c++;
                 }
                 var s = cells[runStart];
@@ -173,19 +212,14 @@ public sealed partial class TerminalView : UserControl
                     FontWeight = s.Bold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
                     LineHeight = LineH,
                     IsTextSelectionEnabled = false,
+                    // faint(SGR 2): PSReadLine 인라인 예측(history)을 연한 회색 미리보기로 — VS Code와 동일한 느낌.
+                    Opacity = s.Faint ? 0.45 : 1.0,
                 };
-                if (bg != VtScreen.DefaultBg)
-                {
-                    line.Children.Add(new Border { Background = Brush(bg), Child = tb });
-                }
-                else
-                {
-                    line.Children.Add(tb);
-                }
-            }
-            if (line.Children.Count == 0)
-            {
-                line.Children.Add(new TextBlock { Text = " ", FontSize = FontSizePx, Height = LineH });   // 빈 줄 높이 유지
+                FrameworkElement el = bg != VtScreen.DefaultBg
+                    ? new Border { Background = Brush(bg), Width = runCols * CharW, Height = LineH, Child = tb }
+                    : tb;
+                Canvas.SetLeft(el, runStart * CharW);
+                line.Children.Add(el);
             }
             LinesPanel.Children.Add(line);
         }
@@ -193,10 +227,54 @@ public sealed partial class TerminalView : UserControl
         // 맨 아래로 스크롤(항상 최신 보이게).
         Scroll.UpdateLayout();
         Scroll.ChangeView(null, Scroll.ScrollableHeight, null, disableAnimation: true);
+
+        _caretOn = true;   // 출력 직후엔 캐럿을 보이게(활동 시 항상 표시)
+        UpdateCaret();
+    }
+
+    /// <summary>커서 위치에 캐럿(블록)을 오버레이. 포커스=반투명 채운 블록(깜빡임), 비포커스=외곽선(중공).</summary>
+    private void UpdateCaret()
+    {
+        if (_vt is null || _session is null)
+        {
+            Caret.Visibility = Visibility.Collapsed;
+            return;
+        }
+        int count = _vt.ScrollbackCount + _vt.Rows;
+        int start = Math.Max(0, count - RenderCap);
+        int cursorAbs = _vt.ScrollbackCount + _vt.CursorRow;
+        int rendered = cursorAbs - start;                       // 렌더된 라인 목록에서의 행 인덱스
+        if (rendered < 0 || rendered >= count - start)
+        {
+            Caret.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        Caret.Width = CharW;
+        Caret.Height = LineH;
+        Canvas.SetLeft(Caret, _vt.CursorCol * CharW);
+        Canvas.SetTop(Caret, rendered * LineH);
+
+        if (_focused)
+        {
+            Caret.Background = _caretFill;
+            Caret.BorderThickness = new Thickness(0);
+            Caret.Visibility = _caretOn ? Visibility.Visible : Visibility.Collapsed;
+        }
+        else
+        {
+            Caret.Background = null;
+            Caret.BorderBrush = _caretFill;
+            Caret.BorderThickness = new Thickness(1);
+            Caret.Visibility = Visibility.Visible;             // 비포커스 캐럿은 깜빡이지 않음
+        }
     }
 
     private static bool SameStyle(TermCell a, TermCell b) =>
-        a.Fg == b.Fg && a.Bg == b.Bg && a.Bold == b.Bold && a.Reverse == b.Reverse;
+        a.Fg == b.Fg && a.Bg == b.Bg && a.Bold == b.Bold && a.Reverse == b.Reverse && a.Faint == b.Faint;
+
+    /// <summary>Consolas가 직접 그리는 ASCII 인쇄 문자(고정폭 보장 — run으로 묶어도 드리프트 없음).</summary>
+    private static bool IsAsciiPrintable(char ch) => ch >= ' ' && ch < '\x7F';
 
     private SolidColorBrush Brush(uint argb)
     {
@@ -209,7 +287,24 @@ public sealed partial class TerminalView : UserControl
         return b;
     }
 
-    private void OnPointerPressed(object sender, PointerRoutedEventArgs e) => Focus(FocusState.Programmatic);
+    // 동기 Focus는 pointer-pressed 처리 직후 WinUI 기본 포커스 로직에 덮여 "포커스 됐다 취소" 됨.
+    // FocusSoon()은 dispatcher enqueue로 그 이후에 다시 포커스 → 클릭 포커스가 안정적으로 유지된다.
+    private void OnPointerPressed(object sender, PointerRoutedEventArgs e) => FocusSoon();
+
+    private void OnGotFocus(object sender, RoutedEventArgs e)
+    {
+        _focused = true;
+        _caretOn = true;
+        _blinkTimer.Start();       // 포커스 시에만 깜빡임
+        UpdateCaret();
+    }
+
+    private void OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        _focused = false;
+        _blinkTimer.Stop();
+        UpdateCaret();             // 중공(외곽선) 캐럿으로 전환
+    }
 
     private void OnCharacterReceived(UIElement sender, CharacterReceivedRoutedEventArgs e)
     {
@@ -218,7 +313,8 @@ public sealed partial class TerminalView : UserControl
             return;
         }
         char c = e.Character;
-        if (c == '\r' || c == '\t' || c == '\b' || c >= ' ')
+        // Tab('\t')·Backspace('\b')는 OnKeyDown에서 처리 — 여기선 제외해 중복 입력 방지.
+        if (c == '\r' || c >= ' ')
         {
             _session.Write(c.ToString());
             e.Handled = true;
@@ -233,6 +329,11 @@ public sealed partial class TerminalView : UserControl
         }
         string? seq = e.Key switch
         {
+            // Tab은 셸 자동완성용으로 셸에 보낸다(Handled=true로 WinUI 포커스 이동 차단). Shift+Tab=역방향 완성.
+            VirtualKey.Tab => IsShiftDown() ? "\x1B[Z" : "\t",
+            // Backspace=DEL(0x7F, 1글자 삭제). 0x08(^H)은 ConPTY에서 Ctrl+Backspace(단어 삭제)로 해석되므로
+            // Ctrl 눌렀을 때만 0x08 — 실제 터미널과 동일한 매핑.
+            VirtualKey.Back => IsCtrlDown() ? "\b" : "\x7F",
             VirtualKey.Up => "\x1B[A",
             VirtualKey.Down => "\x1B[B",
             VirtualKey.Right => "\x1B[C",
@@ -260,6 +361,9 @@ public sealed partial class TerminalView : UserControl
 
     private static bool IsCtrlDown()
         => (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
+
+    private static bool IsShiftDown()
+        => (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
 
     private void ResizeToView()
     {

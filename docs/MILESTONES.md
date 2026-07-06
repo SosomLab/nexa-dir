@@ -59,7 +59,8 @@
 - ✅ **정보 뷰** = 선택 항목 속성 (BP-2 슬라이스 1).
 - ✅ **미리보기**(텍스트·이미지) — 표준 공급자 + 플러그인. **미리보기 플러그인 SDK `Nexa.Plugins`(퍼미시브 MIT, DR-6)** + 샘플 플러그인 분리, 설계 [35](35-preview-system.md)·매뉴얼 [36](36-plugin-development.md) (BP-2).
 - ✅ **임베디드 터미널** ConPTY(lazy) + **VT 에뮬레이터**(색/화면 버퍼·exit 재시작·선택 탭 cwd·전역 단축키 차단 키보드 캡처), 설계 [37](37-terminal.md) (BP-T).
-- 🚧 Hex 뷰 · 🐛 터미널 캐럿 미표시([BUG-007](BUGS.md))·일부 SGR 색 미반영([BUG-008](BUGS.md)).
+- ✅ **터미널 UX 개선(07-07)**: 캐럿 표시([BUG-007](BUGS.md) ☑)·클릭 포커스·Tab 완성/Backspace 매핑·faint 예측([BUG-008](BUGS.md) ◐)·고정폭 셀 렌더(전각 2칸)·ECH/커서저장복원.
+- 🚧 Hex 뷰 · 🐛 잔여: 일부 확장 SGR·파워라인 글리프(Nerd Font)([BUG-008](BUGS.md)).
 
 ### 세션·설정
 - ✅ 탭 세션 저장/복원(`session.json`, 요청/수행 분리·Tick 코얼레싱) · 하단 패널 상태.

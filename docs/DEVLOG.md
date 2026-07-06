@@ -11,6 +11,10 @@
 
 ---
 
+## 2026-07-07
+
+- **내장 터미널 UX 일괄 개선**(BP-T 후속): **캐럿 표시**([BUG-007](BUGS.md) ☑ — 오버레이 블록·포커스 시 깜빡임/비포커스 중공) · **클릭 포커스 안정화**(handledEventsToo+enqueue 재포커스) · **Tab 자동완성**(포커스 이동 차단·Shift+Tab 역방향) · **Backspace=DEL(0x7F)**(0x08=단어삭제 오매핑 수정) · **faint(SGR 2) 렌더**([BUG-008](BUGS.md) ◐ — PSReadLine 예측을 VS Code처럼 연한 회색으로) · **고정폭 셀 렌더**(Canvas 절대 배치 + 전각 2칸 — 캐럿/열 드리프트 해소) · **ECH(CSI X)·DECSC/DECRC** 구현(백스페이스 잔상 제거). 빌드 경고 0·에러 0. 상세 [journal/2026-07-07.md](journal/2026-07-07.md).
+
 ## 2026-07-06
 
 - **🏷️ 릴리스 `0.2.0`** — `0.1.0` 이후 M1 대규모 진행분(파일 조작 전체·컬럼 정렬·타입어헤드·하단 패널[정보·미리보기·ConPTY 터미널]·미리보기 플러그인 SDK·문서 위키)을 묶어 태그·GitHub Release. 버전 동기화(Cargo/csproj 0.2.0). 아티팩트(MSIX/포터블)는 패키징 인프라 미비로 후속([12](12-packaging-portable.md)). 상세 [journal/2026-07-06.md](journal/2026-07-06.md).

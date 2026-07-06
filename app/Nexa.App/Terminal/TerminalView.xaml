@@ -6,14 +6,21 @@
     IsTabStop="True"
     KeyDown="OnKeyDown"
     CharacterReceived="OnCharacterReceived"
-    PointerPressed="OnPointerPressed">
+    GotFocus="OnGotFocus"
+    LostFocus="OnLostFocus">
 
     <Grid Background="#0C0F12">
         <ScrollViewer x:Name="Scroll" Padding="6,4" IsTabStop="False"
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollMode="Enabled" HorizontalScrollMode="Enabled">
-            <!-- VtScreen 셀 그리드를 색과 함께 렌더(라인=가로 StackPanel of 색 runs) -->
-            <StackPanel x:Name="LinesPanel" />
+            <!-- 셀 그리드(LinesPanel) 위에 캐럿(커서) 오버레이(CaretLayer)를 겹쳐 렌더 — 함께 스크롤 -->
+            <Grid>
+                <!-- VtScreen 셀 그리드를 색과 함께 렌더(라인=가로 StackPanel of 색 runs) -->
+                <StackPanel x:Name="LinesPanel" />
+                <Canvas x:Name="CaretLayer" IsHitTestVisible="False">
+                    <Border x:Name="Caret" Visibility="Collapsed" />
+                </Canvas>
+            </Grid>
         </ScrollViewer>
     </Grid>
 </UserControl>
