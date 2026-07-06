@@ -1545,28 +1545,30 @@ public sealed partial class MainWindow : Window
 
         // 기본: 실제 파일/폴더 항목을 넣어 대상이 파일을 열게 한다(탐색기 동일). StorageItem 취득은
         // 비동기(브로커) → 드래그 시작을 지연(GetDeferral)해 완료 후 진행.
+        // 항목당 브로커 왕복이라 순차 처리는 대량 선택에서 시작이 수 초 지연 → 병렬(WhenAll) 취득(P2).
         var deferral = args.GetDeferral();
         try
         {
-            var storageItems = new List<IStorageItem>(_dragPaths.Count);
-            foreach (var p in _dragPaths)
+            var fetched = await Task.WhenAll(_dragPaths.Select(async p =>
             {
                 try
                 {
                     if (Directory.Exists(p))
                     {
-                        storageItems.Add(await StorageFolder.GetFolderFromPathAsync(p));
+                        return (IStorageItem)await StorageFolder.GetFolderFromPathAsync(p);
                     }
-                    else if (File.Exists(p))
+                    if (File.Exists(p))
                     {
-                        storageItems.Add(await StorageFile.GetFileFromPathAsync(p));
+                        return (IStorageItem)await StorageFile.GetFileFromPathAsync(p);
                     }
                 }
                 catch
                 {
                     // 개별 항목 실패(시스템/보호 파일 등)는 격리 → 아래 텍스트 폴백으로 커버.
                 }
-            }
+                return null;
+            }));
+            var storageItems = fetched.Where(it => it is not null).Cast<IStorageItem>().ToList();
             if (storageItems.Count > 0)
             {
                 args.Data.SetStorageItems(storageItems, readOnly: false);
@@ -1591,6 +1593,12 @@ public sealed partial class MainWindow : Window
         if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
         {
             StatusText.Text = "드래그 취소";   // ESC 등으로 취소 → 이동 없음
+        }
+        else if (args.DropResult.HasFlag(DataPackageOperation.Move) && _dragPaths.Count > 0)
+        {
+            // _dragPaths가 남아 있음 = 우리 드롭 핸들러 미경유 = 외부 대상(탐색기 등)이 이동을 수행 →
+            // 원본이 사라졌으므로 패널 갱신(P2 — watcher 1차의 누락 보완, 내부 전송은 TransferPathsInto가 갱신).
+            ReloadBothPanels();
         }
         _dragPaths.Clear();
     }
