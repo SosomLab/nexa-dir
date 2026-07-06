@@ -151,7 +151,15 @@
 
 #### 2차 QA 후속 수정(2026-07-04)
 - 🐞 **DND-CAP2(폴더 위 캡션 안 바뀜)**: 드래그 이벤트가 **행→본문(BodyScroll)으로 버블링**되어, 행 핸들러(`OnRowDragOver`)가 정한 폴더명 캡션·연산을 그 다음 `OnBodyDragOver`가 **배경(현재 폴더) 값으로 덮어씀**. → 본문 핸들러를 **`AcceptedOperation==None`(행 미수락=파일 행·진짜 빈 영역)일 때만** 동작하도록 가드. 폴더 행은 호스트 캡션 유지. 자동 스크롤은 항상 수행.
-- 🐞 **DND-SELF(자기 폴더 규칙)**: 드래그 항목이 이미 그 폴더 소속일 때 — **Move는 무의미 → None(금지)**, **Copy는 복제 허용**(…(2)). `BackgroundDragOp(destLeft, mods)`: `DragOp` 결과가 Move이고 `모든 드래그 항목의 부모 == 대상 폴더`면 None. 빈 영역 커서/캡션과 드롭(`OnPanelBackgroundDrop`) 양쪽에 적용. (탐색기 동일: 같은 폴더로 그냥 끌면 무동작, Ctrl+끌면 사본.)
+- 🐞 **DND-SELF(자기 폴더 규칙)**: 드래그 항목이 이미 그 폴더 소속일 때 — **Move는 무의미 → None(금지)**, **Copy는 복제 허용**(…(2)). `BackgroundDragOp`: `DragOp` 결과가 Move이고 `모든 드래그 항목의 부모 == 대상 폴더`면 None. 빈 영역 커서/캡션과 드롭(`OnPanelBackgroundDrop`) 양쪽에 적용. (탐색기 동일: 같은 폴더로 그냥 끌면 무동작, Ctrl+끌면 사본.)
+
+#### DnD 전면 검토 후속 개선(2026-07-07)
+- ✅ **DND-EXT(외부→앱 드롭 수신)**: 폴더 행·탭·패널 빈 영역이 **다른 앱(탐색기/다른 인스턴스)의 파일 드래그(StorageItems)** 를 수락. Drop에서 `e.GetDeferral()` + `GetStorageItemsAsync()`로 경로 추출 후 기존 `TransferPathsInto`(진행 창·덮어쓰기·취소) 합류. **연산: 복사 기본**(원본 볼륨을 DragOver 중 동기로 알 수 없어 안전 기본값) · **Shift=이동 강제**. 텍스트 등 파일 아닌 외부 드래그는 전 표면 금지. (기존: 내부 `_dragPaths`에만 의존 — 빈 영역은 "이동" 캡션으로 **수락 표시 후 무동작**, 행/탭은 금지 커서.)
+- ✅ **DND-CYCLE(자기/하위 폴더 금지)**: `DragOp`에서 드롭 대상이 드래그 원본 폴더 **자신/하위**면 None — **UI 단계(커서·캡션)에서 차단**(탐색기 동일). 기존엔 전송 단계 `FileOps` 예외("일부 실패")로만 표면화.
+- ✅ **드래그 시작 병렬화**: `StorageFile/Folder` 취득(항목당 브로커 왕복)을 순차 → `Task.WhenAll` 병렬. 대량 선택 시작 지연 완화. (근본 해법인 **지연 제공 `SetDataProvider`** 는 아래 성능 검토의 기존 계획 유지 — 필요 시 후속.)
+- ✅ **외부 이동 드롭 후 원본 갱신**: `DropCompleted`에서 `DropResult`에 Move 포함 + `_dragPaths` 잔존(=외부 대상이 이동 수행)이면 패널 갱신(watcher 1차 보완).
+- ✅ 부수: 캡션 **변경 시만 설정**(마우스 이동마다 재설정 회피) · 그리드 `BodyDropped/BodyDragOperation`이 `DragEventArgs`를 전달(외부 드롭에 DataView/deferral 필요) · 미설정 폴백(죽은 코드) 제거 · 취소 문구 "드래그 취소 — 변경 없음".
+- ☐ 남음(나이스투해브): **경로 바 세그먼트 드롭 타깃**(탐색기 breadcrumb식) — 상단 계층 경로 바와 시너지.
 
 ### Phase 2 — 개수 스택 아이콘 (보류, 택1)
 - **(2a) 커스텀 비트맵(관리형)**: `DragStartingEventArgs.DragUI.SetContentFromSoftwareBitmap(...)`으로 "아이콘 N겹 + 카운트 배지"를 직접 렌더. COM 불필요. 한계: 비트맵은 **시작 시 1회 고정**(Ctrl/Shift로 라이브 변경 불가) — 단 탐색기의 스택 이미지도 고정이고 **캡션만 바뀌므로**(Phase 1이 이미 처리) 실사용 동등. 비용: 시작 시 아이콘 취득·합성(썸네일 대신 타입 아이콘 캐시 사용). 맥 빌드 불가 → Windows 반복 검증 필요(비주얼).
