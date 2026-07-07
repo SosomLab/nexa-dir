@@ -1155,10 +1155,20 @@ public sealed partial class MainWindow : Window
         // (동기로 열면 단일 선택 교체가 화면에 안 보인 채 메뉴가 뜸).
         _ = DispatcherQueue.TryEnqueue(() =>
         {
-            var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: shift);
+            var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: shift,
+                // "삭제" 동사는 셸 대신 우리 삭제 경로로 — undo 기록(DeleteBatchOp, B-13u)·상태바·재로드 통합.
+                verbInterceptor: verb =>
+                {
+                    if (string.Equals(verb, "delete", StringComparison.OrdinalIgnoreCase))
+                    {
+                        DeletePaths(left, targets, permanent: false);   // 휴지통(Ctrl+Z 복원 가능)
+                        return true;
+                    }
+                    return false;
+                });
             if (result == ShellContextMenu.Result.ShellCommand)
             {
-                // 셸 명령(삭제·붙여넣기·압축해제 등)은 우리 전송 엔진 밖에서 FS를 바꿈 → 지연 재로드(비동기 명령 여유).
+                // 셸 명령(붙여넣기·압축해제 등)은 우리 전송 엔진 밖에서 FS를 바꿈 → 지연 재로드(비동기 명령 여유).
                 ScheduleShellRefresh();
             }
         });

@@ -31,8 +31,11 @@ internal sealed class ShellContextMenu
     private SUBCLASSPROC? _subclassProc;   // 메뉴 표시 동안 GC 보호
 
     /// <summary>셸 메뉴를 커서 위치에 표시. <paramref name="paths"/>는 같은 부모 폴더의 파일/폴더들.
-    /// <paramref name="extendedVerbs"/>=Shift(확장 동사). 실패/취소 시 <see cref="Result.Cancelled"/>.</summary>
-    public Result Show(IntPtr hwnd, IReadOnlyList<string> paths, IReadOnlyList<CustomItem> custom, bool extendedVerbs = false)
+    /// <paramref name="extendedVerbs"/>=Shift(확장 동사). 실패/취소 시 <see cref="Result.Cancelled"/>.
+    /// <paramref name="verbInterceptor"/>: 선택된 셸 명령의 canonical verb(예: "delete")를 넘겨 true 반환 시
+    /// 셸 실행 대신 호스트가 처리(undo 기록 등 앱 통합이 필요한 동사 가로채기).</summary>
+    public Result Show(IntPtr hwnd, IReadOnlyList<string> paths, IReadOnlyList<CustomItem> custom,
+        bool extendedVerbs = false, Func<string?, bool>? verbInterceptor = null)
     {
         var fullPidls = new List<IntPtr>();
         IShellFolder? folder = null;
@@ -119,6 +122,11 @@ internal sealed class ShellContextMenu
                 custom.FirstOrDefault(c => c.Id == sel)?.Invoke();
                 return Result.CustomCommand;
             }
+            // 앱 통합이 필요한 동사(delete 등)는 호스트가 가로채 처리(undo 기록·전송 엔진 합류).
+            if (verbInterceptor is not null && verbInterceptor(GetVerb(icm, sel - IdShellFirst)))
+            {
+                return Result.CustomCommand;
+            }
             var inv = new CMINVOKECOMMANDINFOEX
             {
                 cbSize = Marshal.SizeOf<CMINVOKECOMMANDINFOEX>(),
@@ -159,6 +167,28 @@ internal sealed class ShellContextMenu
         }
     }
 
+    /// <summary>선택된 셸 명령의 canonical verb(언어 무관 식별자, 예: "delete"/"copy"). 미구현 확장은 null.</summary>
+    private static string? GetVerb(IContextMenu icm, uint idOffset)
+    {
+        IntPtr buf = Marshal.AllocHGlobal(1024);
+        try
+        {
+            if (icm.GetCommandString((UIntPtr)idOffset, GCS_VERBW, IntPtr.Zero, buf, 512) == 0)
+            {
+                return Marshal.PtrToStringUni(buf);
+            }
+        }
+        catch
+        {
+            // 일부 확장은 GetCommandString 미구현/예외 → 식별 불가(null) — 가로채기 없이 셸 실행
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buf);
+        }
+        return null;
+    }
+
     /// <summary>메뉴 표시 구간의 창 서브클래스 — "보내기"/"열기 방법" 지연 채움·owner-draw 아이콘 메시지를
     /// <c>IContextMenu2/3</c>로 포워딩(없으면 기본 처리).</summary>
     private IntPtr SubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, UIntPtr dwRefData)
@@ -189,6 +219,7 @@ internal sealed class ShellContextMenu
     // ── 상수 ─────────────────────────────────────────────────────────
     private const uint CMF_NORMAL = 0x0;
     private const uint CMF_EXTENDEDVERBS = 0x100;
+    private const uint GCS_VERBW = 0x4;
     private const uint CMIC_MASK_UNICODE = 0x4000;
     private const uint CMIC_MASK_PTINVOKE = 0x20000000;
     private const uint MF_STRING = 0x0;
