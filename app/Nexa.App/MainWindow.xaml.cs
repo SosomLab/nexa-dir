@@ -2844,6 +2844,9 @@ public sealed partial class MainWindow : Window
         }
         e.Handled = true;
         bool left = _left.Tabs.Contains(tab);
+        // 우클릭한 탭을 먼저 활성화(탭 클릭과 동일 규칙 — 메뉴가 "현재 탭" 기준으로 동작하도록).
+        SwitchToTab(left, tab);
+        Panel(left).Grid.Focus(FocusState.Programmatic);
         var tabs = Panel(left).Tabs;
 
         var flyout = new MenuFlyout();
