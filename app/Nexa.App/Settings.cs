@@ -83,6 +83,24 @@ internal sealed class ViewOptions
     public bool AutoCloseTransferWindow { get; set; } = true;
 }
 
+/// <summary>테마 모드(docs/39). System=OS 설정 추종.</summary>
+internal enum AppThemeMode
+{
+    System = 0,
+    Light = 1,
+    Dark = 2,
+}
+
+/// <summary>
+/// 테마 옵션(docs/39) — 라이트/다크 모드. 후속: 테마팩(토큰 색 오버라이드)·폰트·크기(밀도) 세부 설정
+/// (설정 UI "모양" 페이지, docs/39 §5). 기본 <c>Light</c> — 라이트 팔레트 검증용(다크 팔레트 정비 후
+/// 기본값 재결정, DR-2 참고).
+/// </summary>
+internal sealed class ThemeOptions
+{
+    public AppThemeMode Mode { get; set; } = AppThemeMode.Light;
+}
+
 /// <summary>
 /// 앱 전역 설정(인메모리 단일 인스턴스). 나중에 JSON 파일 로드/저장으로 확장한다
 /// (설정 시스템 백로그, docs/19). 지금은 코드 기본값이 유일한 원천.
@@ -97,6 +115,9 @@ internal static class AppSettings
 
     /// <summary>표시(가시성) 옵션(숨김 파일·점 파일). 목록 필터는 이 값을 참조한다.</summary>
     public static ViewOptions View { get; } = new();
+
+    /// <summary>테마 옵션(라이트/다크 모드, docs/39).</summary>
+    public static ThemeOptions Theme { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

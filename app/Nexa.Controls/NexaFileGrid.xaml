@@ -18,7 +18,7 @@
         <Grid Grid.Row="0">
             <!-- 헤더 바 배경 — 본문과 다른 색으로 구분. HeaderBackground DP 바인딩(설정 오버라이드) -->
             <Border Background="{x:Bind HeaderBackground, Mode=OneWay}"
-                    BorderBrush="#33FFFFFF" BorderThickness="0,0,0,1" />
+                    BorderBrush="#33808080" BorderThickness="0,0,0,1" />
             <!-- 헤더는 패널별 HeaderCell 래퍼로 렌더(정렬 표시는 패널별, 너비는 공유 컬럼 바인딩=좌/우 동기) -->
             <ItemsRepeater x:Name="HeaderRepeater">
                 <ItemsRepeater.Layout>
@@ -28,7 +28,7 @@
                     <DataTemplate x:DataType="local:HeaderCell">
                         <Grid Width="{x:Bind Column.Width, Mode=OneWay}">
                             <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당). 클릭=3상태 정렬(▲/▼) -->
-                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33FFFFFF"
+                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33808080"
                                     Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
                                     <!-- 정렬 화살표(▲/▼) — 컬럼명 앞. 정렬 없으면 접힘 -->

@@ -16,6 +16,35 @@
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="Segoe UI" />
             </Style>
+
+            <!-- ── Nexa 시맨틱 테마 토큰(docs/39) — 컴포넌트는 {ThemeResource Nexa*Brush}만 참조.
+                 라이트/다크는 RequestedTheme(설정 Theme.Mode)로 전환. 값 변경은 여기 한 곳. ── -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="NexaWindowBackgroundBrush" Color="#F6F7F9" />
+                    <SolidColorBrush x:Key="NexaChromeBackgroundBrush" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="NexaPanelBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NexaTabBarBackgroundBrush" Color="#E6EAF0" />
+                    <SolidColorBrush x:Key="NexaHeaderBackgroundBrush" Color="#E9ECF1" />
+                    <SolidColorBrush x:Key="NexaFieldBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="NexaBottomDockBackgroundBrush" Color="#F1F3F6" />
+                    <SolidColorBrush x:Key="NexaStatusBarBackgroundBrush" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="NexaBorderBrush" Color="#D5DAE1" />
+                    <SolidColorBrush x:Key="NexaAccentBrush" Color="#3D8BFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="NexaWindowBackgroundBrush" Color="#14161A" />
+                    <SolidColorBrush x:Key="NexaChromeBackgroundBrush" Color="#1E2228" />
+                    <SolidColorBrush x:Key="NexaPanelBackgroundBrush" Color="#191C21" />
+                    <SolidColorBrush x:Key="NexaTabBarBackgroundBrush" Color="#232830" />
+                    <SolidColorBrush x:Key="NexaHeaderBackgroundBrush" Color="#262B33" />
+                    <SolidColorBrush x:Key="NexaFieldBackgroundBrush" Color="#262B33" />
+                    <SolidColorBrush x:Key="NexaBottomDockBackgroundBrush" Color="#1B1F25" />
+                    <SolidColorBrush x:Key="NexaStatusBarBackgroundBrush" Color="#1E2228" />
+                    <SolidColorBrush x:Key="NexaBorderBrush" Color="#363C46" />
+                    <SolidColorBrush x:Key="NexaAccentBrush" Color="#3D8BFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

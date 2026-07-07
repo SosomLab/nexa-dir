@@ -82,6 +82,7 @@ public sealed partial class MainWindow : Window
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
         ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
+        ApplyTheme();                  // 테마 모드 적용(기본 라이트 — docs/39, 구성 메뉴에서 전환)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
         _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
         _rightWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(false));
@@ -480,6 +481,34 @@ public sealed partial class MainWindow : Window
         AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
         ReloadBothPanels();
     }
+
+    // ── 테마(docs/39) — 라이트/다크 모드. 세부 설정(테마팩·폰트·크기) UI는 후속 "모양" 페이지 ─────
+
+    /// <summary>설정의 테마 모드를 창에 적용(RequestedTheme) — {ThemeResource Nexa*} 토큰이 재해석된다.</summary>
+    private void ApplyTheme()
+    {
+        if (Content is FrameworkElement fe)
+        {
+            fe.RequestedTheme = AppSettings.Theme.Mode switch
+            {
+                AppThemeMode.Light => ElementTheme.Light,
+                AppThemeMode.Dark => ElementTheme.Dark,
+                _ => ElementTheme.Default,   // 시스템(OS 설정 추종)
+            };
+        }
+        SyncThemeMenuChecks();
+    }
+
+    private void SyncThemeMenuChecks()
+    {
+        ThemeSystemEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.System;
+        ThemeLightEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.Light;
+        ThemeDarkEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.Dark;
+    }
+
+    private void OnThemeSystem(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.System; ApplyTheme(); }
+    private void OnThemeLight(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Light; ApplyTheme(); }
+    private void OnThemeDark(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Dark; ApplyTheme(); }
 
     /// <summary>"경로·항목 수 헤더 보기" 토글(체크=표시) — 경로 바 아래 헤더 줄(현재 경로 — N개 항목).
     /// 기본 감춤. 설정(ShowPathHeader) 반영, 설정 UI 노출은 후속.</summary>

@@ -15,7 +15,7 @@
       하단 도킹: 기본 좌/우 분리(각 패널용 정보·터미널) → 터미널 활성 시 좌·우 2개.
       좌 패널 콘텐츠에 실제 디렉터리 목록(F4/F5) 보존.
     -->
-    <Grid x:Name="RootGrid">
+    <Grid x:Name="RootGrid" Background="{ThemeResource NexaWindowBackgroundBrush}">
         <Grid.Resources>
             <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
             <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="280" />
@@ -80,7 +80,7 @@
         </Grid.RowDefinitions>
 
         <!-- 0 · 메뉴 바 (흰색) — 커스텀 NexaMenuBar(초박형 18px/폰트12, 기본 MenuBar 한계 우회). 헤더 텍스트=어두운색 -->
-        <ctrls:NexaMenuBar Grid.Row="0" Background="#FFFFFFFF" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
+        <ctrls:NexaMenuBar Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
             <ctrls:NexaMenuBar.Menus>
                 <ctrls:NexaMenu Header="파일(F)">
                     <ctrls:NexaMenuEntry Text="새 탭" />
@@ -109,7 +109,12 @@
                     <!-- 경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 — 기본 감춤(설정 ShowPathHeader, 설정 UI 후속) -->
                     <ctrls:NexaMenuEntry Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="구성(O)" />
+                <ctrls:NexaMenu Header="구성(O)">
+                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정 UI(모양 페이지)는 후속 -->
+                    <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="테마: 시스템" IsCheckable="True" Click="OnThemeSystem" />
+                    <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="테마: 라이트" IsCheckable="True" IsChecked="True" Click="OnThemeLight" />
+                    <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="테마: 다크" IsCheckable="True" Click="OnThemeDark" />
+                </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="도움말(H)">
                     <ctrls:NexaMenuEntry Text="정보" />
                 </ctrls:NexaMenu>
@@ -117,7 +122,8 @@
         </ctrls:NexaMenuBar>
 
         <!-- 1 · 도구 모음 (파랑) -->
-        <Border Grid.Row="1" Background="#334488DD" Padding="6,4">
+        <Border Grid.Row="1" Background="{ThemeResource NexaChromeBackgroundBrush}"
+                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="6,4">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="뒤로" />
                 <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="앞으로" />
@@ -130,7 +136,8 @@
         </Border>
 
         <!-- 2 · 퀵 런처 바 (초록) -->
-        <Border x:Name="LauncherBar" Grid.Row="2" Background="#3344CC66" Padding="6,4">
+        <Border x:Name="LauncherBar" Grid.Row="2" Background="{ThemeResource NexaChromeBackgroundBrush}"
+                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,1" Padding="6,4">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Content="cmd" /><Button Content="pwsh" /><Button Content="WT" />
                 <AppBarSeparator />
@@ -148,8 +155,8 @@
                 <ColumnDefinition x:Name="RightCol" Width="*" MinWidth="160" />
             </Grid.ColumnDefinitions>
 
-            <!-- 좌 패널 (주) — 파란 틴트. ActualWidth = 좌/우 분리선 위치(스냅 계산용) -->
-            <Border x:Name="LeftPaneRoot" Grid.Column="0" Background="#22338ADF"
+            <!-- 좌 패널 (주). ActualWidth = 좌/우 분리선 위치(스냅 계산용). 영역 구분=경계선(테마 토큰, docs/39) -->
+            <Border x:Name="LeftPaneRoot" Grid.Column="0" Background="{ThemeResource NexaPanelBackgroundBrush}"
                     SizeChanged="OnTopSplitSizeChanged">
                 <Grid RowSpacing="0">
                     <Grid.RowDefinitions>
@@ -161,7 +168,8 @@
 
                     <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄.
                          탭 드래그(TAB-DND): 바 빈 영역 드롭=맨 끝 이동, 삽입 위치는 오버레이 바(TabInsertL)로 표시. -->
-                    <Border Grid.Row="0" Background="#3340A0FF" Padding="4,3" Tag="L" x:Name="LeftTabBar"
+                    <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="L" x:Name="LeftTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                         <Grid>
@@ -182,7 +190,7 @@
                                                 <RowDefinition Height="2" />
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
+                                            <Border Grid.Row="0" Background="{ThemeResource NexaAccentBrush}" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <!-- Auto(핀)+*(제목)+Auto(잠금) Grid — 핀=폴더명 앞(왼쪽 끝) · 잠금=탭 오른쪽 끝(TAB-MENU).
                                                  가로 StackPanel은 자식에 무한 폭을 줘 말줄임(…)이 안 되므로 Grid 사용 -->
@@ -211,7 +219,7 @@
                         <!-- 탭 드래그 삽입 위치 표시 바(세로선) — TAB-DND -->
                         <Canvas IsHitTestVisible="False">
                             <Rectangle x:Name="TabInsertL" Width="3" RadiusX="1.5" RadiusY="1.5"
-                                       Fill="#FF3D8BFF" Visibility="Collapsed" />
+                                       Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
                     </Border>
@@ -227,7 +235,9 @@
                                 <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
                                 <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
                             </StackPanel>
-                            <Border Grid.Column="1" Background="#22FFFFFF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
+                                    BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
+                                    CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                                 <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
                             </Border>
                         </Grid>
@@ -235,7 +245,9 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True"
+                                        HeaderBackground="{ThemeResource NexaHeaderBackgroundBrush}"
+                                        ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
@@ -281,11 +293,11 @@
 
             <!-- 좌↔우 splitter (얇게 + 스냅: 중앙/하단 분리선 정렬) -->
             <ctk:GridSplitter x:Name="PanelSplitter" Grid.Column="1" Width="3" MinWidth="3" MaxWidth="3"
-                              Padding="0" Background="#22FFFFFF" Foreground="Transparent"
+                              Padding="0" Background="{ThemeResource NexaBorderBrush}" Foreground="Transparent"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
             <!-- 우 패널 (듀얼) — 빨간 틴트. 좌 패널과 동일하게 파일 목록 표시 -->
-            <Border x:Name="RightPanel" Grid.Column="2" Background="#22DD5555">
+            <Border x:Name="RightPanel" Grid.Column="2" Background="{ThemeResource NexaPanelBackgroundBrush}">
                 <Grid RowSpacing="0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /> <!-- 탭 바 -->
@@ -295,7 +307,8 @@
                     </Grid.RowDefinitions>
 
                     <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙 — TAB-DND 삽입 표시 포함) -->
-                    <Border Grid.Row="0" Background="#33FF6060" Padding="4,3" Tag="R" x:Name="RightTabBar"
+                    <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="R" x:Name="RightTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                         <Grid>
@@ -316,7 +329,7 @@
                                                 <RowDefinition Height="2" />
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
+                                            <Border Grid.Row="0" Background="{ThemeResource NexaAccentBrush}" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <!-- Auto(핀)+*(제목)+Auto(잠금) Grid — 핀=폴더명 앞(왼쪽 끝) · 잠금=탭 오른쪽 끝(TAB-MENU).
                                                  가로 StackPanel은 자식에 무한 폭을 줘 말줄임(…)이 안 되므로 Grid 사용 -->
@@ -345,7 +358,7 @@
                         <!-- 탭 드래그 삽입 위치 표시 바(세로선) — TAB-DND -->
                         <Canvas IsHitTestVisible="False">
                             <Rectangle x:Name="TabInsertR" Width="3" RadiusX="1.5" RadiusY="1.5"
-                                       Fill="#FF3D8BFF" Visibility="Collapsed" />
+                                       Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
                     </Border>
@@ -361,7 +374,9 @@
                                 <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
                                 <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
                             </StackPanel>
-                            <Border Grid.Column="1" Background="#22FFFFFF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
+                                    BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
+                                    CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                                 <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
                             </Border>
                         </Grid>
@@ -369,7 +384,9 @@
 
                     <TextBlock Grid.Row="2" x:Name="DirHeader2" Opacity="0.7" Margin="8,4" />
 
-                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
+                    <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True"
+                                        HeaderBackground="{ThemeResource NexaHeaderBackgroundBrush}"
+                                        ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
                                 <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
@@ -427,26 +444,28 @@
                 <ColumnDefinition x:Name="BottomRightCol" Width="*" MinWidth="160" />
             </Grid.ColumnDefinitions>
 
-            <!-- 하단 좌 도킹 (청록) — ActualWidth = 하단 좌/우 분리선 위치(스냅 계산용) -->
-            <Border x:Name="BottomLeftPaneRoot" Grid.Column="0" Background="#3322C0C0"
-                    BorderBrush="#33000000" BorderThickness="0,1,0,0"
+            <!-- 하단 좌 도킹 — ActualWidth = 하단 좌/우 분리선 위치(스냅 계산용) -->
+            <Border x:Name="BottomLeftPaneRoot" Grid.Column="0" Background="{ThemeResource NexaBottomDockBackgroundBrush}"
+                    BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0"
                     SizeChanged="OnBottomSplitSizeChanged">
                 <local:BottomDockView x:Name="BottomLeftDockView" />
             </Border>
 
             <!-- 하단 좌↔우 splitter (얇게 + 스냅: 중앙/상단 분리선 정렬) -->
             <ctk:GridSplitter x:Name="BottomSplitter" Grid.Column="1" Width="3" MinWidth="3" MaxWidth="3"
-                              Padding="0" Background="#22FFFFFF" Foreground="Transparent"
+                              Padding="0" Background="{ThemeResource NexaBorderBrush}" Foreground="Transparent"
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
-            <!-- 하단 우 도킹 (자주) -->
-            <Border x:Name="BottomRightDock" Grid.Column="2" Background="#33CC55CC" BorderBrush="#33000000" BorderThickness="0,1,0,0">
+            <!-- 하단 우 도킹 -->
+            <Border x:Name="BottomRightDock" Grid.Column="2" Background="{ThemeResource NexaBottomDockBackgroundBrush}"
+                    BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0">
                 <local:BottomDockView x:Name="BottomRightDockView" />
             </Border>
         </Grid>
 
-        <!-- 6 · 상태바 (회색) + 숨김/분리 토글 -->
-        <Border Grid.Row="6" Background="#33888888" Padding="8,4">
+        <!-- 6 · 상태바 + 숨김/분리 토글 -->
+        <Border Grid.Row="6" Background="{ThemeResource NexaStatusBarBackgroundBrush}"
+                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="8,4">
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
                 <AppBarSeparator />

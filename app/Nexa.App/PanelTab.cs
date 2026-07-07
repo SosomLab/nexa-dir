@@ -57,9 +57,9 @@ public sealed class PanelTab : INotifyPropertyChanged
         }
     }
 
-    /// <summary>탭 배경(활성=진한 파랑, 비활성=옅은 흰색).</summary>
+    /// <summary>탭 배경(활성=accent 알파, 비활성=중립 회색 알파 — 라이트/다크 공용, docs/39).</summary>
     public Brush TabBackground => new SolidColorBrush(
-        _isActive ? Color.FromArgb(0x66, 0x40, 0xA0, 0xFF) : Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
+        _isActive ? Color.FromArgb(0x4D, 0x3D, 0x8B, 0xFF) : Color.FromArgb(0x14, 0x80, 0x80, 0x80));
 
     /// <summary>활성 탭 상단 하이라이트 줄 표시 여부.</summary>
     public Visibility AccentVisibility => _isActive ? Visibility.Visible : Visibility.Collapsed;
