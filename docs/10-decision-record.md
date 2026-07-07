@@ -29,6 +29,7 @@
 | **ADR-0002** | 재사용 파일뷰 컨트롤(`Nexa.Controls`) — `NexaFileGrid`(도메인 비종속, 독립 제품화 가능) | **Accepted** | [21](21-adr-0002-fileview-control.md) |
 | **ADR-0003** | 뷰/패널 모듈 확장 계약 — `IFileView`/`IToolPanel`(미리보기·검색 등 M2+ 수용) | **Accepted** | [22](22-adr-0003-view-and-panel-modules.md) |
 | **ADR-0004** | **코어 트리/선택 모델(C1)** — 인라인 트리를 **가시 노드 평면 스트림(`VisibleRow`)** + **OrderedSet 교차선택**으로 Rust 코어(`nexa-tree`)에 단일화. 진실원천을 C# `ObservableCollection`에서 코어로 이관(대규모 가상화·성능·이식) | **Accepted** (구현 완료·`0.1.0` 후 main 병합, 2차 감사서 설계 훼손 없음·개선 확인) | [29](29-adr-0004-core-tree-model.md) |
+| **ADR-0005** | **셸 컨텍스트 메뉴 통합(B-2)** — 우클릭 = **클래식 네이티브 셸 메뉴(`IContextMenu` HMENU) + 고유 항목 병합**(ID 대역 분리: 셸 1~0x7FFF / 고유 0x8000+). Win11 신형 메뉴는 호스팅 공개 API 없음. in-proc 확장 크래시 리스크는 수용(탐색기 동급) | **Accepted** (2026-07-07) | [38](38-adr-0005-shell-context-menu.md) |
 
 ## 2. 기술 요소 동결 (Tech Stack Freeze)
 
