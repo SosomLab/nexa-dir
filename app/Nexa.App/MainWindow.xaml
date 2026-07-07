@@ -174,6 +174,7 @@
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
                                             Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            ContextRequested="OnTabContextRequested"
                                             CanDrag="True" DragStarting="OnTabDragStarting" DropCompleted="OnTabDropCompleted"
                                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
@@ -183,9 +184,15 @@
                                             </Grid.RowDefinitions>
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
-                                            <TextBlock Grid.Row="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                       TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
-                                                       Padding="8,1" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
+                                                <!-- 고정(핀) 아이콘 — 탭 이름 앞(TAB-MENU) -->
+                                                <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                          Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
+                                                          Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                <TextBlock Text="{x:Bind Title, Mode=OneWay}"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -291,6 +298,7 @@
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
                                             Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            ContextRequested="OnTabContextRequested"
                                             CanDrag="True" DragStarting="OnTabDragStarting" DropCompleted="OnTabDropCompleted"
                                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
@@ -300,9 +308,15 @@
                                             </Grid.RowDefinitions>
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
-                                            <TextBlock Grid.Row="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                       TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
-                                                       Padding="8,1" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
+                                                <!-- 고정(핀) 아이콘 — 탭 이름 앞(TAB-MENU) -->
+                                                <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                          Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
+                                                          Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                <TextBlock Text="{x:Bind Title, Mode=OneWay}"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

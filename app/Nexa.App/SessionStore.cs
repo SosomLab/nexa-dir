@@ -60,12 +60,18 @@ internal sealed class PanelSession
     public List<TabSession> Tabs { get; set; } = new();
 }
 
-/// <summary>탭 하나의 세션 — 경로 + 펼침(열림) 집합 + 정렬.</summary>
+/// <summary>탭 하나의 세션 — 경로 + 펼침(열림) 집합 + 정렬 + 잠금/고정(TAB-MENU).</summary>
 internal sealed class TabSession
 {
     public string Path { get; set; } = string.Empty;
     public List<string> Expanded { get; set; } = new();
     public List<SortKeyState> Sort { get; set; } = new();
+
+    /// <summary>탭 잠금(닫기 동작 제외). 기본 false — 과거 세션 파일과 호환.</summary>
+    public bool Locked { get; set; }
+
+    /// <summary>탭 고정(핀 아이콘·핀 그룹 맨 앞). 기본 false.</summary>
+    public bool Pinned { get; set; }
 }
 
 /// <summary>정렬 키 1개(코어 <c>NexaSortKey</c>의 직렬화 형태). Key: 0=이름 1=확장자 2=크기 3=수정날짜 4=종류.</summary>

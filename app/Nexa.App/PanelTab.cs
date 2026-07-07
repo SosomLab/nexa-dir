@@ -64,6 +64,31 @@ public sealed class PanelTab : INotifyPropertyChanged
     /// <summary>활성 탭 상단 하이라이트 줄 표시 여부.</summary>
     public Visibility AccentVisibility => _isActive ? Visibility.Visible : Visibility.Collapsed;
 
+    private bool _isLocked;
+    /// <summary>탭 잠금 — 닫기 동작(탭 닫기·모두 닫기·더블클릭 닫기)에서 제외(TAB-MENU).</summary>
+    public bool IsLocked
+    {
+        get => _isLocked;
+        set { if (_isLocked != value) { _isLocked = value; OnPc(nameof(IsLocked)); } }
+    }
+
+    private bool _isPinned;
+    /// <summary>탭 고정 — 이름 앞 핀 아이콘 표시 + 핀 그룹(맨 앞)으로 이동(TAB-MENU).</summary>
+    public bool IsPinned
+    {
+        get => _isPinned;
+        set
+        {
+            if (_isPinned == value) { return; }
+            _isPinned = value;
+            OnPc(nameof(IsPinned));
+            OnPc(nameof(PinVisibility));
+        }
+    }
+
+    /// <summary>핀 아이콘 표시 여부(탭 이름 앞).</summary>
+    public Visibility PinVisibility => _isPinned ? Visibility.Visible : Visibility.Collapsed;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPc(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

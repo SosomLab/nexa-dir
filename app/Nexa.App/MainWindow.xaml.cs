@@ -203,6 +203,8 @@ public sealed partial class MainWindow : Window
                 Path = t.Current,
                 Expanded = new List<string>(t.Expanded),
                 Sort = sort,
+                Locked = t.IsLocked,
+                Pinned = t.IsPinned,
             });
         }
         return sess;
@@ -276,6 +278,8 @@ public sealed partial class MainWindow : Window
             var tab = new PanelTab();
             tab.Nav.NavigateTo(t.Path, record: false);
             tab.Title = PathDisplay.TabTitle(t.Path);
+            tab.IsLocked = t.Locked;   // 잠금/고정 복원(TAB-MENU)
+            tab.IsPinned = t.Pinned;
             foreach (var ex in t.Expanded)
             {
                 tab.Expanded.Add(ex);
@@ -2048,6 +2052,7 @@ public sealed partial class MainWindow : Window
             var dup = new PanelTab();
             dup.Nav.NavigateTo(basePath, record: false);
             dup.Title = PathDisplay.TabTitle(basePath);
+            insertIndex = Math.Max(insertIndex, dest.Count(t => t.IsPinned));   // 복제 탭(일반)은 핀 그룹 뒤로
             dest.Insert(Math.Clamp(insertIndex, 0, dest.Count), dup);
             SwitchToTab(destLeft, dup);
         }
@@ -2064,6 +2069,9 @@ public sealed partial class MainWindow : Window
             {
                 insertIndex--;   // 자기 제거로 뒤 인덱스가 1 당겨짐
             }
+            // 핀 그룹 경계 보정(TAB-MENU): 핀 탭은 핀 그룹 안으로, 일반 탭은 핀 그룹 뒤로.
+            int pinned = dest.Count(t => t.IsPinned);
+            insertIndex = dragged.IsPinned ? Math.Min(insertIndex, pinned) : Math.Max(insertIndex, pinned);
             dest.Insert(Math.Clamp(insertIndex, 0, dest.Count), dragged);
             if (srcLeft != destLeft)
             {
@@ -2800,9 +2808,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>탭 닫기 — 최소 1개는 유지. 활성 탭을 닫으면 이웃 탭으로 전환.</summary>
+    /// <summary>탭 닫기 — 최소 1개는 유지, <b>잠긴 탭은 닫지 않음</b>(TAB-MENU). 활성 탭을 닫으면 이웃 탭으로 전환.</summary>
     private void CloseTab(bool left, PanelTab tab)
     {
+        if (tab.IsLocked)
+        {
+            StatusText.Text = "잠긴 탭입니다 — 탭 옵션에서 잠금을 해제하세요";
+            return;
+        }
         var tabs = Panel(left).Tabs;
         int idx = tabs.IndexOf(tab);
         if (idx < 0 || tabs.Count <= 1)
@@ -2817,6 +2830,94 @@ public sealed partial class MainWindow : Window
             SwitchToTab(left, tabs[Math.Min(idx, tabs.Count - 1)]);
         }
         _session?.MarkDirty();   // 탭 닫기 → 세션 저장 예약
+    }
+
+    // ── 탭 컨텍스트 메뉴 (TAB-MENU) ──────────────────────────────────
+
+    /// <summary>탭 우클릭 → 새 탭 · 탭 닫기(마지막/잠금 무시) · 모든 탭 닫기(현재 제외, 잠긴 탭 보존) ·
+    /// 탭 옵션(잠금=닫기 제외 · 고정=핀 아이콘+핀 그룹 앞 이동).</summary>
+    private void OnTabContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not PanelTab tab)
+        {
+            return;
+        }
+        e.Handled = true;
+        bool left = _left.Tabs.Contains(tab);
+        var tabs = Panel(left).Tabs;
+
+        var flyout = new MenuFlyout();
+        var newTab = new MenuFlyoutItem { Text = "새 탭" };
+        newTab.Click += (_, _) => AddTab(left);
+        flyout.Items.Add(newTab);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var close = new MenuFlyoutItem { Text = "탭 닫기", IsEnabled = tabs.Count > 1 && !tab.IsLocked };
+        close.Click += (_, _) => CloseTab(left, tab);
+        flyout.Items.Add(close);
+        var closeOthers = new MenuFlyoutItem
+        {
+            Text = "모든 탭 닫기(현재 탭 제외)",
+            IsEnabled = tabs.Any(t => !ReferenceEquals(t, tab) && !t.IsLocked),
+        };
+        closeOthers.Click += (_, _) => CloseOtherTabs(left, tab);
+        flyout.Items.Add(closeOthers);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var options = new MenuFlyoutSubItem { Text = "탭 옵션" };
+        var lockItem = new ToggleMenuFlyoutItem { Text = "탭 잠금", IsChecked = tab.IsLocked };
+        lockItem.Click += (_, _) =>
+        {
+            tab.IsLocked = !tab.IsLocked;
+            _session?.MarkDirty();
+        };
+        options.Items.Add(lockItem);
+        var pinItem = new ToggleMenuFlyoutItem { Text = "탭 고정", IsChecked = tab.IsPinned };
+        pinItem.Click += (_, _) => TogglePinTab(left, tab);
+        options.Items.Add(pinItem);
+        flyout.Items.Add(options);
+
+        if (e.TryGetPosition(fe, out var pos))
+        {
+            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
+        }
+        else
+        {
+            flyout.ShowAt(fe);
+        }
+    }
+
+    /// <summary>현재 탭을 제외한 모든 탭 닫기 — <b>잠긴 탭은 보존</b>. 활성 탭이 닫혔으면 현재 탭으로 전환.</summary>
+    private void CloseOtherTabs(bool left, PanelTab keep)
+    {
+        var tabs = Panel(left).Tabs;
+        foreach (var t in tabs.Where(t => !ReferenceEquals(t, keep) && !t.IsLocked).ToList())
+        {
+            tabs.Remove(t);
+            t.Items.Dispose();   // 코어 트리 핸들 해제(NFR-R)
+        }
+        if (!tabs.Contains(Panel(left).Active))
+        {
+            SwitchToTab(left, keep);   // 활성 탭이 닫힌 경우
+        }
+        _session?.MarkDirty();
+    }
+
+    /// <summary>탭 고정 토글 — 고정: 핀 그룹 끝(마지막 핀 탭 뒤)으로 이동(핀이 없으면 맨 앞) /
+    /// 해제: 핀 그룹 바로 뒤로. 같은 삽입식(다른 핀 수 위치)이 양쪽을 모두 만족.</summary>
+    private void TogglePinTab(bool left, PanelTab tab)
+    {
+        var tabs = Panel(left).Tabs;
+        int from = tabs.IndexOf(tab);
+        if (from < 0)
+        {
+            return;
+        }
+        tab.IsPinned = !tab.IsPinned;
+        tabs.RemoveAt(from);
+        int pinned = tabs.Count(t => t.IsPinned);   // 자기 제외 핀 수 = 삽입 위치
+        tabs.Insert(pinned, tab);
+        _session?.MarkDirty();
     }
 
     /// <summary>탭 더블클릭 → 설정된 동작(기본: 닫기). 빈 영역 더블클릭(추가)과 구분되도록 여기서 소비.</summary>
