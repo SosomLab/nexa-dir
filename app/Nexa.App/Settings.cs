@@ -71,6 +71,10 @@ internal sealed class ViewOptions
     /// <summary>타입어헤드 입력 버퍼 리셋·검색어 표시 소거 타임아웃(ms, 기본 1000). 설정 UI 예정.</summary>
     public long TypeAheadTimeoutMs { get; set; } = 1000;
 
+    /// <summary>경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 표시 여부(기본 <c>false</c>=감춤).
+    /// 표시(S) 메뉴 토글로 변경, 설정 UI 노출은 후속.</summary>
+    public bool ShowPathHeader { get; set; }
+
     /// <summary>
     /// 파일 전송(복사/이동) <b>진행 창</b>을 완료 후 자동으로 닫을지(기본 <c>true</c> — 성공 시 <b>2초 카운트다운</b>
     /// 후 닫힘, 닫기 버튼에 "닫기 (2→1)" 표시). 실패/취소는 설정과 무관하게 열린 채 유지(결과 확인).

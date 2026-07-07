@@ -106,6 +106,8 @@
                     <!-- 숨김 파일 보기 · 점(.) 파일 보기 — 독립 토글(동시 설정 가능, 기본 둘 다 표시=체크 ON) -->
                     <ctrls:NexaMenuEntry Text="숨김 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
                     <ctrls:NexaMenuEntry Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
+                    <!-- 경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 — 기본 감춤(설정 ShowPathHeader, 설정 UI 후속) -->
+                    <ctrls:NexaMenuEntry Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="구성(O)" />
                 <ctrls:NexaMenu Header="도움말(H)">
@@ -169,6 +171,7 @@
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
                                             Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            CanDrag="True" DragStarting="OnTabDragStarting" DropCompleted="OnTabDropCompleted"
                                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -277,6 +280,7 @@
                                 <DataTemplate x:DataType="local:PanelTab">
                                     <Border Background="{x:Bind TabBackground, Mode=OneWay}" CornerRadius="3"
                                             Tag="{x:Bind}" Tapped="OnTabTapped" DoubleTapped="OnTabDoubleTapped"
+                                            CanDrag="True" DragStarting="OnTabDragStarting" DropCompleted="OnTabDropCompleted"
                                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                                         <Grid>
                                             <Grid.RowDefinitions>

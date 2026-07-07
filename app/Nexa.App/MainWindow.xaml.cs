@@ -79,6 +79,7 @@ public sealed partial class MainWindow : Window
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
+        ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
         _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
         _rightWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(false));
@@ -472,6 +473,22 @@ public sealed partial class MainWindow : Window
     {
         AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
         ReloadBothPanels();
+    }
+
+    /// <summary>"경로·항목 수 헤더 보기" 토글(체크=표시) — 경로 바 아래 헤더 줄(현재 경로 — N개 항목).
+    /// 기본 감춤. 설정(ShowPathHeader) 반영, 설정 UI 노출은 후속.</summary>
+    private void OnTogglePathHeader(object sender, EventArgs e)
+    {
+        AppSettings.View.ShowPathHeader = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowPathHeader;
+        ApplyPathHeaderVisibility();
+    }
+
+    /// <summary>경로·항목 수 헤더 줄의 표시 상태를 설정값에 맞춘다(시작 시·토글 시).</summary>
+    private void ApplyPathHeaderVisibility()
+    {
+        var vis = Vis(AppSettings.View.ShowPathHeader);
+        DirHeader.Visibility = vis;
+        DirHeader2.Visibility = vis;
     }
 
     /// <summary>현재 경로 기준으로 좌·우 패널을 다시 열거한다(펼침 상태 유지). 설정 토글(가시성) 반영용.</summary>
@@ -1884,9 +1901,136 @@ public sealed partial class MainWindow : Window
         _folderDwellTarget = null;
     }
 
-    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(내부=디스크·수정키, 외부=복사 기본).</summary>
+    // ── 탭 드래그 재정렬/패널 간 이동 (TAB-DND) ──────────────────────
+    private PanelTab? _dragTab;   // 드래그 중인 탭(자체 탭 드래그 — 파일 드래그와 구분)
+
+    /// <summary>탭 자체 드래그 시작 — 재정렬(같은 스트립)/패널 간 이동·복제(Ctrl) 모드로 전환.</summary>
+    private void OnTabDragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not PanelTab tab)
+        {
+            args.Cancel = true;
+            return;
+        }
+        _dragTab = tab;
+        _tabDwellTimer.Stop();   // 재정렬 중 탭 전환(dwell) 방지
+        _tabDwellTarget = null;
+        args.Data.RequestedOperation = DataPackageOperation.Move | DataPackageOperation.Copy;
+        args.Data.SetText(tab.Current);   // 외부(텍스트) 대상 폴백 — 경로
+    }
+
+    /// <summary>탭 드래그 종료(성공/취소) — 상태 정리.</summary>
+    private void OnTabDropCompleted(UIElement sender, DropCompletedEventArgs args) => _dragTab = null;
+
+    /// <summary>탭 드래그의 연산 규칙(파일과 동일 수정키): 기본=이동 · Ctrl=복제 · Shift=이동 강제.
+    /// <b>탭 영역(양 패널 탭 스트립)에서만 유효</b> — 대상 탭이 없으면 금지. 자기 자리 이동은 무의미(None),
+    /// 마지막 탭의 패널 밖 이동은 금지(패널 비움 방지).</summary>
+    private DataPackageOperation TabDragRule(PanelTab dragged, PanelTab? over, bool ctrl)
+    {
+        if (over is null)
+        {
+            return DataPackageOperation.None;   // 탭 영역 밖 → 금지(사용자 제약)
+        }
+        if (ctrl)
+        {
+            return DataPackageOperation.Copy;   // Ctrl = 복제(같은 경로 새 탭을 대상 위치에 추가)
+        }
+        if (ReferenceEquals(over, dragged))
+        {
+            return DataPackageOperation.None;   // 자기 자리 = 무의미
+        }
+        bool srcLeft = _left.Tabs.Contains(dragged);
+        bool destLeft = _left.Tabs.Contains(over);
+        if (srcLeft != destLeft && Panel(srcLeft).Tabs.Count <= 1)
+        {
+            return DataPackageOperation.None;   // 마지막 탭은 패널 밖으로 못 옮김(패널 비움 방지)
+        }
+        return DataPackageOperation.Move;       // 기본/Shift = 이동
+    }
+
+    private DataPackageOperation TabDragOp(PanelTab dragged, object sender, DragEventArgs e)
+        => TabDragRule(dragged,
+            sender is FrameworkElement fe && fe.Tag is PanelTab over ? over : null,
+            e.Modifiers.HasFlag(DragDropModifiers.Control));
+
+    /// <summary>화면 좌표 아래의 탭(양 패널 탭 스트립) — OLE 폴백 경로의 탭 드래그 히트테스트.</summary>
+    private PanelTab? TabUnderScreenPoint(int screenX, int screenY)
+    {
+        var pt = new POINT { X = screenX, Y = screenY };
+        ScreenToClient(WinRT.Interop.WindowNative.GetWindowHandle(this), ref pt);
+        double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+        var xamlPt = new Windows.Foundation.Point(pt.X / scale, pt.Y / scale);
+        foreach (var el in Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(xamlPt, RootGrid))
+        {
+            if (el is FrameworkElement fe && fe.Tag is PanelTab t)
+            {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>탭 재배치 실행(TAB-DND) — 복제(Ctrl)=같은 경로 새 탭을 대상 위치에 삽입 /
+    /// 이동=대상 탭 자리로(같은 스트립 재정렬·패널 간 이동). 패널 간 이동 시 원본 패널은 이웃 탭 활성,
+    /// 이동·복제된 탭은 대상 패널에서 활성(브라우저 관행). 세션 저장 예약.</summary>
+    private void MoveOrCopyTab(PanelTab dragged, PanelTab over, bool copy)
+    {
+        bool srcLeft = _left.Tabs.Contains(dragged);
+        bool destLeft = _left.Tabs.Contains(over);
+        var src = Panel(srcLeft).Tabs;
+        var dest = Panel(destLeft).Tabs;
+        if (copy)
+        {
+            string basePath = dragged.Current;
+            if (string.IsNullOrEmpty(basePath))
+            {
+                basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+            var dup = new PanelTab();
+            dup.Nav.NavigateTo(basePath, record: false);
+            dup.Title = PathDisplay.TabTitle(basePath);
+            int at = dest.IndexOf(over);
+            dest.Insert(at < 0 ? dest.Count : at, dup);
+            SwitchToTab(destLeft, dup);
+        }
+        else
+        {
+            if (ReferenceEquals(dragged, over))
+            {
+                return;
+            }
+            bool wasActive = ReferenceEquals(dragged, Panel(srcLeft).Active);
+            int from = src.IndexOf(dragged);
+            if (from < 0)
+            {
+                return;
+            }
+            src.RemoveAt(from);
+            int at = dest.IndexOf(over);   // 제거 후 인덱스 = 대상 탭 자리(그 앞에 삽입)
+            dest.Insert(at < 0 ? dest.Count : at, dragged);
+            if (srcLeft != destLeft)
+            {
+                if (wasActive)
+                {
+                    SwitchToTab(srcLeft, src[Math.Min(from, src.Count - 1)]);   // 원본 패널 이웃 활성
+                }
+                SwitchToTab(destLeft, dragged);
+            }
+        }
+        _session?.MarkDirty();   // 탭 순서/구성 변경 → 세션 저장
+    }
+
+    /// <summary>드래그가 탭 위로 들어오면 2초 타이머 시작(다른 탭이면 재시작). 이동/복사 수락(내부=디스크·수정키, 외부=복사 기본).
+    /// <b>탭 자체 드래그</b>면 파일 규칙 대신 재정렬 규칙(TAB-DND)으로 분기.</summary>
     private void OnTabDragOver(object sender, DragEventArgs e)
     {
+        if (_dragTab is not null)
+        {
+            var tabOp = TabDragOp(_dragTab, sender, e);
+            e.AcceptedOperation = tabOp;
+            ApplyDragCaption(e.DragUIOverride, tabOp, null);   // "복사"/"이동" 캡션(금지=🚫)
+            return;   // 파일 드롭 로직·dwell 미적용
+        }
         if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && !string.IsNullOrEmpty(tab.Current))
         {
             var op = _dragPaths.Count > 0 ? DragOp(tab.Current, e.Modifiers) : ExternalDragOp(e);
@@ -1916,12 +2060,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동/복사(즉시, 2초 기다림 없이도 가능). 외부 파일 드롭도 수신(DND-EXT).</summary>
+    /// <summary>탭에 드롭 → 그 탭의 폴더로 이동/복사(즉시, 2초 기다림 없이도 가능). 외부 파일 드롭도 수신(DND-EXT).
+    /// <b>탭 자체 드래그</b>면 재정렬/패널 간 이동·복제 실행(TAB-DND).</summary>
     private async void OnTabDrop(object sender, DragEventArgs e)
     {
         _tabDwellTimer.Stop();
         _tabDwellTarget = null;
         e.Handled = true;
+        if (_dragTab is not null)
+        {
+            var dragged = _dragTab;
+            _dragTab = null;
+            if (TabDragOp(dragged, sender, e) != DataPackageOperation.None
+                && sender is FrameworkElement tfe && tfe.Tag is PanelTab overTab)
+            {
+                MoveOrCopyTab(dragged, overTab, e.Modifiers.HasFlag(DragDropModifiers.Control));
+            }
+            return;
+        }
         if (sender is not FrameworkElement fe || fe.Tag is not PanelTab tab || string.IsNullOrEmpty(tab.Current))
         {
             _dragPaths.Clear();
@@ -2113,6 +2269,12 @@ public sealed partial class MainWindow : Window
     /// 연산 규칙은 XAML 경로와 동일: 내부=<see cref="DragOp"/>(+자기 폴더 Move 금지), 외부=복사 기본·Shift=이동.</summary>
     private (DataPackageOperation op, bool destLeft, string destDir) OleDropPlan(int screenX, int screenY, uint keyState, bool hasFiles)
     {
+        // 탭 자체 드래그(TAB-DND) — 상승 실행에선 XAML 드롭이 막혀 이 경로로 온다. 탭 영역에서만 유효.
+        if (_dragTab is not null)
+        {
+            var overTab = TabUnderScreenPoint(screenX, screenY);
+            return (TabDragRule(_dragTab, overTab, OleMods(keyState).HasFlag(DragDropModifiers.Control)), true, "");
+        }
         bool internalDrag = _dragPaths.Count > 0;
         if (!internalDrag && !hasFiles)
         {
@@ -2175,6 +2337,19 @@ public sealed partial class MainWindow : Window
     /// 이동도 앱이 직접 수행(최적화 이동)하므로 원본(탐색기)이 중복 삭제하지 않게 None을 보고한다.</summary>
     private uint OnOleDrop(int screenX, int screenY, uint keyState, List<string> paths)
     {
+        // 탭 자체 드래그(TAB-DND) — 탭 위 드롭이면 재배치 실행, 아니면 무동작(탭 영역 제약).
+        if (_dragTab is not null)
+        {
+            var dragged = _dragTab;
+            _dragTab = null;
+            bool ctrl = OleMods(keyState).HasFlag(DragDropModifiers.Control);
+            var overTab = TabUnderScreenPoint(screenX, screenY);
+            if (overTab is not null && TabDragRule(dragged, overTab, ctrl) != DataPackageOperation.None)
+            {
+                MoveOrCopyTab(dragged, overTab, ctrl);
+            }
+            return OleDropTarget.EffectNone;   // 앱이 수행 — 원본 측 후처리 불필요
+        }
         bool internalDrag = _dragPaths.Count > 0;
         var (op, destLeft, destDir) = OleDropPlan(screenX, screenY, keyState, paths.Count > 0);
         if (op == DataPackageOperation.None)
