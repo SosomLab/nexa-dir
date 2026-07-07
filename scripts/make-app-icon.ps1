@@ -4,7 +4,8 @@
 #   · 다크 라운드 배경(프로툴/다크 기본, DR-2)
 #   · 폴더(루트)에서 뻗는 트리 가이드 + 행 3개 — 그중 2개가 accent로 "다중 선택"됨
 #   · 우상단 </> 글리프 — 개발자 지향
-# 산출: app/Nexa.App/Assets/AppIcon/nexa-{16..1024}.png + nexa.ico(16~256 멀티사이즈, PNG 엔트리)
+# 산출: app/Nexa.App/Assets/AppIcon/nexa-dir-{16..1024}.png + nexa-dir.ico(16~256 멀티사이즈, PNG 엔트리)
+# (파일명 접두사 "nexa-dir" — "nexa"는 다른 프로그램들과 공용 브랜드라 제품명으로 구분)
 # 재실행 안전(덮어씀). 1024px 마스터에서 고품질 다운스케일.
 
 $ErrorActionPreference = 'Stop'
@@ -124,7 +125,7 @@ function PngBytes([System.Drawing.Bitmap]$bmp) {
 $pngSizes = 16, 24, 32, 48, 64, 128, 256, 512, 1024
 foreach ($s in $pngSizes) {
     $bmp = if ($s -eq 1024) { $master } else { ResizeTo $master $s }
-    [System.IO.File]::WriteAllBytes((Join-Path $outDir "nexa-$s.png"), (PngBytes $bmp))
+    [System.IO.File]::WriteAllBytes((Join-Path $outDir "nexa-dir-$s.png"), (PngBytes $bmp))
     if ($s -ne 1024) { $bmp.Dispose() }
 }
 
@@ -153,7 +154,7 @@ for ($i = 0; $i -lt $icoSizes.Count; $i++) {
 }
 foreach ($b in $blobs) { $bw.Write($b) }
 $bw.Flush()
-[System.IO.File]::WriteAllBytes((Join-Path $outDir 'nexa.ico'), $ms.ToArray())
+[System.IO.File]::WriteAllBytes((Join-Path $outDir 'nexa-dir.ico'), $ms.ToArray())
 $master.Dispose()
 
-Write-Host "아이콘 생성 완료 → $outDir (PNG $($pngSizes.Count)종 + nexa.ico $($icoSizes.Count)엔트리)"
+Write-Host "아이콘 생성 완료 → $outDir (PNG $($pngSizes.Count)종 + nexa-dir.ico $($icoSizes.Count)엔트리)"
