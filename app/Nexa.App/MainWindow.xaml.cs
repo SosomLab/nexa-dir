@@ -1198,6 +1198,24 @@ public sealed partial class MainWindow : Window
         var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = CanPaste() };
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
+
+        // 실행 취소/다시 실행(B-13u) — 탐색기 배경 메뉴 동일. 마지막 작업 설명 표기, 없으면 비활성.
+        var undo = new MenuFlyoutItem
+        {
+            Text = _history.CanUndo ? $"실행 취소: {_history.UndoDescription}" : "실행 취소",
+            IsEnabled = _history.CanUndo,
+            KeyboardAcceleratorTextOverride = "Ctrl+Z",
+        };
+        undo.Click += (_, _) => DoUndo();
+        flyout.Items.Add(undo);
+        var redo = new MenuFlyoutItem
+        {
+            Text = _history.CanRedo ? $"다시 실행: {_history.RedoDescription}" : "다시 실행",
+            IsEnabled = _history.CanRedo,
+            KeyboardAcceleratorTextOverride = "Ctrl+Y",
+        };
+        redo.Click += (_, _) => DoRedo();
+        flyout.Items.Add(redo);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // 새로 만들기 ▶ 폴더 / 파일 / 바로 가기 (BG-N1/N2/N3) — 생성 후 즉시 인라인 이름변경.
