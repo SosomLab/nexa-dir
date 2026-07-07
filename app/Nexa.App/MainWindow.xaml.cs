@@ -1939,12 +1939,13 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private static void ApplyDragCaption(Microsoft.UI.Xaml.DragUIOverride ui, DataPackageOperation op, string? destName)
     {
-        ui.IsGlyphVisible = false;   // 탐색기엔 없는 큰 글리프 제거(예전 "Move 글자 큼" 원인)
         if (op == DataPackageOperation.None)
         {
-            ui.IsCaptionVisible = false;   // 금지 대상 → 캡션 없음(불가 커서만)
+            ui.IsGlyphVisible = true;      // 금지 글리프(🚫) 표시 — 꺼두면 금지 시 시각 피드백이 전혀 없음
+            ui.IsCaptionVisible = false;   // 캡션은 없음
             return;
         }
+        ui.IsGlyphVisible = false;   // 수락 시엔 큰 글리프 대신 캡션(탐색기식, 예전 "Move 글자 큼" 원인)
         ui.IsContentVisible = true;   // 드래그한 행 고스트 유지
         ui.IsCaptionVisible = true;
         bool copy = op.HasFlag(DataPackageOperation.Copy) && !op.HasFlag(DataPackageOperation.Move);

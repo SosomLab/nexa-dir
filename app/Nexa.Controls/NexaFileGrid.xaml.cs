@@ -99,13 +99,14 @@ public sealed partial class NexaFileGrid : UserControl
         {
             var op = BodyDragOperation?.Invoke(e) ?? DataPackageOperation.None;
             e.AcceptedOperation = op;
-            e.DragUIOverride.IsGlyphVisible = false;
             if (op == DataPackageOperation.None)
             {
-                e.DragUIOverride.IsCaptionVisible = false;   // 자기 폴더로 Move 등 금지 → 캡션 없음(불가 커서)
+                e.DragUIOverride.IsGlyphVisible = true;      // 금지 글리프(🚫) — 자기 폴더 Move 등 금지의 시각 피드백
+                e.DragUIOverride.IsCaptionVisible = false;   // 캡션 없음
             }
             else
             {
+                e.DragUIOverride.IsGlyphVisible = false;     // 수락 시엔 캡션이 대신
                 e.DragUIOverride.IsContentVisible = true;
                 e.DragUIOverride.IsCaptionVisible = true;
                 bool copy = op == DataPackageOperation.Copy;
