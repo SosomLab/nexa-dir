@@ -90,10 +90,11 @@
 
 ## B-13u · Undo/Redo — 동작 히스토리 클래스
 
-> **진행(2026-07-07)**: **S1 구현** — `Nexa.ViewModels.OperationHistory`(+`MoveBatchOp`/`CopyBatchOp`/`RenameOp`/`CreateOp`, xUnit 10) ·
-> 기록 배선(`TransferPathsInto` 실수행 쌍 · `CommitRename` · 새로만들기 3종) · **Ctrl+Z/Ctrl+Y(+Ctrl+Shift+Z)**.
+> **진행(2026-07-07)**: **S1+S2 구현 ✅** — `Nexa.ViewModels.OperationHistory`(+`MoveBatchOp`/`CopyBatchOp`/`RenameOp`/`CreateOp`, xUnit 10) ·
+> 기록 배선(`TransferPathsInto` 실수행 쌍 · `CommitRename` · 새로만들기 3종 · 휴지통 삭제) · **Ctrl+Z/Ctrl+Y(+Ctrl+Shift+Z)**.
 > 사본/생성물 삭제는 주입(앱=휴지통, 테스트=완전삭제 — Windows 전용 API 격리). 실패=상태바 알림 + 해당 연산 소실(무결성 우선).
-> **S2 남음**: 휴지통 삭제 복원(undo of delete, 셸 COM `undelete`) · nexa-ops 이관(B-1)·배치 백그라운드화.
+> **S2**: `RecycleBin.cs`(휴지통 셸 폴더 열거 → 원래 위치+이름 매칭 → `undelete` 동사) + `DeleteBatchOp`(undo=복원/redo=재삭제).
+> **잔여**: nexa-ops 이관(B-1)·배치 백그라운드화·같은 경로 다중 삭제본 시각 비교.
 
 ### 요구
 - 복사·이동·**일반삭제(휴지통)** 를 **Ctrl+Z(undo)/Ctrl+Y(redo)**. 별도 히스토리 관리 클래스 필요 여부 검토 → **필요**.

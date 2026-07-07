@@ -103,7 +103,7 @@
 - **마우스 재정비(세트)**: `B-8` 이름변경 release+우클릭 제외(BUG-002) · `B-9m` 다중선택 드래그(N개) + 선택 보존.
 - **파일 조작**: `B-11r` 휴지통 삭제 배선(Del=휴지통/Shift+Del=완전) · `B-10c` 컨텍스트 메뉴 폴더/파일/빈영역 분리.
 - **DnD 정책(설계)**: `B-14dnd` 디스크별 기본(같은=이동/다른=복사)+Alt 반전 · `B-15h` 폴더 3초 hover 진입 + 전환시간 설정(탭2초/폴더3초).
-- **자동 갱신·되돌리기(설계)**: `B-12w` watcher Pub/Sub + 수동 새로고침(F5)[BUG-006] · `B-13u` Undo/Redo(Ctrl+Z/Y)+히스토리 클래스 — **🚧 S1 완료(07-07)**: `OperationHistory`+이동/복사/이름변경/새로만들기 undo·redo(xUnit 10) · S2(휴지통 삭제 복원=셸 COM) 남음.
+- **자동 갱신·되돌리기(설계)**: `B-12w` watcher Pub/Sub + 수동 새로고침(F5)[BUG-006] · `B-13u` Undo/Redo(Ctrl+Z/Y)+히스토리 클래스 — **✅ S1+S2 완료(07-07)**: `OperationHistory`+이동/복사/이름변경/새로만들기/**휴지통 삭제 복원**(셸 undelete) undo·redo(xUnit 10). 잔여: nexa-ops 이관(B-1)·다중 삭제본 시각 비교.
 - **컬럼**([docs/23](23-column-system.md)): `COL-1` 확장자 컬럼 기본표시 · `COL-2` 정렬 3상태(오름→내림→없음)+헤더 화살표 · `COL-3` Alt+헤더 다중정렬 · `COL-4` 컬럼 조정 모달.
 - **셸 통합**: `SHELL` = 기존 §2 **B-2**(`IContextMenu` 호스팅, 별도 ADR 후보).
 

@@ -1526,18 +1526,24 @@ public sealed partial class MainWindow : Window
         }
         int ok = 0;
         string? err = null;
+        var deleted = new List<string>();   // 휴지통 삭제 성공분 — undo(복원) 기록(B-13u S2)
         foreach (var p in targets)
         {
             try
             {
                 if (permanent) { FileOps.DeletePermanent(p); }
-                else { FileOps.DeleteToRecycleBin(p); }
+                else { FileOps.DeleteToRecycleBin(p); deleted.Add(p); }
                 ok++;
             }
             catch (Exception ex)
             {
                 err = ex.Message;
             }
+        }
+        // 휴지통 삭제만 undo 가능(완전 삭제는 설계상 제외 — 확인창으로 방어, docs/33).
+        if (deleted.Count > 0)
+        {
+            _history.Push(new DeleteBatchOp(deleted, $"삭제(휴지통) {deleted.Count}개"));
         }
         string kind = permanent ? "완전 삭제" : "휴지통";
         StatusText.Text = err is null ? $"{kind} {ok}개 완료" : $"{kind} 일부 실패: {err}";
