@@ -44,7 +44,7 @@ public sealed partial class NexaFileGrid : UserControl
                 RowRecycled?.Invoke(item);
             }
         };
-        // 드래그 중 가장자리 자동 스크롤 타이머(가장자리에 머무는 동안 반복 스크롤).
+        // 드래그 중 가장자리 자동 스크롤 타이머(가장자리에 머무는 동안 반복 스크롤). 러버밴드 중에도 공용.
         _autoScroll.Interval = TimeSpan.FromMilliseconds(50);
         _autoScroll.Tick += (_, _) =>
         {
@@ -53,7 +53,16 @@ public sealed partial class NexaFileGrid : UserControl
                 return;
             }
             BodyScroll.ChangeView(null, BodyScroll.VerticalOffset + _autoScrollDelta, null, disableAnimation: true);
+            if (_marqueeActive)
+            {
+                UpdateMarquee(_marqueeLastViewport);   // 스크롤로 콘텐츠 좌표가 변함 → 밴드·선택 재계산
+            }
         };
+        // 러버밴드(마퀴) 다중 선택(B-4) — 행 이벤트가 Handled여도 받도록 handledEventsToo.
+        AddHandler(PointerMovedEvent, new PointerEventHandler(OnMarqueePointerMoved), handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnMarqueePointerEnd), handledEventsToo: true);
+        AddHandler(PointerCanceledEvent, new PointerEventHandler(OnMarqueePointerEnd), handledEventsToo: true);
+        AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnMarqueePointerEnd), handledEventsToo: true);
         // 헤더 셀(패널별 정렬 상태 래퍼)은 호스트가 Columns를 채운 뒤(생성자 이후) 구성 → Loaded에서 1회 빌드.
         Loaded += (_, _) => BuildHeaderCells();
     }
@@ -150,6 +159,147 @@ public sealed partial class NexaFileGrid : UserControl
 
     /// <summary>드래그 취소/종료 시 자동 스크롤을 강제 정지(호스트가 <c>DropCompleted</c>에서 호출, B-14).</summary>
     public void StopDragAutoScroll() => StopAutoScroll();
+
+    // ── 러버밴드(마퀴) 다중 선택 (B-4) ────────────────────────────────
+    // 시작 후보는 호스트가 지정(빈 영역 press·미선택 행 press). 4px 임계 이동 시 활성화(클릭/더블클릭 보존),
+    // 활성화되면 포인터 캡처 + 밴드 사각형 표시 + 교차 행의 "연속 인덱스 범위"를 이벤트로 통지(가상화 안전 —
+    // 행 높이 균일이라 실체화 여부와 무관하게 인덱스 계산). 가장자리 자동 스크롤은 DnD 타이머 공용.
+
+    /// <summary>밴드에 교차하는 가시 행 범위(first,last — 없으면 -1,-1). 호스트가 선택 모델에 반영.</summary>
+    public event Action<int, int>? MarqueeSelect;
+
+    private bool _marqueeCandidate;    // press 접수(임계 이동 전 — 클릭이면 무산)
+    private bool _marqueeActive;       // 임계 초과 → 밴드 표시·선택 중
+    private uint _marqueePointerId;
+    private Windows.Foundation.Point _marqueeOriginContent;   // 시작점(콘텐츠 좌표 — 스크롤 보정)
+    private Windows.Foundation.Point _marqueeLastViewport;    // 마지막 포인터(뷰포트 좌표 — 자동 스크롤 재계산용)
+
+    /// <summary>러버밴드 시작 후보 등록 — 좌버튼 press에서 호스트가 호출(빈 영역·미선택 행).
+    /// 실제 시작은 4px 이동 후(단순 클릭·더블클릭은 밴드 없이 끝남).</summary>
+    public void StartMarqueeCandidate(PointerRoutedEventArgs e)
+    {
+        var pt = e.GetCurrentPoint(BodyScroll);
+        if (!pt.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+        _marqueeCandidate = true;
+        _marqueeActive = false;
+        _marqueePointerId = e.Pointer.PointerId;
+        _marqueeOriginContent = new Windows.Foundation.Point(pt.Position.X, pt.Position.Y + BodyScroll.VerticalOffset);
+    }
+
+    /// <summary>행(콘텐츠) 총폭 — 컬럼 너비 합. 밴드가 이 폭과 겹칠 때만 행 선택(탐색기 details 동일).</summary>
+    private double RowContentWidth()
+    {
+        double w = 0;
+        foreach (var c in Columns)
+        {
+            w += c.Width;
+        }
+        return w > 0 ? w : double.MaxValue;   // 컬럼 미구성 그리드는 전폭 취급
+    }
+
+    private void OnMarqueePointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_marqueeCandidate || e.Pointer.PointerId != _marqueePointerId)
+        {
+            return;
+        }
+        var pt = e.GetCurrentPoint(BodyScroll);
+        if (!pt.Properties.IsLeftButtonPressed)
+        {
+            EndMarquee();
+            return;
+        }
+        var vp = pt.Position;
+        if (!_marqueeActive)
+        {
+            // 4px 임계 — 클릭/더블클릭 제스처 보존(임계 전엔 캡처하지 않아 행 이벤트 흐름 유지).
+            double dx = vp.X - _marqueeOriginContent.X;
+            double dy = (vp.Y + BodyScroll.VerticalOffset) - _marqueeOriginContent.Y;
+            if (Math.Abs(dx) < 4 && Math.Abs(dy) < 4)
+            {
+                return;
+            }
+            _marqueeActive = true;
+            CapturePointer(e.Pointer);
+            MarqueeRect.Visibility = Visibility.Visible;
+        }
+        _marqueeLastViewport = vp;
+        UpdateMarquee(vp);
+        // 가장자리 자동 스크롤(DnD와 동일 파라미터·타이머).
+        const double edge = 32;
+        const double speed = 20;
+        double h = BodyScroll.ActualHeight;
+        _autoScrollDelta = vp.Y < edge ? -speed : (vp.Y > h - edge ? speed : 0);
+        if (_autoScrollDelta != 0)
+        {
+            if (!_autoScroll.IsEnabled) { _autoScroll.Start(); }
+        }
+        else
+        {
+            _autoScroll.Stop();
+        }
+    }
+
+    /// <summary>밴드 사각형(뷰포트 좌표로 클램프해 그림) + 교차 행 범위 통지.</summary>
+    private void UpdateMarquee(Windows.Foundation.Point viewport)
+    {
+        double offset = BodyScroll.VerticalOffset;
+        double curX = viewport.X;
+        double curYContent = viewport.Y + offset;
+
+        // 콘텐츠 좌표의 밴드.
+        double x1 = Math.Min(_marqueeOriginContent.X, curX);
+        double x2 = Math.Max(_marqueeOriginContent.X, curX);
+        double y1 = Math.Min(_marqueeOriginContent.Y, curYContent);
+        double y2 = Math.Max(_marqueeOriginContent.Y, curYContent);
+
+        // 시각(뷰포트 좌표, 본문 영역으로 클램프).
+        double vy1 = Math.Max(0, y1 - offset);
+        double vy2 = Math.Min(BodyScroll.ActualHeight, y2 - offset);
+        double vx1 = Math.Max(0, x1);
+        double vx2 = Math.Min(BodyScroll.ActualWidth, x2);
+        Canvas.SetLeft(MarqueeRect, vx1);
+        Canvas.SetTop(MarqueeRect, vy1);
+        MarqueeRect.Width = Math.Max(0, vx2 - vx1);
+        MarqueeRect.Height = Math.Max(0, vy2 - vy1);
+
+        // 교차 행 범위(연속) — 행 폭(컬럼 합)과 x 겹침 필요(크기 컬럼 뒤 빈 공간에서 수직 드래그 = 무선택).
+        int count = Repeater.ItemsSourceView?.Count ?? 0;
+        double stride = EstimateRowStride();
+        int first = -1, last = -1;
+        if (count > 0 && x1 <= RowContentWidth() && stride > 0)
+        {
+            first = Math.Max(0, (int)Math.Floor(y1 / stride));
+            last = Math.Min(count - 1, (int)Math.Floor((y2 - 0.1) / stride));
+            if (last < first)
+            {
+                first = last = -1;
+            }
+        }
+        MarqueeSelect?.Invoke(first, last);
+    }
+
+    private void OnMarqueePointerEnd(object sender, PointerRoutedEventArgs e) => EndMarquee();
+
+    private void EndMarquee()
+    {
+        if (!_marqueeCandidate)
+        {
+            return;
+        }
+        _marqueeCandidate = false;
+        bool wasActive = _marqueeActive;
+        _marqueeActive = false;
+        MarqueeRect.Visibility = Visibility.Collapsed;
+        StopAutoScroll();
+        if (wasActive)
+        {
+            ReleasePointerCaptures();
+        }
+    }
 
     /// <summary>행 요소가 화면에 실체화될 때 그 데이터로 호출(아이콘 지연 로드 등). 호스트가 구독.</summary>
     public event Action<object>? RowRealized;

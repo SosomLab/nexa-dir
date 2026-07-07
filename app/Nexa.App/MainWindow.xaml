@@ -209,7 +209,7 @@
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3"
+                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
@@ -317,7 +317,7 @@
                     <ctrls:NexaFileGrid Grid.Row="3" x:Name="DirGrid2" Margin="8,0" IsTabStop="True" ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3"
+                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"

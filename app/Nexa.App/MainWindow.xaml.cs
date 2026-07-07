@@ -95,6 +95,9 @@ public sealed partial class MainWindow : Window
         // 빈 영역 드래그 커서/캡션 연산 결정(자기 폴더로 Move는 금지·Copy는 복제 허용·외부=복사, B-14dnd/DND-SELF/DND-EXT).
         DirGrid.BodyDragOperation = e => BackgroundDragOp(true, e);
         DirGrid2.BodyDragOperation = e => BackgroundDragOp(false, e);
+        // 러버밴드(마퀴) 선택 — 그리드가 교차 행 범위를 통지 → 선택 모델 반영(B-4).
+        DirGrid.MarqueeSelect += (first, last) => ApplyMarqueeSelection(true, first, last);
+        DirGrid2.MarqueeSelect += (first, last) => ApplyMarqueeSelection(false, first, last);
         // 드래그 중 탭 위에 머물면 그 탭으로 전환(폴더가 보이게, B-13 · 시간=설정 TabDwellMs, B-15h).
         _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
         _tabDwellTimer.Tick += (_, _) =>
@@ -763,7 +766,8 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
-    /// <summary>그리드 빈 영역(행 아님) 좌클릭 → 그 패널 선택 해제(빈 영역 클릭 = 선택 취소).</summary>
+    /// <summary>그리드 빈 영역(행 아님) 좌클릭 → 그 패널 선택 해제(빈 영역 클릭 = 선택 취소)
+    /// + <b>러버밴드 시작 후보</b>(선택이 있었더라도 빈 공간 드래그 = 다중 선택 모드, B-4).</summary>
     private void OnGridPressed(object sender, PointerRoutedEventArgs e)
     {
         var pp = e.GetCurrentPoint((UIElement)sender).Properties;
@@ -781,6 +785,28 @@ public sealed partial class MainWindow : Window
         items.SetCaret(-1);
         UpdateSelectionCount(items);
         CancelPendingRename();
+        Panel(left).Grid.StartMarqueeCandidate(e);   // 빈 공간 드래그 = 러버밴드(B-4)
+    }
+
+    /// <summary>러버밴드 교차 행 범위를 선택 모델에 반영 — 연속 인덱스라 단일선택(anchor)+범위선택으로 치환(B-4).</summary>
+    private void ApplyMarqueeSelection(bool left, int first, int last)
+    {
+        var items = Panel(left).Items;
+        if (first < 0 || items.Count == 0)
+        {
+            items.ClearSelection();
+            items.SetCaret(-1);
+            UpdateSelectionCount(items);
+            return;
+        }
+        last = Math.Min(last, items.Count - 1);
+        items.Select(items[first], 0);   // 단일 선택 = anchor 설정
+        if (last > first)
+        {
+            items.SelectRange(items[last]);
+        }
+        items.SetCaret(last);
+        UpdateSelectionCount(items);
     }
 
     private void OnRowPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -811,6 +837,9 @@ public sealed partial class MainWindow : Window
         //    → 다중 선택 드래그 보존(B-9m) + 이름변경은 드래그 없이 릴리스했을 때만(B-8).
         CancelPendingRename();   // 새 press → 대기 중인 이름변경 취소(더블클릭이면 DoubleTapped가 실행)
         _deferredClickItem = null;
+        // DnD vs 러버밴드(B-4): "선택된 항목에서 드래그=파일 DnD / 미선택 항목에서 드래그=러버밴드".
+        // press 시점 선택 상태로 이 제스처의 CanDrag를 정한다(드래그 판정은 press 후 이동에서 일어나므로 유효).
+        fe.CanDrag = item.IsSelected || IsShiftDown() || IsCtrlDown();
         if (IsShiftDown())
         {
             items.SelectRange(item);
@@ -826,6 +855,7 @@ public sealed partial class MainWindow : Window
         else
         {
             items.Select(item, 0);       // 새 항목 → 즉시 단일
+            Panel(left).Grid.StartMarqueeCandidate(e);   // 미선택 항목에서 드래그 시작 = 러버밴드(B-4)
         }
         int idx = items.IndexOf(item);
         if (idx >= 0)

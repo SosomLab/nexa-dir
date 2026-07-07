@@ -52,14 +52,23 @@
             </ItemsRepeater>
         </Grid>
 
-        <!-- 본문(가상화). 드래그 중 가장자리 근처면 자동 스크롤(AllowDrop + DragOver 타이머). -->
-        <ScrollViewer x:Name="BodyScroll" Grid.Row="1" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
-                      AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
-            <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
-                <ItemsRepeater.Layout>
-                    <StackLayout Orientation="Vertical" Spacing="2" />
-                </ItemsRepeater.Layout>
-            </ItemsRepeater>
-        </ScrollViewer>
+        <!-- 본문(가상화). 드래그 중 가장자리 근처면 자동 스크롤(AllowDrop + DragOver 타이머).
+             Background=Transparent: 행 밖 빈 영역(행 우측·목록 아래)도 히트 가능 → 빈영역 클릭/러버밴드(B-4). -->
+        <Grid Grid.Row="1">
+            <ScrollViewer x:Name="BodyScroll" Background="Transparent"
+                          VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
+                          AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
+                <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Vertical" Spacing="2" />
+                    </ItemsRepeater.Layout>
+                </ItemsRepeater>
+            </ScrollViewer>
+            <!-- 러버밴드(마퀴) 선택 사각형 오버레이(B-4) — 뷰포트 좌표로 그림, 히트 불가 -->
+            <Canvas x:Name="MarqueeLayer" IsHitTestVisible="False">
+                <Rectangle x:Name="MarqueeRect" Visibility="Collapsed"
+                           Fill="#3357A9FF" Stroke="#9957A9FF" StrokeThickness="1" />
+            </Canvas>
+        </Grid>
     </Grid>
 </UserControl>
