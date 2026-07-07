@@ -55,6 +55,7 @@
 - **빌드/테스트 SSOT**: 부문별 빌드·테스트 절차는 [docs/18](docs/18-build-and-test.md)이 단일 출처. **빌드/테스트 명령·도구·전제·산출물·OS지원이 바뀌는 변경마다 같은 커밋에서 docs/18 갱신**(신뢰 원천은 CI).
 - **WinUI 앱 변경 검증**: 앱(WinUI)은 **맥 빌드 불가** → push 후 **CI(windows) `app` job green 확인 필수**(`gh run watch`). 앱 `TargetFramework`는 참조 UI 패키지(CommunityToolkit 등) 제공 TFM과 정합해야 함(불일치=XAML 컴파일 CS0234). `TargetFramework`(빌드 SDK)≠`TargetPlatformMinVersion`(실행 최소)은 정상. → [docs/18](docs/18-build-and-test.md) §2.
 - **작업 기록(2026-07-05~ 규약)**: 기록은 **일자 단위**로만. 하루 상세는 `docs/journal/YYYY-MM-DD.md`(**파일 내부 시간 역순**, 최신 위)에 적고, 두 통합 뷰를 갱신 — 시간순 **[docs/DEVLOG.md](docs/DEVLOG.md)**(그날 요약을 맨 위에 추가) + 목적/기능·마일스톤 **[docs/MILESTONES.md](docs/MILESTONES.md)**. 브랜치 이력 [docs/BRANCHES.md](docs/BRANCHES.md). (과거 `YYYYMMDD_HHMMSS_*` 저널·라운드 워크로그는 통폐합 이전 아카이브.)
+  **시각 표기(2026-07-08~)**: 저널의 각 작업 단위 아래 `> ⏱ YYYY-MM-DD HH:MM:SS ~ HH:MM:SS (커밋)` — **git 커밋 시각(KST)** 이 초 단위 원천. 단일 커밋 단위는 종료 시각만, 실제 착수는 첫 커밋 이전(직전 단위 종료 직후)으로 전제.
 - **의존성 정책**: **퍼미시브(MIT/Apache/BSD/ISC/MPL-2.0) 온리**, GPL/AGPL 금지, LGPL 격리.
   CI 라이선스 게이트(`cargo-deny`) 예정. (유료 판매 보호)
 - **자동화/권한**: `.claude/settings.json`(커밋)에 dev 명령 자동 허용 → 다른 PC도 불필요한 확인 없이 진행.
