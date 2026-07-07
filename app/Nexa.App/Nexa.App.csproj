@@ -9,6 +9,8 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Nexa.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 앱 아이콘(exe 임베드 — 탐색기/작업표시줄). 생성: scripts/make-app-icon.ps1 -->
+    <ApplicationIcon>Assets\AppIcon\nexa.ico</ApplicationIcon>
     <Platforms>x64;arm64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
@@ -29,6 +31,11 @@
     <PackageProjectUrl>https://sosomlab.com</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SosomLab/nexa-dir</RepositoryUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 창/작업표시줄 아이콘(AppWindow.SetIcon)용 배포 — exe 아이콘은 ApplicationIcon이 임베드 -->
+    <Content Include="Assets\AppIcon\nexa.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />

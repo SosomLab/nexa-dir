@@ -67,6 +67,8 @@ public sealed partial class MainWindow : Window
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
         // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
+        // 창/작업표시줄 아이콘(비패키지 실행) — exe 아이콘은 csproj ApplicationIcon이 임베드. 실패는 무해(기본 아이콘).
+        try { AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon", "nexa.ico")); } catch { }
         // 상승(관리자) 실행이면 XAML 드롭 수신이 플랫폼 차단(BUG-009) → 고전 OLE 폴백 등록.
         // 콘텐츠 브리지 HWND가 필요하므로 로드 후 1회(Loaded는 재발화 가능 — 내부에서 가드).
         RootGrid.Loaded += (_, _) => InitElevatedDropFallback();
