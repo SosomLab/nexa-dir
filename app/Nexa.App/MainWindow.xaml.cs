@@ -2380,7 +2380,7 @@ public sealed partial class MainWindow : Window
                 : err is null
                     ? $"{verb} 완료 — {done}개{(skipped > 0 ? $" · 건너뜀 {skipped}개" : string.Empty)}"
                     : $"{verb} 일부 실패: {err}";
-            // 성공(무취소·무오류)만 3초 카운트다운 자동 닫기 — 실패/취소는 결과 확인 위해 유지.
+            // 성공(무취소·무오류)만 2초 카운트다운 자동 닫기 — 실패/취소는 결과 확인 위해 유지.
             win.Complete(summary, AppSettings.View.AutoCloseTransferWindow && !cancelled && err is null);
             StatusText.Text = summary;
         }

@@ -72,8 +72,8 @@ internal sealed class ViewOptions
     public long TypeAheadTimeoutMs { get; set; } = 1000;
 
     /// <summary>
-    /// 파일 전송(복사/이동) <b>진행 창</b>을 완료 후 자동으로 닫을지(기본 <c>true</c> — 성공 시 <b>3초 카운트다운</b>
-    /// 후 닫힘, 닫기 버튼에 "닫기 (3→2→1)" 표시). 실패/취소는 설정과 무관하게 열린 채 유지(결과 확인).
+    /// 파일 전송(복사/이동) <b>진행 창</b>을 완료 후 자동으로 닫을지(기본 <c>true</c> — 성공 시 <b>2초 카운트다운</b>
+    /// 후 닫힘, 닫기 버튼에 "닫기 (2→1)" 표시). 실패/취소는 설정과 무관하게 열린 채 유지(결과 확인).
     /// 토글의 설정 UI 노출은 후속(DND-OW2).
     /// </summary>
     public bool AutoCloseTransferWindow { get; set; } = true;

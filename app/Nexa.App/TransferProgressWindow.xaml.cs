@@ -18,7 +18,7 @@ public enum OverwriteChoice
 
 /// <summary>
 /// 파일 전송(복사/이동) <b>진행 창</b>(별도 Window) — 탐색기식. 시작 시 표시하고 바이트 진행률을 라이브 갱신,
-/// 완료 시 <paramref name="autoClose"/>면 <b>3초 카운트다운("닫기 (3→2→1)") 후 자동 닫기</b>, 아니면 열린 채 유지
+/// 완료 시 <paramref name="autoClose"/>면 <b>2초 카운트다운("닫기 (2→1)") 후 자동 닫기</b>, 아니면 열린 채 유지
 /// (설정 <see cref="ViewOptions.AutoCloseTransferWindow"/> — 실패/취소는 호출자가 유지로 넘김).
 /// 취소 버튼/완료 전 창 닫기는 전송을 취소한다(<see cref="Token"/>).
 /// </summary>
@@ -85,8 +85,8 @@ public sealed partial class TransferProgressWindow : Window
         DetailText.Text = fileTotal > 1 ? $"{fileNo}/{fileTotal} · {currentName}" : currentName;
     }
 
-    /// <summary>완료 처리 — 결과 요약 표시. <paramref name="autoClose"/>면 <b>3초 카운트다운 후 자동 닫기</b>
-    /// (닫기 버튼에 "닫기 (3→2→1)" 표시 — 그 동안 클릭하면 즉시 닫힘), 아니면 열린 채 유지(닫기 버튼 활성).</summary>
+    /// <summary>완료 처리 — 결과 요약 표시. <paramref name="autoClose"/>면 <b>2초 카운트다운 후 자동 닫기</b>
+    /// (닫기 버튼에 "닫기 (2→1)" 표시 — 그 동안 클릭하면 즉시 닫힘), 아니면 열린 채 유지(닫기 버튼 활성).</summary>
     public void Complete(string summary, bool autoClose)
     {
         _finished = true;
@@ -100,7 +100,7 @@ public sealed partial class TransferProgressWindow : Window
         {
             return;
         }
-        _closeCountdown = 3;
+        _closeCountdown = 2;
         CloseBtn.Content = $"닫기 ({_closeCountdown})";
         _closeTimer = DispatcherQueue.CreateTimer();
         _closeTimer.Interval = TimeSpan.FromSeconds(1);
