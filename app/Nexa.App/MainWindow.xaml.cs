@@ -1102,6 +1102,8 @@ public sealed partial class MainWindow : Window
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         SetActivePanel(left);
 
+        // 탐색기 표준 선택 판정(ContextTargets): 클릭 항목이 현재 선택에 포함 → 선택 유지 + 선택 전체가 대상 /
+        // 미포함 → 그 항목 단일 선택으로 교체 후 그 항목만 대상.
         var targets = ContextTargets(left, item);
         // 셸 메뉴는 같은 부모 폴더 항목만 전달 가능(ADR-0005 S1) — 교차 부모 선택이면 클릭 항목 폴더 기준으로 축소.
         string parent = ParentDir(item.FullPath);
@@ -1122,12 +1124,18 @@ public sealed partial class MainWindow : Window
         custom.Add(new(0x8003, "완전 삭제(Shift+Del)", true, () => DeletePaths(left, targets, permanent: true)));
 
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: IsShiftDown());
-        if (result == ShellContextMenu.Result.ShellCommand)
+        bool shift = IsShiftDown();   // 키 상태는 클릭 시점 캡처
+        // TrackPopupMenuEx는 UI 스레드를 모달로 점유 → 방금 바꾼 선택 하이라이트가 렌더된 "다음" 메뉴를 연다
+        // (동기로 열면 단일 선택 교체가 화면에 안 보인 채 메뉴가 뜸).
+        _ = DispatcherQueue.TryEnqueue(() =>
         {
-            // 셸 명령(삭제·붙여넣기·압축해제 등)은 우리 전송 엔진 밖에서 FS를 바꿈 → 지연 재로드(비동기 명령 여유).
-            ScheduleShellRefresh();
-        }
+            var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: shift);
+            if (result == ShellContextMenu.Result.ShellCommand)
+            {
+                // 셸 명령(삭제·붙여넣기·압축해제 등)은 우리 전송 엔진 밖에서 FS를 바꿈 → 지연 재로드(비동기 명령 여유).
+                ScheduleShellRefresh();
+            }
+        });
     }
 
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
