@@ -11,6 +11,10 @@
 
 ---
 
+## 2026-07-08
+
+- **B-13u Undo/Redo 마감 — 실기 QA 통과**(삭제 복원·복사·이동·새 폴더 전부 Ctrl+Z/Y 확인): **셸 메뉴 "삭제" 가로채기**(`verbInterceptor` — GCS_VERBW canonical verb 조회, "delete"→`DeletePaths` 라우팅으로 undo 기록 통합; 셸 직접 수행이라 미기록이던 버그 수정) + **빈 영역 메뉴에 실행 취소/다시 실행 항목**(마지막 작업 설명·Ctrl+Z/Y 표기·비활성 처리). 상세 [journal/2026-07-08.md](journal/2026-07-08.md).
+
 ## 2026-07-07
 
 - **B-13u Undo/Redo S1+S2 — 탐색기식 Ctrl+Z/Y 완성**: `Nexa.ViewModels.OperationHistory`(스택 2개·redo 무효화·실패=소실+알림) + `MoveBatchOp`/`CopyBatchOp`/`RenameOp`/`CreateOp`(삭제 주입으로 Windows API 격리, **xUnit 10건·총 67 green**) + **S2 `DeleteBatchOp`/`RecycleBin.cs`**(휴지통 셸 폴더 열거→원래 경로 매칭→`undelete` 동사 — 삭제 복원). 기록 배선 = `TransferPathsInto` 실수행 쌍(배치=1 트랜잭션)·이름변경·새로만들기 3종·휴지통 삭제. Ctrl+Z/Ctrl+Y(+Ctrl+Shift+Z), 상태바 표기, 완료 후 재로드. 잔여=nexa-ops 이관·다중 삭제본 시각 비교. 상세 [journal/2026-07-07.md](journal/2026-07-07.md)·[docs/33 §B-13u](33-file-ops-dnd-design.md).
