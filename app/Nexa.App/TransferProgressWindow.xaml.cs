@@ -18,13 +18,16 @@ public enum OverwriteChoice
 
 /// <summary>
 /// 파일 전송(복사/이동) <b>진행 창</b>(별도 Window) — 탐색기식. 시작 시 표시하고 바이트 진행률을 라이브 갱신,
-/// 완료 후 <b>기본은 열린 채 유지</b>(자동 닫기 off, 사용자가 닫음 — 설정 <see cref="ViewOptions.AutoCloseTransferWindow"/>).
+/// 완료 시 <paramref name="autoClose"/>면 <b>3초 카운트다운("닫기 (3→2→1)") 후 자동 닫기</b>, 아니면 열린 채 유지
+/// (설정 <see cref="ViewOptions.AutoCloseTransferWindow"/> — 실패/취소는 호출자가 유지로 넘김).
 /// 취소 버튼/완료 전 창 닫기는 전송을 취소한다(<see cref="Token"/>).
 /// </summary>
 public sealed partial class TransferProgressWindow : Window
 {
     private readonly CancellationTokenSource _cts = new();
     private bool _finished;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _closeTimer;   // 완료 후 자동 닫기 카운트다운
+    private int _closeCountdown;
 
     public TransferProgressWindow(string verb)
     {
@@ -35,6 +38,8 @@ public sealed partial class TransferProgressWindow : Window
         // 완료 전에 창을 닫으면(사용자 X) 전송 취소로 간주. 대기 중 확인이 있으면 취소로 정리(await 해제).
         Closed += (_, _) =>
         {
+            _closeTimer?.Stop();
+            _closeTimer = null;
             if (!_finished) { _cts.Cancel(); }
             _promptTcs?.TrySetResult(OverwriteChoice.Cancel);
             _promptTcs = null;
@@ -80,7 +85,8 @@ public sealed partial class TransferProgressWindow : Window
         DetailText.Text = fileTotal > 1 ? $"{fileNo}/{fileTotal} · {currentName}" : currentName;
     }
 
-    /// <summary>완료 처리 — 결과 요약 표시. <paramref name="autoClose"/>면 즉시 닫고, 아니면 열린 채 유지(닫기 버튼 활성).</summary>
+    /// <summary>완료 처리 — 결과 요약 표시. <paramref name="autoClose"/>면 <b>3초 카운트다운 후 자동 닫기</b>
+    /// (닫기 버튼에 "닫기 (3→2→1)" 표시 — 그 동안 클릭하면 즉시 닫힘), 아니면 열린 채 유지(닫기 버튼 활성).</summary>
     public void Complete(string summary, bool autoClose)
     {
         _finished = true;
@@ -90,10 +96,29 @@ public sealed partial class TransferProgressWindow : Window
         TitleText.Text = summary;
         CancelBtn.IsEnabled = false;
         CloseBtn.IsEnabled = true;
-        if (autoClose)
+        if (!autoClose)
         {
-            Close();
+            return;
         }
+        _closeCountdown = 3;
+        CloseBtn.Content = $"닫기 ({_closeCountdown})";
+        _closeTimer = DispatcherQueue.CreateTimer();
+        _closeTimer.Interval = TimeSpan.FromSeconds(1);
+        _closeTimer.IsRepeating = true;
+        _closeTimer.Tick += (_, _) =>
+        {
+            _closeCountdown--;
+            if (_closeCountdown <= 0)
+            {
+                _closeTimer?.Stop();
+                Close();   // Closed 핸들러가 타이머 정리
+            }
+            else
+            {
+                CloseBtn.Content = $"닫기 ({_closeCountdown})";
+            }
+        };
+        _closeTimer.Start();
     }
 
     private void OnCancel(object sender, RoutedEventArgs e)
