@@ -160,7 +160,7 @@
 - ✅ **외부 이동 드롭 후 원본 갱신**: `DropCompleted`에서 `DropResult`에 Move 포함 + `_dragPaths` 잔존(=외부 대상이 이동 수행)이면 패널 갱신(watcher 1차 보완).
 - ✅ 부수: 캡션 **변경 시만 설정**(마우스 이동마다 재설정 회피) · 그리드 `BodyDropped/BodyDragOperation`이 `DragEventArgs`를 전달(외부 드롭에 DataView/deferral 필요) · 미설정 폴백(죽은 코드) 제거 · 취소 문구 "드래그 취소 — 변경 없음".
 - ☐ 남음(나이스투해브): **경로 바 세그먼트 드롭 타깃**(탐색기 breadcrumb식) — 상단 계층 경로 바와 시너지.
-- ⚠️ **테스트 함정(UIPI)**: 앱을 **관리자 권한**으로 실행하면(관리자 VS Code/터미널에서 띄운 경우 포함) 일반 권한 탐색기 ↔ 앱 간 DnD가 **OS 차원에서 차단**(핸들러 미호출, 금지 커서). DnD 검증은 반드시 **일반 권한 실행**으로 — 관리자 셸에서는 `explorer.exe <exe경로>`로 띄우면 일반 권한으로 실행된다.
+- ⚠️ **테스트 함정(상승 = 인바운드 DnD 차단 — [BUG-009](BUGS.md)로 확정·해결)**: 처음엔 UIPI(교차 IL)로 기록했으나 상위 일반화가 정답 — **WinUI 3(WinRT 드래그 스택)는 프로세스 토큰이 상승이면 IL 일치 여부와 무관하게 인바운드 드래그를 거부**한다(플랫폼 제한, [microsoft-ui-xaml#7690](https://github.com/microsoft/microsoft-ui-xaml/issues/7690)/[#10119](https://github.com/microsoft/microsoft-ui-xaml/issues/10119)). 특히 **UAC OFF(`EnableLUA=0`) PC는 탐색기에서 실행해도 전부 상승**이라 "일반 권한 실행"이 존재하지 않음 → 항상 재현. **해결**: 상승 감지 시 XAML 브리지 HWND에 고전 OLE `IDropTarget` 폴백(`OleDropTarget.cs`) 등록 — 같은 IL 간 고전 OLE는 차단되지 않는다(Double Commander 동일 방식). 단 **UAC ON에서 명시적 관리자 실행**(Medium→High 교차 IL)은 고전 OLE도 차단 — 이 경우는 일반 권한 실행으로 검증(`explorer.exe <exe경로>`).
 
 ### Phase 2 — 개수 스택 아이콘 (보류, 택1)
 - **(2a) 커스텀 비트맵(관리형)**: `DragStartingEventArgs.DragUI.SetContentFromSoftwareBitmap(...)`으로 "아이콘 N겹 + 카운트 배지"를 직접 렌더. COM 불필요. 한계: 비트맵은 **시작 시 1회 고정**(Ctrl/Shift로 라이브 변경 불가) — 단 탐색기의 스택 이미지도 고정이고 **캡션만 바뀌므로**(Phase 1이 이미 처리) 실사용 동등. 비용: 시작 시 아이콘 취득·합성(썸네일 대신 타입 아이콘 캐시 사용). 맥 빌드 불가 → Windows 반복 검증 필요(비주얼).

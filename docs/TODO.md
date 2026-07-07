@@ -111,7 +111,7 @@
 
 | ID | 항목 | 우선 | 규모 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| B-16dnd | 🔴 **긴급** [BUG-009](BUGS.md) **외부(탐색기→앱) 드래그 금지 커서** 원인 규명·수정 — UIPI 배제(일반 권한 재현). 의심: unpackaged WinUI 3의 DragOver `StorageItems` 미노출 또는 DragOver 미도달. **진단 로그 심어둠**(`ExternalDragOp`→`DebugDnd`, `%TEMP%\nexa-dnd-debug.log`) → 탐색기에서 목록 위 드래그 후 로그로 분기: 기록 있음=포맷 판정 수정 / 비어 있음=unpackaged·권한 경로 조사(패키징 실행 비교). 해결 후 진단 코드 제거 | **P0** | 소~중 | — | 🚧 조사 중 |
+| B-16dnd | [BUG-009](BUGS.md) **외부(탐색기→앱) 드래그 금지 커서** — 원인: UAC OFF PC는 항상 상승 실행 + WinUI 3가 상승 프로세스 인바운드 드래그 거부(플랫폼 제한, microsoft-ui-xaml#7690/#10119). 해결: 상승 감지 시 고전 OLE `IDropTarget` 폴백(`OleDropTarget.cs`) 등록. 진단 코드 제거 완료 | **P0** | 소~중 | — | ☑ 해결(07-07) |
 | B-17dnd | 경로 바 세그먼트 드롭 타깃(탐색기 breadcrumb식) — [docs/33](33-file-ops-dnd-design.md) 07-07 절 잔여 | P3 | 소 | — | ☐ |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->

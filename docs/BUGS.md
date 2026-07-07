@@ -125,13 +125,14 @@ grid.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority
 - **해결(faint)**: `TermCell.Faint` 필드 추가 → `Put`에서 셀에 보관, `SameStyle`에 포함, `TerminalView` 렌더에서 `Opacity=0.45`로 표시. PSReadLine 인라인 예측(history)이 **VS Code처럼 연한 회색 미리보기**로 보인다.
 - **해결 방향(잔여)**: 미처리 확장 SGR/CSI 보강. (파워라인 글리프는 Nerd Font 적용 — 별도.)
 
-## BUG-009 · 외부(탐색기→앱) 드래그가 금지 커서로 표시 (🔍 조사 중)
+## BUG-009 · 외부(탐색기→앱) 드래그가 금지 커서로 표시 (☑ 해결 — 상승 프로세스 OLE 드롭 폴백)
 
-- **심각도**: 중 · **상태**: 🔍 조사 중(2026-07-07) — 진단 로그 심어둠. 관련 [docs/33](33-file-ops-dnd-design.md) DND-EXT.
-- **증상**: DND-EXT 구현(`09ec2b2`) 후에도 **탐색기에서 앱으로 파일 드래그 시 빨간 금지 표시**. 드롭 불가.
-- **배제한 원인**: UIPI(권한 불일치) — 관리자 셸에서 띄운 앱은 차단이 맞았으나(docs/33 함정 기록), **탐색기에서 직접 실행(일반 권한)해도 재현** → UIPI 단독 원인 아님.
-- **의심**: unpackaged(`WindowsPackageType=None`) WinUI 3에서 외부 드래그의 `DataView.Contains(StorageItems)`가 DragOver 중 false이거나, DragOver 자체가 미도달(WinAppSDK 이슈 계열).
-- **진단(임시 코드)**: `ExternalDragOp`에 `DebugDnd` 로그 — 외부 드래그 DragOver 도달 시 `%TEMP%\nexa-dnd-debug.log`에 `AvailableFormats`·`StorageItems` 여부 기록(0.5s 스로틀).
-  - **로그 기록 있음** → 핸들러 도달, 포맷 판정 문제 → 판정 로직 수정.
-  - **로그 비어 있음** → DragOver 미도달 → 권한/WinUI unpackaged 쪽 조사(패키징 실행 비교 등).
-- **다음**: 탐색기에서 파일을 목록 위로 드래그(드롭 불요) 후 로그 확인 → 원인 분기. 진단 후 `DebugDnd` 제거.
+- **심각도**: 중 · **상태**: ☑ **해결(2026-07-07)** — 고전 OLE `IDropTarget` 폴백(`OleDropTarget.cs`)으로 실기 복사 확인. 관련 [docs/33](33-file-ops-dnd-design.md) DND-EXT.
+- **증상**: DND-EXT 구현(`09ec2b2`) 후에도 **탐색기에서 앱으로 파일 드래그 시 빨간 금지 표시**. 드롭 불가. 앱→탐색기(밖으로)는 정상.
+- **원인(확정)**: **이 PC는 UAC 꺼짐(`EnableLUA=0`) → 탐색기에서 실행해도 모든 프로세스가 상승(High IL)** 으로 뜬다(진단 로그 `startup elevated=True`로 실증). WinUI 3(XAML)의 드롭 수신은 WinRT 드래그 스택(`CoreDragDropManager` 계열)을 경유하는데, 이 스택이 **IL 일치 여부와 무관하게 "프로세스 토큰이 상승이면" 수신을 거부**한다(탐색기도 High IL인 UAC OFF 환경에서도 차단). XAML `DragEnter/DragOver` 자체가 미도달 → `DoDragDrop`이 `DROPEFFECT_NONE` → 금지 글리프. 앱 코드(`ExternalDragOp` 판정)는 문제 없음. 밖으로 드래그는 탐색기의(정상) 드롭 타깃이 받으므로 무관.
+  - 정확히 같은 재현: [microsoft-ui-xaml#10119](https://github.com/microsoft/microsoft-ui-xaml/issues/10119)(`EnableLUA=0` → 금지 커서·DragEnter 미도달, `EnableLUA=1`+재부팅으로 해소 확인). 추적: [microsoft-ui-xaml#7690](https://github.com/microsoft/microsoft-ui-xaml/issues/7690)(Backlog, 2022~미해결, MS 확인 코멘트) · [WindowsAppSDK#3921](https://github.com/microsoft/WindowsAppSDK/issues/3921)/[#4433](https://github.com/microsoft/WindowsAppSDK/issues/4433). **패키징 여부 무관**(MSIX인 Files·Windows Terminal도 동일 — Files는 관리자 실행 시 DnD 비활성+안내 배너).
+  - **이전 "일반 권한 재현이라 UIPI 배제" 판단은 무효** — UAC OFF PC에선 탐색기 실행도 상승이므로 "일반 권한" 조건 자체가 성립하지 않았다. (docs/33 함정 기록의 상위 일반화: **상승 = 인바운드 DnD 차단**, UAC ON/OFF 불문.)
+- **진단(임시 코드 — 확인 후 제거됨)**: `%TEMP%\nexa-dnd-debug.log` — ① 시작 마커(`elevated=True` 실증) ② 창 루트 DragEnter 프로브(외부 드래그 시 미기록 = XAML 아래 계층 차단 확정) ③ `DragOver formats` 판정 로그.
+- **해결(채택: OLE 폴백)**: **상승 감지 시** XAML 콘텐츠 브리지 HWND(`DesktopChildSiteBridge`)의 (무력한) XAML 드롭 타깃을 `RevokeDragDrop`으로 걷어내고 자체 **고전 Win32 OLE `IDropTarget`**(`OleDropTarget.cs`) 등록 — 같은 IL 간 고전 OLE는 차단되지 않는다(Double Commander `uOleDragDrop.pas`가 같은 방식으로 UAC OFF에서 정상인 것으로 실증). 화면좌표→XAML DIP 역변환+히트테스트로 폴더 행/패널 현재 폴더 판정, 연산 규칙(내부=`DragOp`·외부=복사 기본/Shift=이동)과 전송 엔진(`TransferPathsInto`)은 XAML 경로와 동일. 이동은 앱이 직접 수행(최적화 이동)하므로 원본에 None 보고(중복 삭제 방지). **비상승 실행은 미등록**(XAML 경로 정상 → 이중 처리 방지). 상승 시 내부(패널 간) 드래그도 같은 폴백으로 함께 복구.
+- **잔여 한계**: **UAC ON에서 명시적 "관리자 권한으로 실행"**(Medium IL 탐색기 → High IL 앱)은 고전 OLE 자체가 교차 IL을 차단 → 폴백으로도 불가(탐색기 동급 제한). 필요 시 Files식 안내 후속.
+- **검토 메모**: 대안이던 UAC 켜기(#10119 확인 픽스)·Files식 DnD 비활성+안내는 미채택. `ChangeWindowMessageFilterEx(WM_DROPFILES…)`는 무효(UIPI 메시지 필터 문제가 아님 — OLE/COM 콜백 + WinRT 스택의 명시적 상승 검사).

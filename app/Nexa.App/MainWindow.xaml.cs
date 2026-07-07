@@ -67,6 +67,14 @@ public sealed partial class MainWindow : Window
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
         // 마우스 뒤로/앞으로(XButton1/2) → 활성 패널 탭 네비게이션(FR-I2 기본 바인딩, docs/26 §5-4).
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
+        // 상승(관리자) 실행이면 XAML 드롭 수신이 플랫폼 차단(BUG-009) → 고전 OLE 폴백 등록.
+        // 콘텐츠 브리지 HWND가 필요하므로 로드 후 1회(Loaded는 재발화 가능 — 내부에서 가드).
+        RootGrid.Loaded += (_, _) => InitElevatedDropFallback();
+        Closed += (_, _) =>
+        {
+            _oleDropFallback?.Dispose();
+            _oleDropFallback = null;
+        };
         ShowInteropRoundTrip();
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
@@ -1922,7 +1930,6 @@ public sealed partial class MainWindow : Window
     /// 원본 볼륨을 (동기) DragOver 중 알 수 없어 기본 <b>복사</b>(안전·비파괴), Shift=이동 강제(DND-EXT).</summary>
     private static DataPackageOperation ExternalDragOp(DragEventArgs e)
     {
-        DebugDnd(e);   // TODO(진단 후 제거): 외부 드래그 포맷 실측
         if (!e.DataView.Contains(StandardDataFormats.StorageItems))
         {
             return DataPackageOperation.None;   // 텍스트 등 파일 아닌 드래그는 금지
@@ -1930,30 +1937,6 @@ public sealed partial class MainWindow : Window
         return e.Modifiers.HasFlag(DragDropModifiers.Shift)
             ? DataPackageOperation.Move
             : DataPackageOperation.Copy;
-    }
-
-    // TODO(진단 후 제거): 외부 드래그가 금지로 보이는 문제 실측용 — DragOver에 도달하는지·포맷이 무엇인지.
-    private static DateTime _dndLogLast;
-    private static void DebugDnd(DragEventArgs e)
-    {
-        if ((DateTime.Now - _dndLogLast).TotalMilliseconds < 500) { return; }   // 로그 폭주 방지
-        _dndLogLast = DateTime.Now;
-        try
-        {
-            string formats = string.Join(" | ", e.DataView.AvailableFormats);
-            bool hasItems = e.DataView.Contains(StandardDataFormats.StorageItems);
-            File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nexa-dnd-debug.log"),
-                $"{DateTime.Now:HH:mm:ss.fff} DragOver formats=[{formats}] StorageItems={hasItems}\r\n");
-        }
-        catch (Exception ex)
-        {
-            try
-            {
-                File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nexa-dnd-debug.log"),
-                    $"{DateTime.Now:HH:mm:ss.fff} DragOver EX: {ex.Message}\r\n");
-            }
-            catch { }
-        }
     }
 
     /// <summary>외부 드롭의 DataView에서 파일시스템 경로 목록 추출. 경로 없는 가상 항목(zip 내부 등)은 제외.</summary>
@@ -1977,6 +1960,159 @@ public sealed partial class MainWindow : Window
         }
         return paths;
     }
+
+    // ── 상승(관리자) 프로세스 OLE 드롭 폴백 (BUG-009) ──────────────────
+    // WinUI 3는 상승 프로세스의 인바운드 드래그를 플랫폼에서 거부(XAML DragOver 미도달) —
+    // UAC OFF PC는 항상 상승이라 탐색기→앱 드래그가 금지 커서가 된다. 고전 OLE IDropTarget으로
+    // 우회하되, 판정 의미(DragOp/ExternalDragOp)와 전송 엔진(TransferPathsInto)은 XAML 경로와 동일.
+
+    private OleDropTarget? _oleDropFallback;
+
+    /// <summary>프로세스가 상승(관리자) 토큰인가 — UAC OFF PC는 탐색기에서 실행해도 상승.</summary>
+    private static bool IsProcessElevated()
+    {
+        try
+        {
+            using var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+            return new System.Security.Principal.WindowsPrincipal(id)
+                .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>상승 실행이면 고전 OLE 드롭 타깃 등록(비상승은 XAML 경로 정상 → 미등록으로 이중 처리 방지).</summary>
+    private void InitElevatedDropFallback()
+    {
+        if (_oleDropFallback is not null || !IsProcessElevated())
+        {
+            return;
+        }
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        _oleDropFallback = OleDropTarget.TryRegister(hwnd);
+        if (_oleDropFallback is not null)
+        {
+            _oleDropFallback.OverHandler = (x, y, keys, hasFiles) => OleEffect(OleDropPlan(x, y, keys, hasFiles).op);
+            _oleDropFallback.DropHandler = OnOleDrop;
+        }
+    }
+
+    /// <summary>OLE 폴백의 드롭 계획 — 화면(px) 좌표를 XAML(DIP)로 역변환·히트테스트해 대상을 정한다.
+    /// 폴더 행 위면 그 폴더, 아니면 포인터 아래 패널의 현재 폴더(패널 밖이면 금지).
+    /// 연산 규칙은 XAML 경로와 동일: 내부=<see cref="DragOp"/>(+자기 폴더 Move 금지), 외부=복사 기본·Shift=이동.</summary>
+    private (DataPackageOperation op, bool destLeft, string destDir) OleDropPlan(int screenX, int screenY, uint keyState, bool hasFiles)
+    {
+        bool internalDrag = _dragPaths.Count > 0;
+        if (!internalDrag && !hasFiles)
+        {
+            return (DataPackageOperation.None, true, "");   // 외부인데 파일(CF_HDROP) 아님 → 금지
+        }
+        // 화면 px → 창 클라이언트 px → XAML DIP.
+        var pt = new POINT { X = screenX, Y = screenY };
+        ScreenToClient(WinRT.Interop.WindowNative.GetWindowHandle(this), ref pt);
+        double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+        var xamlPt = new Windows.Foundation.Point(pt.X / scale, pt.Y / scale);
+        // 히트테스트: 최상위(가장 깊은) 요소에서 폴더 행(Tag=DirItem)과 소속 패널 판정.
+        DirItem? row = null;
+        UIElement? topmost = null;
+        foreach (var el in Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(xamlPt, RootGrid))
+        {
+            topmost ??= el;
+            if (el is FrameworkElement fe && fe.Tag is DirItem d)
+            {
+                row = d;
+                break;
+            }
+        }
+        bool? left = PanelUnderPointer(topmost);
+        bool destLeft;
+        string destDir;
+        if (row is { IsDir: true })
+        {
+            destLeft = left ?? _activeLeft;
+            destDir = row.FullPath;
+        }
+        else if (left is bool l && !string.IsNullOrEmpty(Panel(l).Active.Current))
+        {
+            destLeft = l;
+            destDir = Panel(l).Active.Current;
+        }
+        else
+        {
+            return (DataPackageOperation.None, true, "");   // 패널 밖(터미널·경로 바 등) → 금지
+        }
+        var mods = OleMods(keyState);
+        DataPackageOperation op;
+        if (internalDrag)
+        {
+            op = DragOp(destDir, mods);   // 같은 디스크=이동/다른=복사 + Ctrl/Shift 강제 + 자기/하위 금지
+            if (op == DataPackageOperation.Move && row is not { IsDir: true }
+                && _dragPaths.All(p => PathEq(ParentDir(p), destDir)))
+            {
+                op = DataPackageOperation.None;   // 빈 영역: 자기 폴더로 이동 = no-op(BackgroundDragOp 동일)
+            }
+        }
+        else
+        {
+            // 외부(탐색기 등): 복사 기본·Shift=이동(ExternalDragOp 동일). 자기/하위 순환은 전송 엔진이 방어.
+            op = mods.HasFlag(DragDropModifiers.Shift) ? DataPackageOperation.Move : DataPackageOperation.Copy;
+        }
+        return (op, destLeft, destDir);
+    }
+
+    /// <summary>OLE 폴백 드롭 — 내부 드래그는 <c>_dragPaths</c>, 외부는 CF_HDROP 경로로 동일 전송 엔진 실행.
+    /// 이동도 앱이 직접 수행(최적화 이동)하므로 원본(탐색기)이 중복 삭제하지 않게 None을 보고한다.</summary>
+    private uint OnOleDrop(int screenX, int screenY, uint keyState, List<string> paths)
+    {
+        bool internalDrag = _dragPaths.Count > 0;
+        var (op, destLeft, destDir) = OleDropPlan(screenX, screenY, keyState, paths.Count > 0);
+        if (op == DataPackageOperation.None)
+        {
+            return OleDropTarget.EffectNone;   // 내부 드래그면 DropCompleted가 "취소" 처리(_dragPaths 유지)
+        }
+        if (internalDrag)
+        {
+            TransferPathsInto(_dragSourceLeft, _dragPaths, destDir, op);
+            _dragPaths.Clear();
+            return OleDropTarget.EffectNone;   // 앱이 수행 완료 — 원본 측 후처리 불필요
+        }
+        if (paths.Count == 0)
+        {
+            return OleDropTarget.EffectNone;
+        }
+        TransferPathsInto(destLeft, paths, destDir, op);
+        // 복사는 그대로 보고, 이동은 앱이 수행하므로 None(원본이 지우면 이중 삭제).
+        return op == DataPackageOperation.Copy ? OleDropTarget.EffectCopy : OleDropTarget.EffectNone;
+    }
+
+    /// <summary>OLE MK_* 키 상태 → XAML <see cref="DragDropModifiers"/>(판정 로직 공용화용).</summary>
+    private static DragDropModifiers OleMods(uint keyState)
+    {
+        var mods = DragDropModifiers.None;
+        if ((keyState & 0x08) != 0) { mods |= DragDropModifiers.Control; }   // MK_CONTROL
+        if ((keyState & 0x04) != 0) { mods |= DragDropModifiers.Shift; }     // MK_SHIFT
+        return mods;
+    }
+
+    /// <summary>연산 → DROPEFFECT(커서 표시용).</summary>
+    private static uint OleEffect(DataPackageOperation op) => op switch
+    {
+        DataPackageOperation.Copy => OleDropTarget.EffectCopy,
+        DataPackageOperation.Move => OleDropTarget.EffectMove,
+        _ => OleDropTarget.EffectNone,
+    };
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ScreenToClient(IntPtr hwnd, ref POINT pt);
 
     /// <summary>두 경로가 같은 볼륨(드라이브 루트)인가. 판단 실패 시 true(같은 디스크=이동 취급, 보수적).</summary>
     private static bool VolumeEq(string a, string b)
