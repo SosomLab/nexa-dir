@@ -1919,64 +1919,123 @@ public sealed partial class MainWindow : Window
         args.Data.SetText(tab.Current);   // 외부(텍스트) 대상 폴백 — 경로
     }
 
-    /// <summary>탭 드래그 종료(성공/취소) — 상태 정리.</summary>
-    private void OnTabDropCompleted(UIElement sender, DropCompletedEventArgs args) => _dragTab = null;
+    /// <summary>탭 드래그 종료(성공/취소) — 상태·삽입 표시 정리.</summary>
+    private void OnTabDropCompleted(UIElement sender, DropCompletedEventArgs args)
+    {
+        _dragTab = null;
+        HideTabInsertIndicators();
+    }
 
     /// <summary>탭 드래그의 연산 규칙(파일과 동일 수정키): 기본=이동 · Ctrl=복제 · Shift=이동 강제.
-    /// <b>탭 영역(양 패널 탭 스트립)에서만 유효</b> — 대상 탭이 없으면 금지. 자기 자리 이동은 무의미(None),
+    /// <b>탭 영역(양 패널 탭 스트립)에서만 유효</b> — 삽입 계획이 없으면 금지.
     /// 마지막 탭의 패널 밖 이동은 금지(패널 비움 방지).</summary>
-    private DataPackageOperation TabDragRule(PanelTab dragged, PanelTab? over, bool ctrl)
+    private DataPackageOperation TabDragRule(PanelTab dragged, (bool DestLeft, int Index)? plan, bool ctrl)
     {
-        if (over is null)
+        if (plan is null)
         {
             return DataPackageOperation.None;   // 탭 영역 밖 → 금지(사용자 제약)
         }
         if (ctrl)
         {
-            return DataPackageOperation.Copy;   // Ctrl = 복제(같은 경로 새 탭을 대상 위치에 추가)
-        }
-        if (ReferenceEquals(over, dragged))
-        {
-            return DataPackageOperation.None;   // 자기 자리 = 무의미
+            return DataPackageOperation.Copy;   // Ctrl = 복제(같은 경로 새 탭을 삽입 위치에 추가)
         }
         bool srcLeft = _left.Tabs.Contains(dragged);
-        bool destLeft = _left.Tabs.Contains(over);
-        if (srcLeft != destLeft && Panel(srcLeft).Tabs.Count <= 1)
+        if (srcLeft != plan.Value.DestLeft && Panel(srcLeft).Tabs.Count <= 1)
         {
             return DataPackageOperation.None;   // 마지막 탭은 패널 밖으로 못 옮김(패널 비움 방지)
         }
         return DataPackageOperation.Move;       // 기본/Shift = 이동
     }
 
-    private DataPackageOperation TabDragOp(PanelTab dragged, object sender, DragEventArgs e)
-        => TabDragRule(dragged,
-            sender is FrameworkElement fe && fe.Tag is PanelTab over ? over : null,
-            e.Modifiers.HasFlag(DragDropModifiers.Control));
+    /// <summary>RootGrid 좌표에서 탭 드롭 계획을 계산 — 탭 위면 좌/우 절반으로 앞/뒤 삽입, 탭 바 빈 영역이면
+    /// 맨 끝. 탭 영역 밖이면 null(금지). 반환 Index는 대상 스트립의 삽입 인덱스(0..Count).</summary>
+    private (bool DestLeft, int Index)? TabDropPlanAt(Windows.Foundation.Point rootPt)
+    {
+        FrameworkElement? tabEl = null;
+        PanelTab? over = null;
+        foreach (var el in Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(rootPt, RootGrid))
+        {
+            if (tabEl is null && el is FrameworkElement fe && fe.Tag is PanelTab t)
+            {
+                tabEl = fe;
+                over = t;
+            }
+            if (ReferenceEquals(el, LeftTabBar) || ReferenceEquals(el, RightTabBar))
+            {
+                bool barLeft = ReferenceEquals(el, LeftTabBar);
+                if (over is not null && tabEl is not null)
+                {
+                    // 탭 위: 좌측 절반=그 탭 앞, 우측 절반=그 탭 뒤(브라우저 관행).
+                    var topLeft = tabEl.TransformToVisual(RootGrid).TransformPoint(new Windows.Foundation.Point(0, 0));
+                    bool after = rootPt.X > topLeft.X + tabEl.ActualWidth / 2;
+                    return (barLeft, Panel(barLeft).Tabs.IndexOf(over) + (after ? 1 : 0));
+                }
+                return (barLeft, Panel(barLeft).Tabs.Count);   // 바 빈 영역 = 맨 끝
+            }
+        }
+        return null;   // 탭 영역 밖
+    }
 
-    /// <summary>화면 좌표 아래의 탭(양 패널 탭 스트립) — OLE 폴백 경로의 탭 드래그 히트테스트.</summary>
-    private PanelTab? TabUnderScreenPoint(int screenX, int screenY)
+    /// <summary>OLE 폴백용 — 화면(px) 좌표를 RootGrid DIP로 역변환해 탭 드롭 계획 계산.</summary>
+    private (bool DestLeft, int Index)? TabDropPlanAtScreen(int screenX, int screenY)
     {
         var pt = new POINT { X = screenX, Y = screenY };
         ScreenToClient(WinRT.Interop.WindowNative.GetWindowHandle(this), ref pt);
         double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
-        var xamlPt = new Windows.Foundation.Point(pt.X / scale, pt.Y / scale);
-        foreach (var el in Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(xamlPt, RootGrid))
-        {
-            if (el is FrameworkElement fe && fe.Tag is PanelTab t)
-            {
-                return t;
-            }
-        }
-        return null;
+        return TabDropPlanAt(new Windows.Foundation.Point(pt.X / scale, pt.Y / scale));
     }
 
-    /// <summary>탭 재배치 실행(TAB-DND) — 복제(Ctrl)=같은 경로 새 탭을 대상 위치에 삽입 /
-    /// 이동=대상 탭 자리로(같은 스트립 재정렬·패널 간 이동). 패널 간 이동 시 원본 패널은 이웃 탭 활성,
-    /// 이동·복제된 탭은 대상 패널에서 활성(브라우저 관행). 세션 저장 예약.</summary>
-    private void MoveOrCopyTab(PanelTab dragged, PanelTab over, bool copy)
+    /// <summary>삽입 위치 하이라이트 바 표시 — 대상 인덱스 탭의 왼쪽 edge(끝이면 마지막 탭 오른쪽 edge).</summary>
+    private void ShowTabInsertIndicator(bool destLeft, int index)
+    {
+        var rect = destLeft ? TabInsertL : TabInsertR;
+        HideTabInsertIndicators();
+        var strip = Panel(destLeft).TabStrip;
+        var tabs = Panel(destLeft).Tabs;
+        if (rect.Parent is not Canvas canvas)
+        {
+            return;
+        }
+        double x = 0, y = 0, h = 24;
+        if (tabs.Count > 0)
+        {
+            if (index < tabs.Count && strip.TryGetElement(index) is FrameworkElement el)
+            {
+                var p = el.TransformToVisual(canvas).TransformPoint(new Windows.Foundation.Point(0, 0));
+                x = p.X - 2.5;
+                y = p.Y;
+                h = el.ActualHeight;
+            }
+            else if (strip.TryGetElement(tabs.Count - 1) is FrameworkElement last)
+            {
+                var p = last.TransformToVisual(canvas).TransformPoint(new Windows.Foundation.Point(0, 0));
+                x = p.X + last.ActualWidth + 0.5;   // 마지막 탭 오른쪽(간격 중앙 근사)
+                y = p.Y;
+                h = last.ActualHeight;
+            }
+            else
+            {
+                return;   // 요소 미실체화(이론상 탭은 항상 실체화) — 표시 생략
+            }
+        }
+        Canvas.SetLeft(rect, Math.Max(0, x));
+        Canvas.SetTop(rect, y);
+        rect.Height = h;
+        rect.Visibility = Visibility.Visible;
+    }
+
+    private void HideTabInsertIndicators()
+    {
+        TabInsertL.Visibility = Visibility.Collapsed;
+        TabInsertR.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>탭 재배치 실행(TAB-DND) — 복제(Ctrl)=같은 경로 새 탭을 삽입 인덱스에 추가 /
+    /// 이동=삽입 인덱스로(같은 스트립 재정렬·패널 간 이동·맨 끝 포함). 패널 간 이동 시 원본 패널은
+    /// 이웃 탭 활성, 이동·복제된 탭은 대상 패널에서 활성(브라우저 관행). 세션 저장 예약.</summary>
+    private void MoveOrCopyTab(PanelTab dragged, bool destLeft, int insertIndex, bool copy)
     {
         bool srcLeft = _left.Tabs.Contains(dragged);
-        bool destLeft = _left.Tabs.Contains(over);
         var src = Panel(srcLeft).Tabs;
         var dest = Panel(destLeft).Tabs;
         if (copy)
@@ -1989,25 +2048,23 @@ public sealed partial class MainWindow : Window
             var dup = new PanelTab();
             dup.Nav.NavigateTo(basePath, record: false);
             dup.Title = PathDisplay.TabTitle(basePath);
-            int at = dest.IndexOf(over);
-            dest.Insert(at < 0 ? dest.Count : at, dup);
+            dest.Insert(Math.Clamp(insertIndex, 0, dest.Count), dup);
             SwitchToTab(destLeft, dup);
         }
         else
         {
-            if (ReferenceEquals(dragged, over))
-            {
-                return;
-            }
-            bool wasActive = ReferenceEquals(dragged, Panel(srcLeft).Active);
             int from = src.IndexOf(dragged);
             if (from < 0)
             {
                 return;
             }
+            bool wasActive = ReferenceEquals(dragged, Panel(srcLeft).Active);
             src.RemoveAt(from);
-            int at = dest.IndexOf(over);   // 제거 후 인덱스 = 대상 탭 자리(그 앞에 삽입)
-            dest.Insert(at < 0 ? dest.Count : at, dragged);
+            if (srcLeft == destLeft && insertIndex > from)
+            {
+                insertIndex--;   // 자기 제거로 뒤 인덱스가 1 당겨짐
+            }
+            dest.Insert(Math.Clamp(insertIndex, 0, dest.Count), dragged);
             if (srcLeft != destLeft)
             {
                 if (wasActive)
@@ -2026,9 +2083,18 @@ public sealed partial class MainWindow : Window
     {
         if (_dragTab is not null)
         {
-            var tabOp = TabDragOp(_dragTab, sender, e);
+            var plan = TabDropPlanAt(e.GetPosition(RootGrid));
+            var tabOp = TabDragRule(_dragTab, plan, e.Modifiers.HasFlag(DragDropModifiers.Control));
             e.AcceptedOperation = tabOp;
             ApplyDragCaption(e.DragUIOverride, tabOp, null);   // "복사"/"이동" 캡션(금지=🚫)
+            if (tabOp != DataPackageOperation.None && plan is not null)
+            {
+                ShowTabInsertIndicator(plan.Value.DestLeft, plan.Value.Index);   // 삽입 위치 하이라이트
+            }
+            else
+            {
+                HideTabInsertIndicators();
+            }
             return;   // 파일 드롭 로직·dwell 미적용
         }
         if (sender is FrameworkElement fe && fe.Tag is PanelTab tab && !string.IsNullOrEmpty(tab.Current))
@@ -2050,13 +2116,18 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>탭에서 드래그가 벗어나면 dwell 타이머 취소.</summary>
+    /// <summary>탭에서 드래그가 벗어나면 dwell 타이머 취소. 탭 바를 벗어난 탭 드래그는 삽입 표시도 숨김.</summary>
     private void OnTabDragLeave(object sender, DragEventArgs e)
     {
         if (sender is FrameworkElement fe && ReferenceEquals(fe.Tag, _tabDwellTarget))
         {
             _tabDwellTimer.Stop();
             _tabDwellTarget = null;
+        }
+        if (_dragTab is not null && sender is FrameworkElement bar
+            && (ReferenceEquals(bar, LeftTabBar) || ReferenceEquals(bar, RightTabBar)))
+        {
+            HideTabInsertIndicators();   // 바 밖으로 나감(다른 바 진입 시 그쪽 DragOver가 다시 표시)
         }
     }
 
@@ -2071,10 +2142,12 @@ public sealed partial class MainWindow : Window
         {
             var dragged = _dragTab;
             _dragTab = null;
-            if (TabDragOp(dragged, sender, e) != DataPackageOperation.None
-                && sender is FrameworkElement tfe && tfe.Tag is PanelTab overTab)
+            HideTabInsertIndicators();
+            var plan = TabDropPlanAt(e.GetPosition(RootGrid));
+            bool ctrl = e.Modifiers.HasFlag(DragDropModifiers.Control);
+            if (plan is not null && TabDragRule(dragged, plan, ctrl) != DataPackageOperation.None)
             {
-                MoveOrCopyTab(dragged, overTab, e.Modifiers.HasFlag(DragDropModifiers.Control));
+                MoveOrCopyTab(dragged, plan.Value.DestLeft, plan.Value.Index, ctrl);
             }
             return;
         }
@@ -2261,6 +2334,7 @@ public sealed partial class MainWindow : Window
         {
             _oleDropFallback.OverHandler = (x, y, keys, hasFiles) => OleEffect(OleDropPlan(x, y, keys, hasFiles).op);
             _oleDropFallback.DropHandler = OnOleDrop;
+            _oleDropFallback.LeaveHandler = HideTabInsertIndicators;   // 창 이탈 시 탭 삽입 표시 정리
         }
     }
 
@@ -2272,8 +2346,17 @@ public sealed partial class MainWindow : Window
         // 탭 자체 드래그(TAB-DND) — 상승 실행에선 XAML 드롭이 막혀 이 경로로 온다. 탭 영역에서만 유효.
         if (_dragTab is not null)
         {
-            var overTab = TabUnderScreenPoint(screenX, screenY);
-            return (TabDragRule(_dragTab, overTab, OleMods(keyState).HasFlag(DragDropModifiers.Control)), true, "");
+            var tabPlan = TabDropPlanAtScreen(screenX, screenY);
+            var tabOp = TabDragRule(_dragTab, tabPlan, OleMods(keyState).HasFlag(DragDropModifiers.Control));
+            if (tabOp != DataPackageOperation.None && tabPlan is not null)
+            {
+                ShowTabInsertIndicator(tabPlan.Value.DestLeft, tabPlan.Value.Index);
+            }
+            else
+            {
+                HideTabInsertIndicators();
+            }
+            return (tabOp, true, "");
         }
         bool internalDrag = _dragPaths.Count > 0;
         if (!internalDrag && !hasFiles)
@@ -2337,16 +2420,17 @@ public sealed partial class MainWindow : Window
     /// 이동도 앱이 직접 수행(최적화 이동)하므로 원본(탐색기)이 중복 삭제하지 않게 None을 보고한다.</summary>
     private uint OnOleDrop(int screenX, int screenY, uint keyState, List<string> paths)
     {
-        // 탭 자체 드래그(TAB-DND) — 탭 위 드롭이면 재배치 실행, 아니면 무동작(탭 영역 제약).
+        // 탭 자체 드래그(TAB-DND) — 탭 영역 드롭이면 재배치 실행, 아니면 무동작(탭 영역 제약).
         if (_dragTab is not null)
         {
             var dragged = _dragTab;
             _dragTab = null;
+            HideTabInsertIndicators();
             bool ctrl = OleMods(keyState).HasFlag(DragDropModifiers.Control);
-            var overTab = TabUnderScreenPoint(screenX, screenY);
-            if (overTab is not null && TabDragRule(dragged, overTab, ctrl) != DataPackageOperation.None)
+            var tabPlan = TabDropPlanAtScreen(screenX, screenY);
+            if (tabPlan is not null && TabDragRule(dragged, tabPlan, ctrl) != DataPackageOperation.None)
             {
-                MoveOrCopyTab(dragged, overTab, ctrl);
+                MoveOrCopyTab(dragged, tabPlan.Value.DestLeft, tabPlan.Value.Index, ctrl);
             }
             return OleDropTarget.EffectNone;   // 앱이 수행 — 원본 측 후처리 불필요
         }

@@ -159,9 +159,12 @@
                         <RowDefinition Height="*" />    <!-- 목록 -->
                     </Grid.RowDefinitions>
 
-                    <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄. -->
-                    <Border Grid.Row="0" Background="#3340A0FF" Padding="4,3" Tag="L"
-                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped">
+                    <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄.
+                         탭 드래그(TAB-DND): 바 빈 영역 드롭=맨 끝 이동, 삽입 위치는 오버레이 바(TabInsertL)로 표시. -->
+                    <Border Grid.Row="0" Background="#3340A0FF" Padding="4,3" Tag="L" x:Name="LeftTabBar"
+                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
+                            AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <Grid>
                         <ItemsRepeater x:Name="LeftTabs">
                             <ItemsRepeater.Layout>
                                 <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
@@ -188,6 +191,12 @@
                                 </DataTemplate>
                             </ItemsRepeater.ItemTemplate>
                         </ItemsRepeater>
+                        <!-- 탭 드래그 삽입 위치 표시 바(세로선) — TAB-DND -->
+                        <Canvas IsHitTestVisible="False">
+                            <Rectangle x:Name="TabInsertL" Width="3" RadiusX="1.5" RadiusY="1.5"
+                                       Fill="#FF3D8BFF" Visibility="Collapsed" />
+                        </Canvas>
+                        </Grid>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
@@ -268,9 +277,11 @@
                         <RowDefinition Height="*" />    <!-- 목록 -->
                     </Grid.RowDefinitions>
 
-                    <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙) -->
-                    <Border Grid.Row="0" Background="#33FF6060" Padding="4,3" Tag="R"
-                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped">
+                    <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙 — TAB-DND 삽입 표시 포함) -->
+                    <Border Grid.Row="0" Background="#33FF6060" Padding="4,3" Tag="R" x:Name="RightTabBar"
+                            Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
+                            AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <Grid>
                         <ItemsRepeater x:Name="RightTabs">
                             <ItemsRepeater.Layout>
                                 <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
@@ -297,6 +308,12 @@
                                 </DataTemplate>
                             </ItemsRepeater.ItemTemplate>
                         </ItemsRepeater>
+                        <!-- 탭 드래그 삽입 위치 표시 바(세로선) — TAB-DND -->
+                        <Canvas IsHitTestVisible="False">
+                            <Rectangle x:Name="TabInsertR" Width="3" RadiusX="1.5" RadiusY="1.5"
+                                       Fill="#FF3D8BFF" Visibility="Collapsed" />
+                        </Canvas>
+                        </Grid>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
