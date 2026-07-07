@@ -1022,6 +1022,7 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"이름 변경 실패: {ex.Message}";
             return;
         }
+        _history.Push(new RenameOp(item.FullPath, newPath, $"이름 변경: {item.Name} → {newName}"));   // undo 기록(B-13u)
         StatusText.Text = $"이름 변경: {item.Name} → {newName}";
         var tab = Panel(left).Active;
         UpdateExpandedPaths(tab, item.FullPath, newPath);   // 펼침 경로(폴더/자식) 갱신
@@ -1248,6 +1249,7 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"폴더 만들기 실패: {ex.Message}";
             return;
         }
+        _history.Push(new CreateOp(path, "새 폴더 만들기", FileOps.DeleteToRecycleBin, () => Directory.CreateDirectory(path)));
         RevealAndRename(left, path);
     }
 
@@ -1269,6 +1271,7 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"파일 만들기 실패: {ex.Message}";
             return;
         }
+        _history.Push(new CreateOp(path, "새 파일 만들기", FileOps.DeleteToRecycleBin, () => { using (File.Create(path)) { } }));
         RevealAndRename(left, path);
     }
 
@@ -1301,6 +1304,7 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"바로 가기 만들기 실패: {ex.Message}";
             return;
         }
+        _history.Push(new CreateOp(path, "바로 가기 만들기", FileOps.DeleteToRecycleBin, () => ShellLink.Create(path, target)));
         RevealAndRename(left, path);
     }
 
@@ -2178,11 +2182,57 @@ public sealed partial class MainWindow : Window
     /// 충돌 없는 항목은 즉시 처리하고, 충돌 항목만 순차 확인한다. 진행률을 상태바에 표시(DND-OW2).
     /// (paths는 호출자가 곧 <c>_dragPaths</c>를 비우므로 <b>첫 await 전에 복사</b>해 안전.)
     /// </summary>
+    // ── Undo/Redo (B-13u, docs/33) — 파일 작업 히스토리(세션 한정, 배치=1 트랜잭션) ─────
+    private readonly OperationHistory _history = new();
+
+    /// <summary>Ctrl+Z — 마지막 파일 작업 되돌리기. 실패는 상태바 알림(무결성 우선 — 강제/재시도 안 함).</summary>
+    private void DoUndo()
+    {
+        if (!_history.CanUndo)
+        {
+            StatusText.Text = "되돌릴 작업이 없습니다";
+            return;
+        }
+        string desc = _history.UndoDescription!;
+        try
+        {
+            _history.Undo();
+            StatusText.Text = $"실행 취소: {desc}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"실행 취소 실패({desc}): {ex.Message}";
+        }
+        ReloadBothPanels();
+    }
+
+    /// <summary>Ctrl+Y — 마지막 되돌리기를 다시 실행.</summary>
+    private void DoRedo()
+    {
+        if (!_history.CanRedo)
+        {
+            StatusText.Text = "다시 실행할 작업이 없습니다";
+            return;
+        }
+        string desc = _history.RedoDescription!;
+        try
+        {
+            _history.Redo();
+            StatusText.Text = $"다시 실행: {desc}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"다시 실행 실패({desc}): {ex.Message}";
+        }
+        ReloadBothPanels();
+    }
+
     private async void TransferPathsInto(bool sourceLeft, IReadOnlyList<string> paths, string destDir, DataPackageOperation op)
     {
         bool copy = op == DataPackageOperation.Copy;
         var items = new List<string>(paths);   // 스냅샷(비동기 중 원본 clear 방지)
         string verb = copy ? "복사" : "이동";
+        var performed = new List<(string Src, string Dest)>();   // 실제 수행 (원본, 실제 대상) — undo 기록(B-13u)
         int done = 0, skipped = 0;
         string? err = null;
         bool cancelled = false;
@@ -2233,6 +2283,7 @@ public sealed partial class MainWindow : Window
                             // 같은 폴더 복사 = 순번 복제(진행 보고). I/O는 백그라운드.
                             string dup = FileOps.UniqueDest(destDir, FileOps.LeafName(p), Directory.Exists(p));
                             await Task.Run(() => FileOps.CopyOntoWithProgress(p, dup, overwrite: false, OnBytes, ct));
+                            performed.Add((p, dup));
                             done++;
                         }
                         // 같은 폴더 이동 = 무동작
@@ -2261,6 +2312,7 @@ public sealed partial class MainWindow : Window
                         // 예 → 덮어쓰기(복사/이동 분리 — 지금은 동일, 향후 분기 가능). I/O는 백그라운드.
                         string dest = FileOps.NaturalDest(destDir, p);
                         await Task.Run(() => { if (copy) { OverwriteCopy(p, dest, OnBytes, ct); } else { OverwriteMove(p, dest, OnBytes, ct); } });
+                        performed.Add((p, dest));   // 주의: 덮어쓴 기존 파일의 복원은 불가(undo=역방향만, 탐색기 동급 한계)
                         done++;
                     }
                     else
@@ -2272,6 +2324,7 @@ public sealed partial class MainWindow : Window
                             if (copy) { FileOps.CopyOntoWithProgress(p, dest, overwrite: false, OnBytes, ct); }
                             else { FileOps.MoveOntoWithProgress(p, dest, overwrite: false, OnBytes, ct); }
                         });
+                        performed.Add((p, dest));
                         done++;
                     }
                 }
@@ -2295,6 +2348,13 @@ public sealed partial class MainWindow : Window
                     : $"{verb} 일부 실패: {err}";
             win.Complete(summary, AppSettings.View.AutoCloseTransferWindow);   // 기본 autoClose=false → 창 유지
             StatusText.Text = summary;
+        }
+        // undo 기록(B-13u): 취소/부분 실패여도 "실제 수행된 항목"은 되돌릴 수 있어야 함(탐색기 동일).
+        if (performed.Count > 0)
+        {
+            _history.Push(copy
+                ? new CopyBatchOp(performed, $"복사 {performed.Count}개", FileOps.DeleteToRecycleBin)
+                : new MoveBatchOp(performed, $"이동 {performed.Count}개"));
         }
         _ = sourceLeft;   // 향후 정밀 갱신용(현재는 양쪽 재로드)
         ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
@@ -2552,6 +2612,21 @@ public sealed partial class MainWindow : Window
                 case VirtualKey.X: CutPaths(_activeLeft, KeyboardTargets(_activeLeft)); break;
                 case VirtualKey.V: PasteInto(_activeLeft); break;
             }
+            return;
+        }
+
+        // Ctrl+Z/Y: 파일 작업 실행 취소/다시 실행(B-13u, 탐색기 표준). Ctrl+Shift+Z=다시 실행(관용 별칭).
+        // (이름변경 편집기 등 TextBox 포커스면 상단 IsKeyboardOwnedByInput 가드가 이미 차단 — TextBox 자체 undo 유지.)
+        if (IsCtrlDown() && e.Key == VirtualKey.Z)
+        {
+            e.Handled = true;
+            if (IsShiftDown()) { DoRedo(); } else { DoUndo(); }
+            return;
+        }
+        if (IsCtrlDown() && e.Key == VirtualKey.Y)
+        {
+            e.Handled = true;
+            DoRedo();
             return;
         }
 

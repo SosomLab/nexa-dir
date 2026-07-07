@@ -299,7 +299,8 @@ public static class FileOps
         }
     }
 
-    private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
+    /// <summary>파일 또는 폴더가 존재하는가(undo/redo 소실·충돌 판정 등 공용).</summary>
+    public static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
 
     private static bool PathEquals(string a, string b) =>
         string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), System.StringComparison.OrdinalIgnoreCase);
