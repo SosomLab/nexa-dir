@@ -185,10 +185,13 @@
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
-                                                <!-- 고정(핀) 아이콘 — 탭 이름 앞(TAB-MENU) -->
+                                                <!-- 고정(핀)·잠금(열쇠) 아이콘 — 탭 이름 앞(TAB-MENU). 동시 설정이면 나란히 표시(두 상태 동시 표현) -->
                                                 <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                          Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
+                                                          Visibility="{x:Bind LockVisibility, Mode=OneWay}" />
                                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}"
                                                            TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
                                                            VerticalAlignment="Center" />
@@ -309,10 +312,13 @@
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
-                                                <!-- 고정(핀) 아이콘 — 탭 이름 앞(TAB-MENU) -->
+                                                <!-- 고정(핀)·잠금(열쇠) 아이콘 — 탭 이름 앞(TAB-MENU). 동시 설정이면 나란히 표시(두 상태 동시 표현) -->
                                                 <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                          Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
+                                                          Visibility="{x:Bind LockVisibility, Mode=OneWay}" />
                                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}"
                                                            TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
                                                            VerticalAlignment="Center" />

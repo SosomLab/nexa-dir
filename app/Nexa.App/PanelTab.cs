@@ -65,12 +65,21 @@ public sealed class PanelTab : INotifyPropertyChanged
     public Visibility AccentVisibility => _isActive ? Visibility.Visible : Visibility.Collapsed;
 
     private bool _isLocked;
-    /// <summary>탭 잠금 — 닫기 동작(탭 닫기·모두 닫기·더블클릭 닫기)에서 제외(TAB-MENU).</summary>
+    /// <summary>탭 잠금 — 닫기 동작(탭 닫기·모두 닫기·더블클릭 닫기)에서 제외(TAB-MENU). 열쇠 아이콘 표시.</summary>
     public bool IsLocked
     {
         get => _isLocked;
-        set { if (_isLocked != value) { _isLocked = value; OnPc(nameof(IsLocked)); } }
+        set
+        {
+            if (_isLocked == value) { return; }
+            _isLocked = value;
+            OnPc(nameof(IsLocked));
+            OnPc(nameof(LockVisibility));
+        }
     }
+
+    /// <summary>잠금(열쇠) 아이콘 표시 여부 — 핀과 동시 설정이면 핀+열쇠가 나란히 표시(두 상태 동시 표현).</summary>
+    public Visibility LockVisibility => _isLocked ? Visibility.Visible : Visibility.Collapsed;
 
     private bool _isPinned;
     /// <summary>탭 고정 — 이름 앞 핀 아이콘 표시 + 핀 그룹(맨 앞)으로 이동(TAB-MENU).</summary>
