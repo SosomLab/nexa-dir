@@ -2,7 +2,12 @@
 
 > 🏷️ **릴리스 `0.2.0`** (2026-07-06) — `0.1.0`(C1 이전 베이스라인) 이후 M1 대규모 진행분. [Releases](https://github.com/SosomLab/nexa-dir/releases). (아티팩트=소스/마일스톤 태그; MSIX/포터블은 패키징 후속.)
 >
-> **갱신: 2026-07-06 (KST) · `feat/bottom-panel-info` → main 병합**(하단 패널 콘텐츠). 하단 패널(Ctrl+` 토글·세션 저장) 안에:
+> **갱신: 2026-07-08 (KST) · M1 핵심 요구 2건 대진전 + 터미널/DnD 마감** (실기 QA 전항목 통과·CI green):
+> **① 셸 컨텍스트 메뉴(B-2 S1, [ADR-0005](38-adr-0005-shell-context-menu.md))** — 행 우클릭 = **클래식 `IContextMenu` 셸 메뉴 + 고유 항목 병합**(ID 대역 분리·Send to/열기 방법 포워딩·Shift 확장 동사·delete 동사 가로채기·탐색기식 선택 판정). 잔여 S2(빈영역 배경 셸 메뉴)·S3.
+> **② Undo/Redo(B-13u ✅)** — 탐색기식 Ctrl+Z/Y: 이동·복사·이름변경·새로만들기·**휴지통 삭제 복원**(셸 undelete), `OperationHistory`(xUnit 10, 총 67), 빈영역 메뉴 항목.
+> **③ 터미널 UX**(BUG-007 ☑ 캐럿·faint 예측·고정폭 렌더·Tab/Backspace·ECH) · **④ DnD**(외부→앱 드롭 DND-EXT + 상승 시 OLE 폴백[BUG-009 ☑]·자기/하위 금지 🚫·시작 병렬화) · **⑤ 전송 창 2초 카운트다운 자동 닫기** · 빈영역 UX(이름변경 커밋·우클릭 선택해제).
+>
+> **이전(2026-07-06) · `feat/bottom-panel-info` → main 병합**(하단 패널 콘텐츠). 하단 패널(Ctrl+` 토글·세션 저장) 안에:
 > **정보**(선택 항목 속성) · **미리보기**(텍스트·이미지 — 표준 공급자 + 플러그인, BP-2) · **ConPTY 임베디드 터미널**(VT 에뮬레이터·색/화면버퍼·exit 재시작·선택 탭 cwd·키보드 캡처, BP-T) ·
 > **미리보기 플러그인 SDK `Nexa.Plugins`**(퍼미시브 MIT, DR-6) + 샘플 플러그인(텍스트·이미지). 알려진 이슈: 터미널 캐럿 미표시([BUG-007](BUGS.md))·일부 SGR 색 미반영([BUG-008](BUGS.md)).
 >
