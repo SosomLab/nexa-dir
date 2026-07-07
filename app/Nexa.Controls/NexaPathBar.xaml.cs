@@ -34,6 +34,8 @@ public sealed partial class NexaPathBar : UserControl
     {
         InitializeComponent();
         PART_Breadcrumb.ItemsSource = _segments;
+        // 창 리사이즈 등으로 폭이 줄면 다시 끝(최근 경로)이 보이게 유지.
+        PART_Scroll.SizeChanged += (_, _) => ScrollToEnd();
     }
 
     /// <summary>표시할 전체 경로. 변경 시 브레드크럼을 다시 만든다.</summary>
@@ -69,7 +71,19 @@ public sealed partial class NexaPathBar : UserControl
         {
             _segments.Add(s);
         }
+        ScrollToEnd();   // 경로가 폭을 넘으면 최근(가장 깊은) 세그먼트가 보이게 — 오른쪽 정렬 효과
     }
+
+    /// <summary>브레드크럼을 끝(최근 경로)으로 스크롤 — 긴 경로는 왼쪽(루트 쪽)이 잘리고 현재 폴더가 보인다.
+    /// 레이아웃 확정 후 오프셋이 유효하므로 enqueue. 폭 변경(창 리사이즈) 시에도 유지.</summary>
+    private void ScrollToEnd() => DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+    {
+        PART_Scroll.UpdateLayout();
+        if (PART_Scroll.ScrollableWidth > 0)
+        {
+            PART_Scroll.ChangeView(PART_Scroll.ScrollableWidth, null, null, disableAnimation: true);
+        }
+    });
 
     /// <summary>로컬 FS 경로를 세그먼트로 분해(드라이브 "C:" → "C:\\"). UNC/VFS는 후속(docs/27 β/γ).</summary>
     private static List<PathSegment> BuildSegments(string path)
