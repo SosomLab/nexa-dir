@@ -598,6 +598,12 @@ public sealed partial class MainWindow : Window
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var props = e.GetCurrentPoint((UIElement)sender).Properties;
+        // 이름변경 중 편집기 밖 press = 커밋(탐색기 동일). 빈 영역/툴바 등 포커스 불가 요소는 클릭해도
+        // LostFocus가 안 떠 편집이 유지되던 것 → 그리드로 포커스를 옮겨 LostFocus 커밋 경로를 태운다.
+        if (_renamingItem is not null && !IsWithinRenameEditor(e.OriginalSource as DependencyObject))
+        {
+            Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);   // → OnRenameLostFocus → CommitRename
+        }
         // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4).
         if ((props.IsLeftButtonPressed || props.IsRightButtonPressed)
             && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft
@@ -890,12 +896,29 @@ public sealed partial class MainWindow : Window
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
 
+    private DirItem? _renamingItem;   // 활성 인라인 편집 항목 — 편집기 밖 클릭(빈 영역 등) 커밋 판정용
+
+    /// <summary>노드가 활성 이름변경 편집기(TextBox) 내부인가 — 밖이면 press 시 커밋 대상.</summary>
+    private static bool IsWithinRenameEditor(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is TextBox tb && tb.Tag is DirItem d && d.IsRenaming)
+            {
+                return true;
+            }
+            node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+        }
+        return false;
+    }
+
     /// <summary>인라인 이름변경 시작 — 이름 셀을 편집기로 전환하고 포커스 + 이름부(확장자 제외) 선택.</summary>
     private void BeginRename(FrameworkElement row, DirItem item, bool left)
     {
         SetActivePanel(left);
         item.EditName = item.Name;
         item.IsRenaming = true;
+        _renamingItem = item;
         // 편집기가 가시화된 뒤(같은 디스패치 후) 포커스·선택.
         row.DispatcherQueue.TryEnqueue(() =>
         {
@@ -940,6 +963,7 @@ public sealed partial class MainWindow : Window
     /// <summary>편집 취소 — 원래 이름 복원, 목록에 포커스 반환.</summary>
     private void CancelRename(DirItem item)
     {
+        _renamingItem = null;
         item.EditName = item.Name;
         item.IsRenaming = false;
         Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);
@@ -956,6 +980,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         bool left = _activeLeft;   // 이름변경은 활성 패널에서 일어남
+        _renamingItem = null;
         string newName = (item.EditName ?? string.Empty).Trim();
         item.IsRenaming = false;
         Panel(left).Grid.Focus(FocusState.Programmatic);
@@ -1149,7 +1174,8 @@ public sealed partial class MainWindow : Window
         timer.Start();
     }
 
-    /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → 빈영역 컨텍스트 메뉴(붙여넣기·새로고침). B-10c.</summary>
+    /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → <b>기존 선택 해제</b>(탐색기 동일 — 빈 영역 우클릭=
+    /// 선택 취소 후 배경 모드) + 빈영역 컨텍스트 메뉴(붙여넣기·새로고침). B-10c.</summary>
     private void OnPanelContextRequested(UIElement sender, ContextRequestedEventArgs e)
     {
         if (sender is not FrameworkElement fe)
@@ -1160,6 +1186,12 @@ public sealed partial class MainWindow : Window
             : ReferenceEquals(sender, DirGrid2) ? false
             : PanelUnderPointer(fe) ?? _activeLeft;
         SetActivePanel(left);
+
+        // 빈 영역 우클릭 = 선택 취소(좌클릭과 동일 규약) — 배경 메뉴가 "현재 폴더" 대상임을 시각적으로 명확히.
+        var panelItems = Panel(left).Items;
+        panelItems.ClearSelection();
+        panelItems.SetCaret(-1);
+        UpdateSelectionCount(panelItems);
 
         var flyout = new MenuFlyout();
         var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = CanPaste() };
