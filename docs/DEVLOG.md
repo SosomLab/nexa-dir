@@ -13,6 +13,7 @@
 
 ## 2026-07-07
 
+- **B-2 셸 컨텍스트 메뉴 착수 — [ADR-0005](38-adr-0005-shell-context-menu.md) Accepted + S1 구현**: 행 우클릭 = **클래식 네이티브 셸 메뉴(`IContextMenu` HMENU) + 고유 항목 병합**(ID 대역 분리 셸 1~0x7FFF/고유 0x8000+ — 폴더에 붙여넣기·이름 바꾸기 F2·완전 삭제). `ShellContextMenu.cs` 신규(수동 COM 인터롭, IContextMenu2/3 메시지 포워딩="보내기"/"열기 방법", Shift=확장 동사, 셸 확장 예외 격리). 셸 명령 후 800ms 지연 재로드(watcher 보완). S2(빈영역 배경 메뉴)·S3(폴리시) 남음. 상세 [journal/2026-07-07.md](journal/2026-07-07.md).
 - **☑ [BUG-009](BUGS.md) 해결 — 상승(관리자) 프로세스 OLE 드롭 폴백**: 원인 확정 — UAC OFF PC는 탐색기 실행도 전부 상승 + **WinUI 3가 상승 프로세스의 인바운드 드래그를 플랫폼에서 거부**(microsoft-ui-xaml#7690/#10119; 어제의 UIPI 배제 판단은 무효). 해결 — 상승 감지 시 XAML 브리지 HWND에 **고전 OLE `IDropTarget` 폴백**(신규 `OleDropTarget.cs`) 등록: CF_HDROP 추출·히트테스트(폴더 행/패널 현재 폴더)·기존 판정 규칙·전송 엔진 합류, 최적화 이동(원본 중복 삭제 방지). 비상승은 XAML 경로 유지. **탐색기→앱 복사 실기 확인**, 진단 코드 제거. 상세 [journal/2026-07-07.md](journal/2026-07-07.md).
 - **🔴 [BUG-009](BUGS.md) 등록(긴급, [TODO B-16dnd](TODO.md))**: 외부(탐색기→앱) 드래그가 여전히 금지 커서 — UIPI 배제(일반 권한 재현), unpackaged WinUI 3의 StorageItems 미노출/DragOver 미도달 의심. **진단 로그 심음**(`%TEMP%\nexa-dnd-debug.log`) → 다음 세션 로그로 원인 분기. UIPI 함정(관리자 실행 시 DnD 차단)은 docs/33에 기록. (→ 같은 날 위 항목에서 해결)
 - **Drag & Drop 전면 검토 → P1/P2/P3 개선**(3커밋): **외부(탐색기→앱) 파일 드롭 수신**(DND-EXT — 행·탭·빈 영역, deferral+StorageItems→기존 전송 엔진 합류, 복사 기본/Shift=이동; 기존 "수락 표시 후 무동작" 버그 해소) · **자기/하위 폴더 드롭 UI 차단**(DND-CYCLE) · **드래그 시작 StorageItem 병렬 취득**(대량 선택 지연 완화) · **외부 이동 드롭 후 패널 갱신** · 캡션 변경 시만 설정·문구 정리. 상세 [docs/33](33-file-ops-dnd-design.md) 07-07 절 · [journal/2026-07-07.md](journal/2026-07-07.md).

@@ -1088,57 +1088,57 @@ public sealed partial class MainWindow : Window
 
     // ── 컨텍스트 메뉴 · 파일 작업 (복사/잘라내기/붙여넣기/완전삭제) — FileOps/FileClipboard 위임 ─────
 
-    /// <summary>행 우클릭 → 컨텍스트 메뉴(열기·잘라내기·복사·붙여넣기·삭제·이름 바꾸기). 클릭 항목이
-    /// 현재 선택에 없으면 단일 선택으로 맞춘 뒤 표시.</summary>
+    /// <summary>행 우클릭 → <b>클래식 셸 컨텍스트 메뉴 + 고유 항목 병합</b>(ADR-0005, B-2 S1).
+    /// 셸이 표준 동작(열기·잘라내기/복사·삭제·속성·확장 항목)을 제공하고, 고유 항목(잘라내기/복사는 앱
+    /// 클립보드 연동 위해 자체, 완전 삭제·인라인 이름변경·폴더에 붙여넣기)을 병합. 클릭 항목이
+    /// 현재 선택에 없으면 단일 선택으로 맞춘 뒤 표시(ContextTargets).</summary>
     private void OnRowContextRequested(UIElement sender, ContextRequestedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not DirItem item)
         {
             return;
         }
+        e.Handled = true;
         bool left = PanelUnderPointer(fe) ?? _activeLeft;
         SetActivePanel(left);
 
-        // 폴더/파일에 따라 항목 차등(B-10c): 폴더=열기+그 폴더로 붙여넣기 / 파일=실행(붙여넣기 없음).
-        var flyout = new MenuFlyout();
-        var open = new MenuFlyoutItem { Text = item.IsDir ? "열기" : "실행" };
-        open.Click += (_, _) => ActivateItem(left, item);
-        flyout.Items.Add(open);
-        flyout.Items.Add(new MenuFlyoutSeparator());
+        var targets = ContextTargets(left, item);
+        // 셸 메뉴는 같은 부모 폴더 항목만 전달 가능(ADR-0005 S1) — 교차 부모 선택이면 클릭 항목 폴더 기준으로 축소.
+        string parent = ParentDir(item.FullPath);
+        var sameDir = targets.Where(p => PathEq(ParentDir(p), parent)).ToList();
+        if (sameDir.Count == 0)
+        {
+            sameDir.Add(item.FullPath);
+        }
 
-        var cut = new MenuFlyoutItem { Text = "잘라내기" };
-        cut.Click += (_, _) => CutPaths(left, ContextTargets(left, item));
-        flyout.Items.Add(cut);
-        var copy = new MenuFlyoutItem { Text = "복사" };
-        copy.Click += (_, _) => CopyPaths(left, ContextTargets(left, item));
-        flyout.Items.Add(copy);
+        // 고유 병합 항목(0x8000+): 셸이 제공하지 않거나(완전 삭제·폴더에 붙여넣기) 앱 통합이 나은 것(인라인 이름변경 —
+        // 셸 rename 동사는 호스트 밖에선 무동작이라 CMF_CANRENAME 미사용, 우리 인라인 편집기 사용).
+        var custom = new List<ShellContextMenu.CustomItem>();
         if (item.IsDir)
         {
-            var pasteInto = new MenuFlyoutItem { Text = "폴더에 붙여넣기", IsEnabled = CanPaste() };
-            pasteInto.Click += (_, _) => PasteIntoDir(left, item.FullPath);
-            flyout.Items.Add(pasteInto);
+            custom.Add(new(0x8001, "폴더에 붙여넣기", CanPaste(), () => PasteIntoDir(left, item.FullPath)));
         }
-        flyout.Items.Add(new MenuFlyoutSeparator());
+        custom.Add(new(0x8002, "이름 바꾸기(F2)", true, () => BeginRename(fe, item, left)));
+        custom.Add(new(0x8003, "완전 삭제(Shift+Del)", true, () => DeletePaths(left, targets, permanent: true)));
 
-        var del = new MenuFlyoutItem { Text = "삭제(휴지통)" };
-        del.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: false);
-        flyout.Items.Add(del);
-        var delPerm = new MenuFlyoutItem { Text = "완전 삭제(Shift+Del)" };
-        delPerm.Click += (_, _) => DeletePaths(left, ContextTargets(left, item), permanent: true);
-        flyout.Items.Add(delPerm);
-        var rename = new MenuFlyoutItem { Text = "이름 바꾸기" };
-        rename.Click += (_, _) => BeginRename(fe, item, left);
-        flyout.Items.Add(rename);
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: IsShiftDown());
+        if (result == ShellContextMenu.Result.ShellCommand)
+        {
+            // 셸 명령(삭제·붙여넣기·압축해제 등)은 우리 전송 엔진 밖에서 FS를 바꿈 → 지연 재로드(비동기 명령 여유).
+            ScheduleShellRefresh();
+        }
+    }
 
-        if (e.TryGetPosition(fe, out var pos))
-        {
-            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
-        }
-        else
-        {
-            flyout.ShowAt(fe);
-        }
-        e.Handled = true;
+    /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
+    /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
+    private void ScheduleShellRefresh()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(800);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => ReloadBothPanels();
+        timer.Start();
     }
 
     /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → 빈영역 컨텍스트 메뉴(붙여넣기·새로고침). B-10c.</summary>
