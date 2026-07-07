@@ -185,13 +185,21 @@
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
-                                                <!-- 고정(핀)·잠금(열쇠) 아이콘 — 탭 이름 앞(TAB-MENU). 동시 설정이면 나란히 표시(두 상태 동시 표현) -->
+                                                <!-- 상태 배지(단일 아이콘 크기, TAB-MENU): 핀만/잠금만=단독 아이콘,
+                                                     동시=합성 배지(핀 + 우하단 작은 열쇠 — 한 이미지로 두 의미) -->
                                                 <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
-                                                          Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                          Visibility="{x:Bind PinOnlyVisibility, Mode=OneWay}" />
                                                 <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
-                                                          Visibility="{x:Bind LockVisibility, Mode=OneWay}" />
+                                                          Visibility="{x:Bind LockOnlyVisibility, Mode=OneWay}" />
+                                                <Grid Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                      Visibility="{x:Bind PinLockVisibility, Mode=OneWay}">
+                                                    <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                              Opacity="0.85" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                    <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="7"
+                                                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                                                </Grid>
                                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}"
                                                            TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
                                                            VerticalAlignment="Center" />
@@ -312,13 +320,21 @@
                                             <Border Grid.Row="0" Background="#FF3D8BFF" CornerRadius="2,2,0,0"
                                                     Visibility="{x:Bind AccentVisibility, Mode=OneWay}" />
                                             <StackPanel Grid.Row="1" Orientation="Horizontal" Padding="8,1" VerticalAlignment="Center">
-                                                <!-- 고정(핀)·잠금(열쇠) 아이콘 — 탭 이름 앞(TAB-MENU). 동시 설정이면 나란히 표시(두 상태 동시 표현) -->
+                                                <!-- 상태 배지(단일 아이콘 크기, TAB-MENU): 핀만/잠금만=단독 아이콘,
+                                                     동시=합성 배지(핀 + 우하단 작은 열쇠 — 한 이미지로 두 의미) -->
                                                 <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
-                                                          Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
+                                                          Visibility="{x:Bind PinOnlyVisibility, Mode=OneWay}" />
                                                 <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
-                                                          Visibility="{x:Bind LockVisibility, Mode=OneWay}" />
+                                                          Visibility="{x:Bind LockOnlyVisibility, Mode=OneWay}" />
+                                                <Grid Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                      Visibility="{x:Bind PinLockVisibility, Mode=OneWay}">
+                                                    <FontIcon Glyph="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                              Opacity="0.85" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                    <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="7"
+                                                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                                                </Grid>
                                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}"
                                                            TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
                                                            VerticalAlignment="Center" />

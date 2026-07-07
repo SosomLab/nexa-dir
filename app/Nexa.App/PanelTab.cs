@@ -74,12 +74,9 @@ public sealed class PanelTab : INotifyPropertyChanged
             if (_isLocked == value) { return; }
             _isLocked = value;
             OnPc(nameof(IsLocked));
-            OnPc(nameof(LockVisibility));
+            NotifyBadge();
         }
     }
-
-    /// <summary>잠금(열쇠) 아이콘 표시 여부 — 핀과 동시 설정이면 핀+열쇠가 나란히 표시(두 상태 동시 표현).</summary>
-    public Visibility LockVisibility => _isLocked ? Visibility.Visible : Visibility.Collapsed;
 
     private bool _isPinned;
     /// <summary>탭 고정 — 이름 앞 핀 아이콘 표시 + 핀 그룹(맨 앞)으로 이동(TAB-MENU).</summary>
@@ -91,12 +88,26 @@ public sealed class PanelTab : INotifyPropertyChanged
             if (_isPinned == value) { return; }
             _isPinned = value;
             OnPc(nameof(IsPinned));
-            OnPc(nameof(PinVisibility));
+            NotifyBadge();
         }
     }
 
-    /// <summary>핀 아이콘 표시 여부(탭 이름 앞).</summary>
-    public Visibility PinVisibility => _isPinned ? Visibility.Visible : Visibility.Collapsed;
+    // 탭 이름 앞 상태 배지(3상태, 단일 아이콘 풋프린트): 핀만 / 잠금만 / 동시(핀+우하단 열쇠 합성 배지).
+    /// <summary>핀만 설정 — 핀 아이콘 단독.</summary>
+    public Visibility PinOnlyVisibility => _isPinned && !_isLocked ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>잠금만 설정 — 열쇠 아이콘 단독.</summary>
+    public Visibility LockOnlyVisibility => _isLocked && !_isPinned ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>핀+잠금 동시 — 한 아이콘 크기의 합성 배지(핀 + 우하단 작은 열쇠).</summary>
+    public Visibility PinLockVisibility => _isPinned && _isLocked ? Visibility.Visible : Visibility.Collapsed;
+
+    private void NotifyBadge()
+    {
+        OnPc(nameof(PinOnlyVisibility));
+        OnPc(nameof(LockOnlyVisibility));
+        OnPc(nameof(PinLockVisibility));
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
