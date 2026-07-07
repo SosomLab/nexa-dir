@@ -92,21 +92,17 @@ public sealed class PanelTab : INotifyPropertyChanged
         }
     }
 
-    // 탭 이름 앞 상태 배지(3상태, 단일 아이콘 풋프린트): 핀만 / 잠금만 / 동시(핀+우하단 열쇠 합성 배지).
-    /// <summary>핀만 설정 — 핀 아이콘 단독.</summary>
-    public Visibility PinOnlyVisibility => _isPinned && !_isLocked ? Visibility.Visible : Visibility.Collapsed;
+    // 탭 상태 아이콘: 핀=폴더명 앞(왼쪽 끝) · 잠금(열쇠)=탭 오른쪽 끝. 동시 설정이면 양 끝에 각각 표시.
+    /// <summary>핀 아이콘(폴더명 앞) 표시 여부.</summary>
+    public Visibility PinVisibility => _isPinned ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>잠금만 설정 — 열쇠 아이콘 단독.</summary>
-    public Visibility LockOnlyVisibility => _isLocked && !_isPinned ? Visibility.Visible : Visibility.Collapsed;
-
-    /// <summary>핀+잠금 동시 — 한 아이콘 크기의 합성 배지(핀 + 우하단 작은 열쇠).</summary>
-    public Visibility PinLockVisibility => _isPinned && _isLocked ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>잠금(열쇠) 아이콘(탭 오른쪽 끝) 표시 여부.</summary>
+    public Visibility LockVisibility => _isLocked ? Visibility.Visible : Visibility.Collapsed;
 
     private void NotifyBadge()
     {
-        OnPc(nameof(PinOnlyVisibility));
-        OnPc(nameof(LockOnlyVisibility));
-        OnPc(nameof(PinLockVisibility));
+        OnPc(nameof(PinVisibility));
+        OnPc(nameof(LockVisibility));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
