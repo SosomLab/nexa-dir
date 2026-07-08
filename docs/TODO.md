@@ -114,4 +114,23 @@
 | B-16dnd | [BUG-009](BUGS.md) **외부(탐색기→앱) 드래그 금지 커서** — 원인: UAC OFF PC는 항상 상승 실행 + WinUI 3가 상승 프로세스 인바운드 드래그 거부(플랫폼 제한, microsoft-ui-xaml#7690/#10119). 해결: 상승 감지 시 고전 OLE `IDropTarget` 폴백(`OleDropTarget.cs`) 등록. 진단 코드 제거 완료 | **P0** | 소~중 | — | ☑ 해결(07-07) |
 | B-17dnd | 경로 바 세그먼트 드롭 타깃(탐색기 breadcrumb식) — [docs/33](33-file-ops-dnd-design.md) 07-07 절 잔여 | P3 | 소 | — | ☐ |
 
+### §9-3. 2026-07-08 세션 — 설정(Preferences) 시스템 + 요청 기능 (설계 [40](40-preferences-system.md))
+
+> **통합 설정 창**([40](40-preferences-system.md))이 다수 요청을 페이지로 수렴. 인프라(S1)가 선행 관문 —
+> 지금 인메모리 옵션 4벌(Theme/Menu/View/Tab)이 재시작 소실 중이라 우선순위 높음.
+
+| ID | 항목 | 우선 | 규모 | 의존 | 상태 |
+|---|---|---|---|---|---|
+| PREF-1 | **설정 인프라** — `SettingsStore`(settings.json 로밍·마이그레이션) + 기존 그룹 영속 배선 + `Ctrl+,` 설정 창 뼈대([40](40-preferences-system.md) S1) | **P1** | 중 | — | ☐ |
+| PREF-2 | **모양 페이지** — 테마 모드/팩(토큰 색)/폰트(UI·모노)/밀도([39 §5](39-theme-system.md)) | P1 | 중 | PREF-1 | ☐ |
+| PREF-3 | **레이아웃 페이지** — 패널/런처/하단 표시·헤더·전송창 자동닫기 토글 이관 | P2 | 소 | PREF-1 | ☐ |
+| PREF-4 | **컬럼 설정**(COL-4) — 표시/순서/너비/기본 정렬·per-tab([23](23-column-system.md)) | P2 | 중 | PREF-1 | ☐ |
+| PREF-5 | **단축키 지정** — 액션 레지스트리([26 §5](26-command-palette.md))+`keybindings.json`+충돌 검사 | P2 | 중~대 | PREF-1 | ☐ |
+| PREF-6 | **퀵 런처 바 설정** — 등록 도구(경로/인자 템플릿/아이콘)·순서·실행 배선(placeholder→실기능) | P1 | 중 | PREF-1 | ☐ |
+| PREF-7 | **즐겨찾기 관리** — 목록 추가/삭제/순서 + **사이드바**(B-7) 노출 | P2 | 중~대 | PREF-1 | ☐ |
+| PREF-8 | **언어(i18n)** — `.resw`/ResourceLoader 인프라(D-2) + 언어 페이지·재시작/부분 라이브 | P1 | 중 | — | ☐ |
+| ARCH-1 | **압축 파일 지원(내장 zip/아카이브)** — 가상 폴더 탐색(VFS Provider C-2) + 압축/해제(전송 엔진). 별도 ADR | P2 | 대 | C-2 | ☐ 설계 |
+| SRCH-1 | **파일 찾기(Everything식)** = M3([24](24-search-everything.md)) — MFT/USN 인덱스·필터 문법 | P2 | 대 | — | ☐ M3 |
+| REN-1 | **일괄 이름 변경** = M1 파일작업([25](25-bulk-rename.md)) — 규칙 스택+실시간 미리보기, 진입점(컨텍스트 메뉴/명령) | P1 | 중~대 | — | ☐ 설계 |
+
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->

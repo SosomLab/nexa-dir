@@ -69,13 +69,18 @@
 - ✅ **터미널 위치 정확도(07-08)**: 초기 크기 지연 시작·SU/SD·IND/NEL·**DECSTBM**·**레이아웃 반올림 누적 해소(줄 Canvas 절대 배치)** — 캐럿/출력 위치 QA 통과. + **마우스 선택·복사(Ctrl+C/Shift+C)·붙여넣기(Ctrl+V)**.
 - 🚧 Hex 뷰 · 🐛 잔여: 일부 확장 SGR·파워라인 글리프(Nerd Font)([BUG-008](BUGS.md)).
 
-### 세션·설정
+### 세션·설정 (통합 설정 시스템 설계 [40](40-preferences-system.md))
 - ✅ 탭 세션 저장/복원(`session.json`, 요청/수행 분리·Tick 코얼레싱) · 하단 패널 상태.
-- 🚧 일반 설정 영속화(`settings.json`)·설정 UI · 창 위치 복원([28](28-startup-memory-optimization.md)) — 설계됨, 구현 대기.
+- 🚧 **설정(Preferences) 시스템**(설계 [40](40-preferences-system.md), 구현 대기 — PREF-1 인프라 관문): `settings.json` 로밍 영속 + `Ctrl+,` 설정 창(페이지식) — **모양(테마/폰트/밀도)·레이아웃·컬럼·단축키·런처·즐겨찾기·메뉴·언어**. 현재 인메모리 옵션 4벌(Theme/Menu/View/Tab)이 재시작 소실 → 이 시스템이 해소.
+- 🚧 창 위치 복원([28](28-startup-memory-optimization.md)) — 설계됨, 구현 대기.
 
 ### 미착수(M1 잔여)
 - 🚧 **컨텍스트 메뉴 셸 통합**(B-2) — **S1 ✅**(행 우클릭 = 클래식 셸 메뉴+고유 병합, [ADR-0005](38-adr-0005-shell-context-menu.md)). 잔여: S2 빈영역 배경 셸 메뉴("새로 만들기" 셸 서브메뉴)·S3 폴리시(교차 부모 등).
-- ☐ **퀵 런처 바**(외부 터미널/에디터, 현재 placeholder). (하단 임베디드 터미널은 BP-T로 ✅ 구현.)
+- ☐ **퀵 런처 바**(외부 터미널/에디터, 현재 placeholder — 설정 [40](40-preferences-system.md) 런처 페이지와 함께 실기능화, PREF-6). (하단 임베디드 터미널은 BP-T로 ✅ 구현.)
+
+### 후속 기능 (사용자 요청 07-08 — 설정 창 밖 독립 기능)
+- ☐ **압축 파일 지원**(내장 zip/아카이브) — 가상 폴더 탐색(VFS Provider C-2)+압축/해제, 별도 ADR(ARCH-1).
+- ☐ **일괄 이름 변경**(REN-1, 설계 [25](25-bulk-rename.md)) · ☐ **파일 찾기 Everything식**(M3, [24](24-search-everything.md)) · ☐ **i18n**(PREF-8, D-2) · ☐ **즐겨찾기/사이드바**(PREF-7, B-7).
 
 ---
 
