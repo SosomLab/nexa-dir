@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Nexa.App.PreferencesWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 통합 설정 창(docs/40 PREF-1) — 좌 페이지 내비 + 우 편집기. 변경은 라이브 적용 + settings.json 저장. -->
+    <Grid Background="{ThemeResource NexaWindowBackgroundBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{ThemeResource NexaChromeBackgroundBrush}"
+                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,1,0">
+            <!-- 페이지 항목은 코드에서 Loc로 채움(언어 전환 대비) -->
+            <ListView x:Name="PageList" SelectionMode="Single" Padding="4,8" />
+        </Border>
+
+        <ScrollViewer Grid.Column="1" Padding="20">
+            <StackPanel x:Name="PageHost" Spacing="10" />
+        </ScrollViewer>
+    </Grid>
+</Window>

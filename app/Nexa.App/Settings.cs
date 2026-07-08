@@ -102,6 +102,13 @@ internal sealed class MenuOptions
     public bool CustomSectionOnTop { get; set; }
 }
 
+/// <summary>일반 옵션 — 언어(i18n) 등. Culture: ""=시스템, "ko"/"en"(docs/40 언어 페이지).</summary>
+internal sealed class GeneralOptions
+{
+    /// <summary>UI 언어 코드. "" = 시스템 UI 문화 추종, "ko"/"en" = 강제. 변경은 재시작 후 완전 반영.</summary>
+    public string Culture { get; set; } = string.Empty;
+}
+
 /// <summary>테마 모드(docs/39). System=OS 설정 추종.</summary>
 internal enum AppThemeMode
 {
@@ -140,6 +147,9 @@ internal static class AppSettings
 
     /// <summary>컨텍스트 메뉴 사용자화(커스텀 항목 표시/순서/위치, docs/38 §7).</summary>
     public static MenuOptions Menu { get; } = new();
+
+    /// <summary>일반 옵션(언어 등, docs/40).</summary>
+    public static GeneralOptions General { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

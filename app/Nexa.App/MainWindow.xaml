@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Nexa.App"
+    xmlns:loc="using:Nexa.App"
     xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
     xmlns:ctrls="using:Nexa.Controls"
     Title="Nexa Dir">
@@ -82,46 +83,48 @@
         <!-- 0 · 메뉴 바 (흰색) — 커스텀 NexaMenuBar(초박형 18px/폰트12, 기본 MenuBar 한계 우회). 헤더 텍스트=어두운색 -->
         <ctrls:NexaMenuBar Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
             <ctrls:NexaMenuBar.Menus>
-                <ctrls:NexaMenu Header="파일(F)">
-                    <ctrls:NexaMenuEntry Text="새 탭" />
-                    <ctrls:NexaMenuEntry Text="새 창" />
-                    <ctrls:NexaMenuEntry Text="종료" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.file}">
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.file.newTab}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.file.newWindow}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.file.exit}" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="선택(M)">
-                    <ctrls:NexaMenuEntry Text="모두 선택" />
-                    <ctrls:NexaMenuEntry Text="선택 해제" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.select}">
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.select.all}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.select.none}" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="명령(C)">
-                    <ctrls:NexaMenuEntry Text="복사" />
-                    <ctrls:NexaMenuEntry Text="이동" />
-                    <ctrls:NexaMenuEntry Text="삭제" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.command}">
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.command.copy}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.command.move}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.command.delete}" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="네트워크(N)" />
-                <ctrls:NexaMenu Header="탭(T)" />
-                <ctrls:NexaMenu Header="즐겨찾기(A)" />
-                <ctrls:NexaMenu Header="표시(S)">
-                    <ctrls:NexaMenuEntry Text="아이콘" />
-                    <ctrls:NexaMenuEntry Text="목록" />
-                    <ctrls:NexaMenuEntry Text="컬럼" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.network}" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.tab}" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.favorites}" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.view}">
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.view.icon}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.view.list}" />
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.view.columns}" />
                     <!-- 숨김 파일 보기 · 점(.) 파일 보기 — 독립 토글(동시 설정 가능, 기본 둘 다 표시=체크 ON) -->
-                    <ctrls:NexaMenuEntry Text="숨김 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
-                    <ctrls:NexaMenuEntry Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
+                    <ctrls:NexaMenuEntry x:Name="ShowHiddenEntry" Text="{loc:Loc Key=menu.view.hidden}" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
+                    <ctrls:NexaMenuEntry x:Name="ShowDotEntry" Text="{loc:Loc Key=menu.view.dot}" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
                     <!-- 경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 — 기본 감춤(설정 ShowPathHeader, 설정 UI 후속) -->
-                    <ctrls:NexaMenuEntry Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
+                    <ctrls:NexaMenuEntry x:Name="ShowPathHeaderEntry" Text="{loc:Loc Key=menu.view.pathHeader}" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
                     <!-- 패널 보기 토글(상태바에서 이관 — 상태바는 상태 표시 전용, docs/20) -->
-                    <ctrls:NexaMenuEntry x:Name="ShowLauncherEntry" Text="퀵 런처 바" IsCheckable="True" IsChecked="True" Click="OnToggleLauncher" />
-                    <ctrls:NexaMenuEntry x:Name="ShowRightPanelEntry" Text="우 패널(듀얼)" IsCheckable="True" IsChecked="True" Click="OnToggleRightPanel" />
-                    <ctrls:NexaMenuEntry x:Name="ShowBottomEntry" Text="하단 패널" IsCheckable="True" IsChecked="True" Click="OnToggleTerminal" />
-                    <ctrls:NexaMenuEntry x:Name="BottomSplitEntry" Text="하단 좌/우 분리" IsCheckable="True" IsChecked="True" Click="OnToggleBottomSplit" />
+                    <ctrls:NexaMenuEntry x:Name="ShowLauncherEntry" Text="{loc:Loc Key=menu.view.launcher}" IsCheckable="True" IsChecked="True" Click="OnToggleLauncher" />
+                    <ctrls:NexaMenuEntry x:Name="ShowRightPanelEntry" Text="{loc:Loc Key=menu.view.rightPanel}" IsCheckable="True" IsChecked="True" Click="OnToggleRightPanel" />
+                    <ctrls:NexaMenuEntry x:Name="ShowBottomEntry" Text="{loc:Loc Key=menu.view.bottom}" IsCheckable="True" IsChecked="True" Click="OnToggleTerminal" />
+                    <ctrls:NexaMenuEntry x:Name="BottomSplitEntry" Text="{loc:Loc Key=menu.view.bottomSplit}" IsCheckable="True" IsChecked="True" Click="OnToggleBottomSplit" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="구성(O)">
-                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정 UI(모양 페이지)는 후속 -->
-                    <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="테마: 시스템" IsCheckable="True" Click="OnThemeSystem" />
-                    <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="테마: 라이트" IsCheckable="True" IsChecked="True" Click="OnThemeLight" />
-                    <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="테마: 다크" IsCheckable="True" Click="OnThemeDark" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.config}">
+                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정은 설정 창 모양 페이지 -->
+                    <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="{loc:Loc Key=menu.config.themeSystem}" IsCheckable="True" Click="OnThemeSystem" />
+                    <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="{loc:Loc Key=menu.config.themeLight}" IsCheckable="True" IsChecked="True" Click="OnThemeLight" />
+                    <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="{loc:Loc Key=menu.config.themeDark}" IsCheckable="True" Click="OnThemeDark" />
+                    <!-- 통합 설정 창(Ctrl+,) — docs/40 PREF-1 -->
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.config.preferences}" Click="OnOpenPreferences" />
                 </ctrls:NexaMenu>
-                <ctrls:NexaMenu Header="도움말(H)">
-                    <ctrls:NexaMenuEntry Text="정보" />
+                <ctrls:NexaMenu Header="{loc:Loc Key=menu.help}">
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.help.about}" />
                 </ctrls:NexaMenu>
             </ctrls:NexaMenuBar.Menus>
         </ctrls:NexaMenuBar>
