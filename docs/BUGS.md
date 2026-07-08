@@ -124,6 +124,7 @@ grid.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority
 - **원인**: SGR 중 **faint(2, 흐리게)** 를 렌더에 미반영(파서는 플래그만 보관). 일부 확장/드문 시퀀스 미처리. 파워라인 글리프는 별개(Nerd Font 문제).
 - **해결(faint)**: `TermCell.Faint` 필드 추가 → `Put`에서 셀에 보관, `SameStyle`에 포함, `TerminalView` 렌더에서 `Opacity=0.45`로 표시. PSReadLine 인라인 예측(history)이 **VS Code처럼 연한 회색 미리보기**로 보인다.
 - **해결 방향(잔여)**: 미처리 확장 SGR/CSI 보강. (파워라인 글리프는 Nerd Font 적용 — 별도.)
+- **보강(07-08)**: ECH에 이어 **SU/SD(CSI S/T)·IND/NEL(ESC D/E)·CNL/CPL·DECSTBM(CSI r, 영역 스크롤)** 구현 — 프롬프트 중복·스크롤 후 커서 행 어긋남 해소. 위치 정확도의 최종 원인은 VT가 아니라 **레이아웃 반올림 누적**(journal 07-08)이었음.
 
 ## BUG-009 · 외부(탐색기→앱) 드래그가 금지 커서로 표시 (☑ 해결 — 상승 프로세스 OLE 드롭 폴백)
 
