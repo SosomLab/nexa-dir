@@ -7,7 +7,7 @@
 ## 1. 이 프로젝트는
 
 **Nexa Dir** = 차세대 **Windows 파일 탐색기**(Windows 기본 탐색기 대체). 네이티브 고성능 + 프로툴 UX.
-원격: `SosomLab/nexa-dir`. 현 단계: **M1 진행**(M0 완료·`0.1.0`). **1~3차 감사 라운드 + 하단 패널 브랜치 main 병합 완료** — 성능(백그라운드 열거·범위 diff·아이콘 LRU 캐시), 구조(PanelView·`Nexa.ViewModels`), **파일 조작**(복사/이동/삭제[휴지통·완전]/이름변경/새로 만들기·컨텍스트 메뉴·클립보드·DnD **단일 전송엔진**[덮어쓰기·바이트 진행률]), **컬럼 정렬**(3상태·다중열), **타입어헤드**, **하단 패널**(정보·미리보기·**ConPTY 터미널**), **미리보기 플러그인 SDK**(`Nexa.Plugins`, MIT) 구현. 남은 M1 = 교차선택 완성·Undo/Redo·설계 계약(트랙 C)·다수 실기 QA. 현황 → [STATUS](docs/STATUS.md)·[MILESTONES](docs/MILESTONES.md)·[DEVLOG](docs/DEVLOG.md).
+원격: `SosomLab/nexa-dir`. 현 단계: **M1 후반**(M0 완료·`0.1.0`, M1 진행분 `0.2.0` 태그). 코어(트리/선택·성능)·파일 조작 전체(전송엔진·Undo/Redo·**셸 컨텍스트 메뉴**[ADR-0005]+**커스텀 레지스트리**·클립보드·DnD[외부 드롭·러버밴드]) · **탭 UX**(드래그·잠금/고정·우클릭 메뉴) · **하단 패널**(정보·미리보기·**ConPTY 터미널**[위치 정확도·복붙]) · **미리보기 플러그인 SDK**(MIT) · **테마 시스템**(라이트/다크, docs/39) · 앱 아이콘까지 구현·실기 QA 통과. 남은 M1 = **퀵 런처**·B-2 S2/S3·설정 시스템(영속+UI)·설계 계약(트랙 C)·watcher(BUG-006). 현황 → [STATUS](docs/STATUS.md)·[MILESTONES](docs/MILESTONES.md)·[DEVLOG](docs/DEVLOG.md).
 
 - 조직: **SosomLab** (<https://sosomlab.com>) · 상업 라이선스 문의: **kiros33@sosomlab.com**
 - 개발자(maintainer): Sangyong Bae · **kiros33@gmail.com**
@@ -69,8 +69,9 @@
 2. 직전 맥락 = **[docs/DEVLOG.md](docs/DEVLOG.md)**(시간 역순) 최상단 · 기능/마일스톤 현황 = **[docs/MILESTONES.md](docs/MILESTONES.md)** · 최신 일자 파일 `docs/journal/YYYY-MM-DD.md`.
 3. 결정은 [docs/10](docs/10-decision-record.md), 요구는 [docs/05](docs/05-requirements.md).
 
-## 8. 다음 단계
+## 8. 다음 단계 (2026-07-08 현행화)
 
-1. ~~리포 스캐폴딩~~ ✅ · ~~M0~~ ✅(`0.1.0`).
-2. **M1 대부분 구현**: 경로 바·탭/듀얼·플래그십(인라인 트리)·**파일 조작**(복사/이동/삭제/이름변경/새로만들기)·**컨텍스트 메뉴**·**클립보드**·**DnD 전송엔진**·**컬럼 정렬**·**타입어헤드**·**하단 패널**(정보·미리보기·**ConPTY 터미널**)·**미리보기 플러그인 SDK**. (퀵 런처=placeholder.)
-3. **남은 M1·후속** → [MILESTONES](docs/MILESTONES.md)·[TASKS](docs/TASKS.md)·[TODO](docs/TODO.md): 교차폴더 선택 완성(C3/C4)·러버밴드·**Undo/Redo**(B-13u)·**nexa-ops 이관**(현 `Nexa.ViewModels.FileOps` seam)·설계 계약(트랙 C: VFS Provider·watcher 완성·에러 모델)·**다수 실기 QA** [QA-003](docs/QA-003-checklist.md). 알려진 이슈 [BUGS](docs/BUGS.md)(터미널 캐럿 BUG-007·SGR BUG-008 등).
+1. ~~M0~~ ✅(`0.1.0`) · **M1 후반**(진행분 `0.2.0`): 경로 바·탭/듀얼(+드래그·잠금/고정)·플래그십(인라인 트리·러버밴드)·파일 조작 전체(전송엔진·**Undo/Redo ✅**·**셸 컨텍스트 메뉴 S1+커스텀 레지스트리/Checksum ✅**·클립보드·DnD 외부드롭)·컬럼(정렬·가로 스크롤)·타입어헤드·하단 패널(정보·미리보기·터미널 ✅정확도/복붙)·플러그인 SDK·**테마 시스템(라이트/다크)**·앱 아이콘.
+2. **남은 M1** → [TODO](docs/TODO.md): **퀵 런처 바**(마지막 미착수 기능) · **B-2 S2/S3**(빈영역 배경 셸 메뉴·폴리시) · B-8(BUG-002 이름변경 오발동) · B-4 잔여(Ctrl+A 등·경로바 드롭).
+3. **기반 후속(우선 추천)**: **설정 시스템 1차**(settings.json 영속+설정 창 — 대기 스키마: Theme[모양]/Menu[메뉴]/View/Tab, docs/34·38§7·39§5) · **watcher 브로커**(BUG-006, B-12w) · 트랙 C(C-1 에러 모델 → C-2 VFS Provider — M2+ 관문) · 다크 팔레트 정비+기본 모드 결정(DR-2).
+4. 중기: **nexa-ops 이관**(B-1, FileOps seam) · 일괄 이름변경(docs/25)·사이드바(B-7) · 패키징(MSIX/포터블)+`0.3.0` · i18n(D-2)·접근성(D-3).
