@@ -108,6 +108,11 @@
                     <ctrls:NexaMenuEntry Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
                     <!-- 경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 — 기본 감춤(설정 ShowPathHeader, 설정 UI 후속) -->
                     <ctrls:NexaMenuEntry Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
+                    <!-- 패널 보기 토글(상태바에서 이관 — 상태바는 상태 표시 전용, docs/20) -->
+                    <ctrls:NexaMenuEntry x:Name="ShowLauncherEntry" Text="퀵 런처 바" IsCheckable="True" IsChecked="True" Click="OnToggleLauncher" />
+                    <ctrls:NexaMenuEntry x:Name="ShowRightPanelEntry" Text="우 패널(듀얼)" IsCheckable="True" IsChecked="True" Click="OnToggleRightPanel" />
+                    <ctrls:NexaMenuEntry x:Name="ShowBottomEntry" Text="하단 패널" IsCheckable="True" IsChecked="True" Click="OnToggleTerminal" />
+                    <ctrls:NexaMenuEntry x:Name="BottomSplitEntry" Text="하단 좌/우 분리" IsCheckable="True" IsChecked="True" Click="OnToggleBottomSplit" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="구성(O)">
                     <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정 UI(모양 페이지)는 후속 -->
@@ -463,18 +468,10 @@
             </Border>
         </Grid>
 
-        <!-- 6 · 상태바 + 숨김/분리 토글 -->
+        <!-- 6 · 상태바 — 온전히 상태 표시 전용(패널 보기 토글은 표시(S) 메뉴로 이관) -->
         <Border Grid.Row="6" Background="{ThemeResource NexaStatusBarBackgroundBrush}"
                 BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="8,4">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
-                <AppBarSeparator />
-                <TextBlock Text="표시:" Opacity="0.6" VerticalAlignment="Center" />
-                <ToggleButton x:Name="ToggleLauncherBtn" Content="런처" IsChecked="True" Click="OnToggleLauncher" />
-                <ToggleButton x:Name="ToggleRightBtn" Content="우 패널" IsChecked="True" Click="OnToggleRightPanel" />
-                <ToggleButton x:Name="ToggleTerminalBtn" Content="하단" IsChecked="True" Click="OnToggleTerminal" />
-                <ToggleButton x:Name="ToggleBottomSplitBtn" Content="하단 좌/우 분리" IsChecked="True" Click="OnToggleBottomSplit" />
-            </StackPanel>
+            <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
         </Border>
     </Grid>
 </Window>

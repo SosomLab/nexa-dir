@@ -177,11 +177,11 @@ public sealed partial class MainWindow : Window
     /// <summary>하단 도킹 패널 상태 캡처(표시/높이/분리/콘텐츠 종류) — BP-1c.</summary>
     private BottomPanelState CaptureBottom() => new()
     {
-        Visible = ToggleTerminalBtn.IsChecked == true,
+        Visible = ShowBottomEntry.IsChecked,
         Height = TerminalPanel.Visibility == Visibility.Visible && TermRow.ActualHeight > 40
             ? TermRow.ActualHeight
             : 180,
-        Split = ToggleBottomSplitBtn.IsChecked == true,
+        Split = BottomSplitEntry.IsChecked,
         LeftKind = (int)BottomLeftDockView.Kind,
         RightKind = (int)BottomRightDockView.Kind,
     };
@@ -241,9 +241,9 @@ public sealed partial class MainWindow : Window
     {
         BottomLeftDockView.Kind = ValidKind(b.LeftKind);
         BottomRightDockView.Kind = ValidKind(b.RightKind);
-        ToggleBottomSplitBtn.IsChecked = b.Split;
-        ToggleTerminalBtn.IsChecked = b.Visible;
-        OnToggleTerminal(ToggleTerminalBtn, null!);   // 표시/숨김 반영(+UpdateBottomDock)
+        BottomSplitEntry.IsChecked = b.Split;
+        ShowBottomEntry.IsChecked = b.Visible;
+        OnToggleTerminal(ShowBottomEntry, EventArgs.Empty);   // 표시/숨김 반영(+UpdateBottomDock)
         if (b.Visible && b.Height > 40)
         {
             TermRow.Height = new GridLength(b.Height);   // 저장된 높이 복원(토글이 180으로 덮은 뒤)
@@ -3242,12 +3242,12 @@ public sealed partial class MainWindow : Window
     // ── 레이아웃 토글 (영역 숨김/표시) ──────────────────────────────
     // 숨길 때 해당 splitter와 행/열 크기를 함께 0으로 만들어 빈 공간을 남기지 않는다(docs/20 §2).
 
-    private void OnToggleLauncher(object sender, RoutedEventArgs e)
-        => LauncherBar.Visibility = Vis(ToggleLauncherBtn.IsChecked);
+    private void OnToggleLauncher(object sender, EventArgs e)
+        => LauncherBar.Visibility = Vis(ShowLauncherEntry.IsChecked);
 
-    private void OnToggleRightPanel(object sender, RoutedEventArgs e)
+    private void OnToggleRightPanel(object sender, EventArgs e)
     {
-        bool show = ToggleRightBtn.IsChecked == true;
+        bool show = ShowRightPanelEntry.IsChecked;
         RightPanel.Visibility = Vis(show);
         PanelSplitter.Visibility = Vis(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
@@ -3258,16 +3258,16 @@ public sealed partial class MainWindow : Window
         UpdateBottomDock();
     }
 
-    /// <summary>하단 패널 표시/숨김 토글(Ctrl+`, BP-1) — 토글 버튼 상태를 뒤집고 동일 경로로 반영.</summary>
+    /// <summary>하단 패널 표시/숨김 토글(Ctrl+`, BP-1) — 메뉴 체크 상태를 뒤집고 동일 경로로 반영.</summary>
     private void ToggleBottomPanel()
     {
-        ToggleTerminalBtn.IsChecked = !(ToggleTerminalBtn.IsChecked == true);
-        OnToggleTerminal(ToggleTerminalBtn, null!);
+        ShowBottomEntry.IsChecked = !ShowBottomEntry.IsChecked;
+        OnToggleTerminal(ShowBottomEntry, EventArgs.Empty);
     }
 
-    private void OnToggleTerminal(object sender, RoutedEventArgs e)
+    private void OnToggleTerminal(object sender, EventArgs e)
     {
-        bool show = ToggleTerminalBtn.IsChecked == true;
+        bool show = ShowBottomEntry.IsChecked;
         TerminalPanel.Visibility = Vis(show);
         TermSplitter.Visibility = Vis(show);
         TermSplitterRow.Height = show ? GridLength.Auto : new GridLength(0);
@@ -3282,7 +3282,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>하단 도킹 좌/우 분리 토글 → 실제 반영은 UpdateBottomDock가 정책적으로 결정.</summary>
-    private void OnToggleBottomSplit(object sender, RoutedEventArgs e)
+    private void OnToggleBottomSplit(object sender, EventArgs e)
     {
         UpdateBottomDock();
         _session?.MarkDirty();   // 하단 좌/우 분리 → 세션 저장 예약 (BP-1c)
@@ -3295,10 +3295,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void UpdateBottomDock()
     {
-        bool dual = ToggleRightBtn.IsChecked == true;          // 우 패널 표시 = 듀얼
-        bool split = ToggleBottomSplitBtn.IsChecked == true;   // 하단 좌/우 분리 요청
-        // 분리는 듀얼일 때만 의미 있음
-        ToggleBottomSplitBtn.IsEnabled = dual;
+        bool dual = ShowRightPanelEntry.IsChecked;    // 우 패널 표시 = 듀얼
+        bool split = BottomSplitEntry.IsChecked;      // 하단 좌/우 분리 요청
+        // 분리는 듀얼일 때만 적용(메뉴 항목은 항상 토글 가능 — 선호는 저장되고 듀얼 복귀 시 반영)
         bool showRightDock = dual && split;
 
         BottomRightDock.Visibility = Vis(showRightDock);
@@ -3373,7 +3372,7 @@ public sealed partial class MainWindow : Window
     /// <summary>상단 좌/우 분리선 이동 → 중앙 또는 하단 분리선 위치로 스냅.</summary>
     private void OnTopSplitSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_snapping || IsAltDown() || ToggleRightBtn.IsChecked != true) return;   // Alt=스냅 임시 해제, 듀얼일 때만
+        if (_snapping || IsAltDown() || !ShowRightPanelEntry.IsChecked) return;   // Alt=스냅 임시 해제, 듀얼일 때만
         double left = LeftCol.ActualWidth, total = left + RightCol.ActualWidth;
         if (total <= 0) return;
         double? target = SnapTarget(left, total,
@@ -3388,7 +3387,7 @@ public sealed partial class MainWindow : Window
         double left = BottomLeftCol.ActualWidth, total = left + BottomRightCol.ActualWidth;
         if (total <= 0) return;
         double? target = SnapTarget(left, total,
-            ToggleRightBtn.IsChecked == true ? LeftCol.ActualWidth : (double?)null);
+            ShowRightPanelEntry.IsChecked ? LeftCol.ActualWidth : (double?)null);
         ApplySnap(BottomLeftCol, BottomRightCol, target, left, total);
     }
 
