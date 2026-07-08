@@ -1277,7 +1277,9 @@ public sealed partial class MainWindow : Window
         }
 
         // 고유 병합 항목(0x8000+): 레지스트리 정의 → 설정(표시/순서) 적용 → CustomItem 변환(docs/38 §7).
-        var custom = BuildCustomMenuItems(new CmCtx(left, item, fe, targets));
+        // Alt/Shift는 우클릭(여는) 시점에 캡처 — 항목 실행은 메뉴 닫힌 뒤라 그때의 키 상태를 신뢰 못 함.
+        bool alt = IsAltDown();        // Alt=변형 서식(경로 복사 POSIX 등) — 여는 시점 판정(Windows 관용)
+        var (custom, replacements) = BuildCustomMenuItems(new CmCtx(left, item, fe, targets, alt));
 
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         bool shift = IsShiftDown();   // 키 상태는 클릭 시점 캡처
@@ -1286,7 +1288,7 @@ public sealed partial class MainWindow : Window
         _ = DispatcherQueue.TryEnqueue(() =>
         {
             var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: shift,
-                customOnTop: AppSettings.Menu.CustomSectionOnTop,
+                customOnTop: AppSettings.Menu.CustomSectionOnTop, replacements: replacements,
                 // "삭제" 동사는 셸 대신 우리 삭제 경로로 — undo 기록(DeleteBatchOp, B-13u)·상태바·재로드 통합.
                 verbInterceptor: verb =>
                 {
@@ -1307,14 +1309,16 @@ public sealed partial class MainWindow : Window
 
     // ── 커스텀 컨텍스트 메뉴 레지스트리 (docs/38 §7 — 설정으로 표시/순서/위치 제어, 설정 UI 후속) ─────
 
-    /// <summary>커스텀 항목 호출 컨텍스트 — 패널·클릭 항목·행 요소·작업 대상 경로들.</summary>
-    private readonly record struct CmCtx(bool Left, DirItem Item, FrameworkElement Row, IReadOnlyList<string> Targets);
+    /// <summary>커스텀 항목 호출 컨텍스트 — 패널·클릭 항목·행 요소·작업 대상 경로들·Alt(여는 시점).</summary>
+    private readonly record struct CmCtx(bool Left, DirItem Item, FrameworkElement Row, IReadOnlyList<string> Targets, bool Alt);
 
     /// <summary>커스텀 항목 정의 — Id=설정 영속 키, DefaultOrder=섹션 내 기본 순서(100 간격).
     /// <see cref="Children"/>이 있으면 서브메뉴(부모의 Invoke는 무시, 부모 Visible이 그룹을 게이트).</summary>
+    /// <summary><see cref="ReplaceVerb"/>가 있으면 고유 섹션이 아니라 <b>해당 셸 동사 위치에 제자리 대체</b>
+    /// (예: "copyaspath") — 셸이 못 하는 교차폴더 동작을 같은 자리에서 제공(docs/38 §7-5).</summary>
     private sealed record CmItemDef(string Id, string Label, int DefaultOrder,
         Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke,
-        IReadOnlyList<CmItemDef>? Children = null);
+        IReadOnlyList<CmItemDef>? Children = null, string? ReplaceVerb = null);
 
     private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
     private static List<CmItemDef>? _cmRegistryShared;   // 설정 창 카탈로그 조회용(정적)
@@ -1352,6 +1356,11 @@ public sealed partial class MainWindow : Window
         // 셸 rename 동사는 호스트 밖 무동작이라 CMF_CANRENAME 미사용).
         _cmRegistry = new List<CmItemDef>
         {
+            // 경로 복사(Copy as path) — 셸의 "copyaspath"를 제자리 대체(ReplaceVerb). 셸 항목은 단일 부모
+            // 폴더로 축소되나(교차폴더 미지원, S1), 이 고유 항목은 c.Targets(전체 선택)을 직접 클립보드로.
+            // Alt=POSIX(/)·따옴표 없이. 셸이 verb를 안 내면(예: Shift 없이 Win10) 고유 섹션에 폴백.
+            new("copy-as-path", "경로 복사", 50,
+                _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
             new("paste-into", "폴더에 붙여넣기", 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
             new("rename", "이름 바꾸기(F2)", 200,
@@ -1364,11 +1373,13 @@ public sealed partial class MainWindow : Window
         _cmRegistryShared = _cmRegistry;   // 설정 창 카탈로그 조회용
     }
 
-    /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem(서브메뉴 재귀).</summary>
-    private List<ShellContextMenu.CustomItem> BuildCustomMenuItems(CmCtx ctx)
+    /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem.
+    /// 최상위 <see cref="CmItemDef.ReplaceVerb"/> 항목은 <b>고유 섹션이 아니라 동사 대체 목록</b>으로 분리.</summary>
+    private (List<ShellContextMenu.CustomItem> Section, List<ShellContextMenu.VerbReplacement> Replacements) BuildCustomMenuItems(CmCtx ctx)
     {
         uint id = ShellContextMenu.IdCustomFirst;
 
+        // 서브메뉴(children) 재귀 매핑 — 여기선 ReplaceVerb 미지원(최상위만 대체).
         List<ShellContextMenu.CustomItem> Map(IReadOnlyList<CmItemDef> defs)
         {
             var list = new List<ShellContextMenu.CustomItem>();
@@ -1384,7 +1395,50 @@ public sealed partial class MainWindow : Window
             return list;
         }
 
-        return Map(_cmRegistry);
+        var section = new List<ShellContextMenu.CustomItem>();
+        var replacements = new List<ShellContextMenu.VerbReplacement>();
+        foreach (var def in _cmRegistry
+            .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
+            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+        {
+            var captured = def;
+            var children = def.Children is { Count: > 0 } kids ? Map(kids) : null;
+            var item = new ShellContextMenu.CustomItem(
+                id++, captured.Label, captured.Enabled(ctx), () => captured.Invoke(ctx), children);
+            if (captured.ReplaceVerb is string verb)
+            {
+                replacements.Add(new ShellContextMenu.VerbReplacement(verb, item));
+            }
+            else
+            {
+                section.Add(item);
+            }
+        }
+        return (section, replacements);
+    }
+
+    /// <summary>선택 경로들(교차폴더 전체)을 클립보드 텍스트로 — 한 줄에 하나.
+    /// 기본=따옴표+역슬래시(탐색기 "Copy as path" 동일), <paramref name="posix"/>(Alt)=따옴표 없이 슬래시(/).
+    /// 셸 메뉴의 단일 폴더 축소(S1)를 우회해 교차폴더 4개도 전부 복사.</summary>
+    private void CopyPathsAsText(IReadOnlyList<string> targets, bool posix)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        var lines = targets.Select(p => posix ? p.Replace('\\', '/') : $"\"{p}\"");
+        string text = string.Join("\r\n", lines);
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = $"경로 {targets.Count}개 복사됨{(posix ? " (POSIX)" : "")}";
+        }
+        catch
+        {
+            // 클립보드 미가용 격리 — 앱 동작 방해 금지
+        }
     }
 
     /// <summary>파일 하나의 해시 계산 — 알고리즘 라벨(MD5/SHA-1/SHA-256/SHA-384/SHA-512/CRC32)별 분기.

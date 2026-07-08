@@ -25,6 +25,11 @@ internal sealed class ShellContextMenu
     public sealed record CustomItem(uint Id, string Text, bool Enabled, Action Invoke,
         IReadOnlyList<CustomItem>? Children = null);
 
+    /// <summary>셸 동사를 우리 항목으로 <b>제자리 대체</b> — 셸 메뉴의 해당 verb(예: "copyaspath") 위치에서
+    /// 원 항목을 지우고 <see cref="Item"/>을 끼워 넣는다(교차폴더처럼 셸이 못 하는 동작을 같은 자리에서 제공).
+    /// verb를 못 찾으면 고유 섹션 하단에 폴백 추가.</summary>
+    public sealed record VerbReplacement(string Verb, CustomItem Item);
+
     /// <summary>표시 결과 — 셸 명령 실행 여부를 호출자가 알 수 있게(후처리 갱신 판단용).</summary>
     public enum Result { Cancelled, ShellCommand, CustomCommand }
 
@@ -38,7 +43,8 @@ internal sealed class ShellContextMenu
     /// 셸 실행 대신 호스트가 처리(undo 기록 등 앱 통합이 필요한 동사 가로채기).
     /// <paramref name="customOnTop"/>: 커스텀 섹션 위치 — false=셸 항목 아래(기본)/true=위(docs/38 §7).</summary>
     public Result Show(IntPtr hwnd, IReadOnlyList<string> paths, IReadOnlyList<CustomItem> custom,
-        bool extendedVerbs = false, Func<string?, bool>? verbInterceptor = null, bool customOnTop = false)
+        bool extendedVerbs = false, Func<string?, bool>? verbInterceptor = null, bool customOnTop = false,
+        IReadOnlyList<VerbReplacement>? replacements = null)
     {
         var fullPidls = new List<IntPtr>();
         IShellFolder? folder = null;
@@ -94,10 +100,35 @@ internal sealed class ShellContextMenu
             {
                 return Result.Cancelled;
             }
-            if (custom.Count > 0 && !customOnTop)
+            // 3-1) 셸 동사 제자리 대체(copyaspath 등) — verb 위치에서 원 항목 삭제 후 우리 항목 삽입.
+            //      못 찾은 것(셸이 그 동사를 안 냄)은 고유 섹션 하단에 폴백.
+            var unplaced = new List<CustomItem>();
+            if (replacements is { Count: > 0 })
+            {
+                foreach (var rep in replacements)
+                {
+                    int pos = FindMenuPosByVerb(hmenu, icm, rep.Verb);
+                    if (pos >= 0)
+                    {
+                        DeleteMenu(hmenu, (uint)pos, MF_BYPOSITION);
+                        InsertMenuW(hmenu, (uint)pos, MF_BYPOSITION | MF_STRING | (rep.Item.Enabled ? 0u : MF_GRAYED),
+                            (UIntPtr)rep.Item.Id, rep.Item.Text);
+                    }
+                    else
+                    {
+                        unplaced.Add(rep.Item);
+                    }
+                }
+            }
+            if ((custom.Count > 0 || unplaced.Count > 0) && !customOnTop)
             {
                 AppendMenuW(hmenu, MF_SEPARATOR, UIntPtr.Zero, null);
                 AppendCustomItems(hmenu, custom);
+                AppendCustomItems(hmenu, unplaced);
+            }
+            else if (unplaced.Count > 0 && customOnTop)
+            {
+                AppendCustomItems(hmenu, unplaced);
             }
 
             // 4) 표시 — IContextMenu2/3 메시지 포워딩(동적 서브메뉴·owner-draw)을 위해 표시 구간만 서브클래스.
@@ -124,7 +155,12 @@ internal sealed class ShellContextMenu
             // 5) 분기 — 고유 대역이면 콜백(서브메뉴 재귀 탐색), 셸 대역이면 InvokeCommand.
             if (sel >= IdCustomFirst)
             {
-                FindCustom(custom, sel)?.Invoke();
+                CustomItem? hit = FindCustom(custom, sel);
+                if (hit is null && replacements is not null)
+                {
+                    hit = FindCustom(replacements.Select(r => r.Item).ToList(), sel);
+                }
+                hit?.Invoke();
                 return Result.CustomCommand;
             }
             // 앱 통합이 필요한 동사(delete 등)는 호스트가 가로채 처리(undo 기록·전송 엔진 합류).
@@ -207,6 +243,26 @@ internal sealed class ShellContextMenu
         return null;
     }
 
+    /// <summary>HMENU 최상위에서 canonical verb가 <paramref name="verb"/>인 셸 항목의 위치(index). 없으면 -1.
+    /// 팝업(서브메뉴, id=0xFFFFFFFF)·구분자·고유 항목(0x8000+)은 건너뜀 — 셸 대역 leaf만 조회.</summary>
+    private static int FindMenuPosByVerb(IntPtr hmenu, IContextMenu icm, string verb)
+    {
+        int count = GetMenuItemCount(hmenu);
+        for (int i = 0; i < count; i++)
+        {
+            uint id = GetMenuItemID(hmenu, i);
+            if (id < IdShellFirst || id > IdShellLast)
+            {
+                continue;   // 팝업/구분자/커스텀 제외
+            }
+            if (string.Equals(GetVerb(icm, id - IdShellFirst), verb, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /// <summary>선택된 셸 명령의 canonical verb(언어 무관 식별자, 예: "delete"/"copy"). 미구현 확장은 null.</summary>
     private static string? GetVerb(IContextMenu icm, uint idOffset)
     {
@@ -266,6 +322,7 @@ internal sealed class ShellContextMenu
     private const uint MF_GRAYED = 0x1;
     private const uint MF_SEPARATOR = 0x800;
     private const uint MF_POPUP = 0x10;
+    private const uint MF_BYPOSITION = 0x400;
     private const uint TPM_RETURNCMD = 0x100;
     private const uint TPM_RIGHTBUTTON = 0x2;
     private const int SW_SHOWNORMAL = 1;
@@ -368,6 +425,18 @@ internal sealed class ShellContextMenu
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern bool AppendMenuW(IntPtr hMenu, uint uFlags, UIntPtr uIDNewItem, string? lpNewItem);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool InsertMenuW(IntPtr hMenu, uint uPosition, uint uFlags, UIntPtr uIDNewItem, string? lpNewItem);
+
+    [DllImport("user32.dll")]
+    private static extern bool DeleteMenu(IntPtr hMenu, uint uPosition, uint uFlags);
+
+    [DllImport("user32.dll")]
+    private static extern int GetMenuItemCount(IntPtr hMenu);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetMenuItemID(IntPtr hMenu, int nPos);
 
     [DllImport("user32.dll")]
     private static extern int TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
