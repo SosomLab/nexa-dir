@@ -1742,18 +1742,29 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).</summary>
+    /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).
+    /// 선택 전체는 <b>화면 표시(가시 트리) 순서</b>로 반환(삽입 순서 대신) — Copy as path·Checksum 등 목록 출력이
+    /// 눈에 보이는 순서와 일치하도록. 폴더/파일 혼합·인라인 펼침 교차선택도 표시 순서 유지.</summary>
     private IReadOnlyList<string> ContextTargets(bool left, DirItem clicked)
     {
         var items = Panel(left).Active.Items;
         var sel = items.SelectedPaths();
         if (sel.Count > 0 && sel.Any(p => PathEq(p, clicked.FullPath)))
         {
-            return sel;
+            return OrderByDisplay(items, sel);
         }
         items.Select(clicked, 0);   // 단일 선택으로 맞춤
         UpdateSelectionCount(items);
         return new[] { clicked.FullPath };
+    }
+
+    /// <summary>경로들을 코어 가시 인덱스(<see cref="VirtualTreeCollection.IndexOfPath"/>)로 정렬 = 화면 표시 순서.
+    /// 비가시(부모 접힘 등, -1) 항목은 뒤로 밀되 원래 순서 보존(OrderBy 안정 정렬).</summary>
+    private static IReadOnlyList<string> OrderByDisplay(VirtualTreeCollection items, IReadOnlyList<string> paths)
+    {
+        return paths
+            .OrderBy(p => { int i = items.IndexOfPath(p); return i < 0 ? int.MaxValue : i; })
+            .ToList();
     }
 
     /// <summary>키보드 단축키(Ctrl+C/X/V·Del) 대상 — 현재 선택이 있으면 선택 전체, 없으면 캐럿 항목.</summary>
