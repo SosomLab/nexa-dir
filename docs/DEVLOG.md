@@ -11,6 +11,10 @@
 
 ---
 
+## 2026-07-09
+
+- **도구 모음(내장) + 퀵 런처(외부) 슬라이스 1(`feat/toolbar-launcher`→main)**: 16×16 아이콘 빠른 실행 도구 2종 체계 — **도구 모음**(개발자 제공: 현재 폴더 터미널[wt→pwsh→cmd 폴백·Ctrl+Shift+T]·파일 찾기[M3 스텁]·이름 바꾸기[F2]) + **퀵 런처**(사용자 등록 외부 프로그램, 시드=VS Code 활성 탭 폴더 열기·**exe 아이콘 16px**). `ToolLauncher`(실행·VS Code 탐지·실패 격리) + `InitToolbars`. CRUD·영속·단축키 배정은 후속. 설계 [docs/44](44-toolbar-and-launcher.md). 상세 [journal/2026-07-09.md](journal/2026-07-09.md).
+
 ## 2026-07-08
 
 - **경로 복사(Copy as path) — 셸 동사 제자리 대체(`feat/copy-as-path`→main PR#5, CI green)**: 교차폴더 다중선택에서 셸 "Copy as path"가 한 폴더만 복사하던 문제(셸 `IContextMenu`=단일 부모 폴더 한계) 해결. `ShellContextMenu.VerbReplacement`로 HMENU의 `copyaspath` verb를 찾아 **삭제+삽입(제자리 대체)**, `CopyPathsAsText(Targets)`가 축소 이전 전체 선택을 클립보드로. 기본=따옴표+역슬래시·**Alt=POSIX(`/`)**. [docs/38 §7-5](38-adr-0005-shell-context-menu.md). + **외부 파일 위치 맵 [docs/43](43-external-files-and-config.md)** 신설(중복은 34/40/42로 단일화). 상세 [journal/2026-07-08.md](journal/2026-07-08.md).

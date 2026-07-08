@@ -163,6 +163,7 @@ public sealed partial class MainWindow : Window
         // 사용자 설정 저장 엔진(settings.json, 로밍) — 변경 지점에서 MarkSettingsDirty + 종료 flush(docs/40 PREF-1).
         _settings = new SettingsStore(SettingsStore.DefaultPath(), DispatcherQueue, SettingsStore.Capture);
         SyncViewMenuChecks();   // 로드된 설정을 표시 메뉴 체크에 반영
+        InitToolbars();         // 도구 모음(내장) + 퀵 런처(외부·시드) 버튼 구성 (docs/44)
         Closed += (_, _) => { _session?.Flush(); _settings?.Flush(); };
         AppDomain.CurrentDomain.ProcessExit += (_, _) => { _session?.Flush(); _settings?.Flush(); };
     }
@@ -1740,6 +1741,125 @@ public sealed partial class MainWindow : Window
                 }
             });
         });
+    }
+
+    // ── 도구 모음(내장 액션) · 퀵 런처(외부 프로그램) — 슬라이스 1 (docs/44) ──────────────
+    // 도구 모음 = 개발자 제공 내장 기능(현재 폴더 터미널·파일 찾기·이름 변경) — Segoe MDL2 16px 글리프.
+    // 퀵 런처 = 사용자 등록 외부 프로그램(시드: VS Code) — exe 아이콘(16px 썸네일)·%path%=활성 탭 폴더.
+    // 등록/수정/삭제 UI·settings.json 영속·단축키 배정(PREF-5)은 후속 슬라이스.
+
+    /// <summary>퀵 런처 도구(외부 프로그램) — 라벨·실행 파일·인자 템플릿(<c>%path%</c>=활성 탭 폴더).</summary>
+    private readonly record struct LauncherTool(string Label, string Exe, string Args);
+
+    /// <summary>도구 모음 + 퀵 런처 버튼 구성(생성자에서 1회). 둘 다 16×16 아이콘.</summary>
+    private void InitToolbars()
+    {
+        AddToolButton("", "현재 폴더에서 터미널 열기 (Ctrl+Shift+T)", OpenTerminalHere);   // CommandPrompt
+        AddToolButton("", "파일 찾기 (전면 검색은 M3 예정)", FindFilesStub);                 // Search
+        AddToolButton("", "이름 바꾸기 (F2)", RenameCaret);                                  // Rename
+
+        foreach (var t in DefaultLauncherTools())
+        {
+            AddLauncherButton(t);
+        }
+    }
+
+    /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.</summary>
+    private void AddToolButton(string glyph, string tooltip, Action onClick)
+    {
+        var btn = new Button
+        {
+            Content = new FontIcon
+            {
+                Glyph = glyph,
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
+                FontSize = 16,
+            },
+            Padding = new Thickness(6, 2, 6, 2),
+        };
+        ToolTipService.SetToolTip(btn, tooltip);
+        btn.Click += (_, _) => onClick();
+        ToolbarToolsHost.Children.Add(btn);
+    }
+
+    /// <summary>퀵 런처 버튼(외부 프로그램) — 16px exe 아이콘(비동기 로드, 실패 시 라벨 폴백) + 클릭 실행.</summary>
+    private void AddLauncherButton(LauncherTool tool)
+    {
+        var img = new Image { Width = 16, Height = 16, Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform };
+        var btn = new Button { Content = img, Padding = new Thickness(6, 2, 6, 2) };
+        ToolTipService.SetToolTip(btn, tool.Label);
+        btn.Click += (_, _) => LaunchTool(tool);
+        LauncherHost.Children.Add(btn);
+        _ = LoadExeIconAsync(btn, img, tool.Exe);
+    }
+
+    /// <summary>exe의 16px 셸 아이콘을 썸네일로 로드해 버튼에 표시. 실패 시 라벨 텍스트로 폴백(오류 격리).</summary>
+    private static async Task LoadExeIconAsync(Button btn, Image img, string exe)
+    {
+        try
+        {
+            var file = await StorageFile.GetFileFromPathAsync(exe);
+            using var thumb = await file.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.SingleItem, 16);
+            if (thumb is not null && thumb.Size > 0)
+            {
+                var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+                await bmp.SetSourceAsync(thumb);
+                img.Source = bmp;
+                return;
+            }
+        }
+        catch
+        {
+            // 아래 폴백
+        }
+        btn.Content = new TextBlock { Text = Path.GetFileNameWithoutExtension(exe), VerticalAlignment = VerticalAlignment.Center };
+    }
+
+    /// <summary>퀵 런처 시드(사용자 등록 전 기본 제공) — VS Code를 활성 탭 폴더에서 열기. 설치돼 있을 때만.</summary>
+    private static IReadOnlyList<LauncherTool> DefaultLauncherTools()
+    {
+        var list = new List<LauncherTool>();
+        if (ToolLauncher.ResolveVsCode() is string code)
+        {
+            list.Add(new LauncherTool("Visual Studio Code — 활성 탭 폴더 열기", code, "\"%path%\""));
+        }
+        return list;
+    }
+
+    /// <summary>퀵 런처 도구 실행 — <c>%path%</c>=활성 패널의 활성 탭 폴더.</summary>
+    private void LaunchTool(LauncherTool tool)
+    {
+        string folder = Panel(_activeLeft).Active.Current;
+        StatusText.Text = ToolLauncher.Launch(tool.Exe, tool.Args, folder)
+            ? $"{tool.Label} 실행" : $"{tool.Label} 실행 실패";
+    }
+
+    /// <summary>도구: 현재(활성 탭) 폴더에서 외부 터미널 열기.</summary>
+    private void OpenTerminalHere()
+    {
+        string folder = Panel(_activeLeft).Active.Current;
+        StatusText.Text = ToolLauncher.OpenTerminal(folder) ? "터미널 열기" : "터미널 실행 실패(설치 확인)";
+    }
+
+    /// <summary>도구: 파일 찾기 — 전면 검색(Everything식)은 M3([24](24-search.md)) 예정. 현재는 안내 스텁.</summary>
+    private void FindFilesStub()
+    {
+        StatusText.Text = "파일 찾기(전면 검색)는 M3에서 제공됩니다";
+    }
+
+    /// <summary>도구: 활성 패널 캐럿 항목 인라인 이름 변경(F2와 동일 경로). 캐럿 행이 실체화돼 있을 때.</summary>
+    private void RenameCaret()
+    {
+        int ci = Panel(_activeLeft).Items.CaretIndex;
+        if (Panel(_activeLeft).Items.CaretItem is DirItem it && ci >= 0
+            && Panel(_activeLeft).Grid.RowElement(ci) is FrameworkElement row)
+        {
+            BeginRename(row, it, _activeLeft);
+        }
+        else
+        {
+            StatusText.Text = "이름을 바꿀 항목을 먼저 선택하세요";
+        }
     }
 
     /// <summary>작업 대상 경로 목록 — 클릭 항목이 현재 선택에 포함되면 선택 전체, 아니면 클릭 항목 단독(단일 선택).
@@ -3329,16 +3449,19 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // F2: 캐럿 항목 인라인 이름 변경(표준 단축키). 캐럿 행이 실체화돼 있을 때.
+        // F2: 캐럿 항목 인라인 이름 변경(표준 단축키·도구 모음 "이름 바꾸기"와 동일 경로).
         if (e.Key == VirtualKey.F2)
         {
             e.Handled = true;
-            int ci = Panel(_activeLeft).Items.CaretIndex;
-            if (Panel(_activeLeft).Items.CaretItem is DirItem it && ci >= 0
-                && Panel(_activeLeft).Grid.RowElement(ci) is FrameworkElement row)
-            {
-                BeginRename(row, it, _activeLeft);
-            }
+            RenameCaret();
+            return;
+        }
+
+        // Ctrl+Shift+T: 현재(활성 탭) 폴더에서 외부 터미널 열기(도구 모음 "터미널" 단축키, docs/44).
+        if (e.Key == VirtualKey.T && IsCtrlDown() && IsShiftDown())
+        {
+            e.Handled = true;
+            OpenTerminalHere();
             return;
         }
 
