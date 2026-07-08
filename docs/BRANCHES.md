@@ -9,6 +9,8 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `fix/copy-as-path-order` | 2026-07-08 | 2026-07-08 (PR#7 `ac84a55`) | 2026-07-08 | 1 | 컨텍스트 대상 경로를 화면 표시 순서로(삽입 순서→가시 인덱스) | [2026-07-08](journal/2026-07-08.md) |
+| `fix/copy-as-path-label` | 2026-07-08 | 2026-07-08 (PR#6 `1e79002`) | 2026-07-08 | 1 | 경로 복사 라벨을 셸 원 명칭 "Copy as path"로 | [2026-07-08](journal/2026-07-08.md) |
 | `feat/copy-as-path` | 2026-07-08 | 2026-07-08 (PR#5 `1bbce3f`) | 2026-07-08 | 1+docs | 경로 복사 커스텀 항목 — 셸 동사 제자리 대체(교차폴더 전체·Alt POSIX) | [2026-07-08](journal/2026-07-08.md)·[docs/38 §7-5](38-adr-0005-shell-context-menu.md) |
 | `feat/i18n-lang-files` | 2026-07-08 | 2026-07-08 (PR#4 `558117a`) | 2026-07-08 | 1+docs | i18n 외부 `.lang` 파일화 — 설치+사용자 폴더·포맷 심(JSON↔properties)·기준 en | [2026-07-08](journal/2026-07-08.md)·[docs/42](42-i18n-language-files.md) |
 | `feat/preferences` | 2026-07-08 | 2026-07-08 (`d99c550`) | 2026-07-08 | 3+docs | 설정 인프라(PREF-1 settings.json) + i18n(Localizer·ko/en) + 레이아웃 토글 영속 | [2026-07-08](journal/2026-07-08.md)·[docs/40](40-preferences-system.md) |

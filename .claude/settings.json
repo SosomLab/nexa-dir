@@ -63,7 +63,9 @@
       "Bash(dotnet --info)",
       "PowerShell(Set-Location:*)",
       "PowerShell(Write-Output:*)",
-      "PowerShell(git:*)"
+      "PowerShell(git:*)",
+      "PowerShell(gh:*)",
+      "Bash(gh:*)"
     ],
     "ask": [
       "Bash(rm:*)",
