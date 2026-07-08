@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/i18n-lang-files` | 2026-07-08 | 2026-07-08 (PR#4 `558117a`) | 2026-07-08 | 1+docs | i18n 외부 `.lang` 파일화 — 설치+사용자 폴더·포맷 심(JSON↔properties)·기준 en | [2026-07-08](journal/2026-07-08.md)·[docs/42](42-i18n-language-files.md) |
 | `feat/preferences` | 2026-07-08 | 2026-07-08 (`d99c550`) | 2026-07-08 | 3+docs | 설정 인프라(PREF-1 settings.json) + i18n(Localizer·ko/en) + 레이아웃 토글 영속 | [2026-07-08](journal/2026-07-08.md)·[docs/40](40-preferences-system.md) |
 | `feat/context-menu-custom` | 2026-07-08 | 2026-07-08 | 2026-07-08 | 3+docs | 커스텀 메뉴 레지스트리(사용자화 설계) + Checksum 서브메뉴(6종) | [2026-07-08](journal/2026-07-08.md)·[docs/38 §7](38-adr-0005-shell-context-menu.md) |
 | `feat/theme-system` | 2026-07-08 | 2026-07-08 | 2026-07-08 | 3+docs | 테마 S1(틴트 제거·토큰·라이트/다크) + 상태바 정리 + 가로 스크롤 | [2026-07-08](journal/2026-07-08.md)·[docs/39](39-theme-system.md) |
@@ -21,6 +22,16 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/i18n-lang-files
+
+- **생성**: 2026-07-08 (분기: main `af7a194`). **1커밋 + docs**. 병합(PR#4 `558117a`)·삭제: 2026-07-08.
+- **작업**: i18n 문자열을 **외부 `.lang` 파일**로 분리([docs/42](42-i18n-language-files.md)) — 재빌드 없이 언어 추가·수정.
+  - **포맷 심**(`ILangFormat`): JSON 활성 + properties 구현, `LangFormats.Active` 한 줄 전환(UDF 엔진 스왑 패턴). 대등성 테스트로 무손실 보증.
+  - **2계층 폴더**: 설치 `<exe>/lang/` + 사용자 `%APPDATA%/NexaDir/lang/`(오버라이드 우선), 임베디드 en 안전망.
+  - 순수 계층(`LangFile`/포맷 → ViewModels **xUnit +7, 총 81**), 앱 계층(`LangCatalog`·`Loc.Init`·설정 언어 페이지 동적화).
+- **결정**: 포맷=JSON(전환 심)·사용자 오버라이드 폴더 도입·기준 언어=영어.
+- CI: 전 job green(WinUI 앱 빌드 포함).
 
 ## feat/preferences
 
