@@ -19,7 +19,8 @@
                 <!-- VtScreen 셀 그리드 렌더 — 라인을 Canvas에 index×LineH 절대 배치.
                      (StackPanel 누적 배치는 UseLayoutRounding이 줄 높이를 px로 반올림해 행당 ~0.45px씩
                       오버레이(캐럿/선택)와 어긋남이 누적됐음 — 절대 배치는 개별 반올림뿐, 비누적) -->
-                <Canvas x:Name="LinesPanel" />
+                <!-- 명시 Width/Height + 기본 Stretch 정렬은 가운데 배치가 됨 → 반드시 Left/Top 고정 -->
+                <Canvas x:Name="LinesPanel" HorizontalAlignment="Left" VerticalAlignment="Top" />
                 <!-- 마우스 드래그 선택 하이라이트(복사용) -->
                 <Canvas x:Name="SelLayer" IsHitTestVisible="False" />
                 <Canvas x:Name="CaretLayer" IsHitTestVisible="False">
