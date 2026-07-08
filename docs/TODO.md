@@ -126,7 +126,7 @@
 | PREF-3 | **레이아웃 페이지** — 패널/런처/하단 표시·헤더·전송창 자동닫기 토글 이관 | P2 | 소 | PREF-1 | ☐ |
 | PREF-4 | **컬럼 설정**(COL-4) — 표시/순서/너비/기본 정렬·per-tab([23](23-column-system.md)) | P2 | 중 | PREF-1 | ☐ |
 | PREF-5 | **단축키 지정** — 액션 레지스트리([26 §5](26-command-palette.md))+`keybindings.json`+충돌 검사 | P2 | 중~대 | PREF-1 | ☐ |
-| PREF-6 | **퀵 런처 바 설정** — 등록 도구(경로/인자 템플릿/아이콘)·순서·실행 배선(placeholder→실기능) | P1 | 중 | PREF-1 | ☐ |
+| PREF-6 | **퀵 런처 바 설정** — 등록 도구(경로/인자 템플릿/아이콘)·순서·실행 배선(placeholder→실기능) | P1 | 중 | PREF-1 | 🚧 슬라이스1 ✅(도구 모음 3종+런처 시드 VS Code·exe 아이콘·실행, [docs/44](44-toolbar-and-launcher.md)) · CRUD/영속·단축키(PREF-5) 후속 |
 | PREF-7 | **즐겨찾기 관리** — 목록 추가/삭제/순서 + **사이드바**(B-7) 노출 | P2 | 중~대 | PREF-1 | ☐ |
 | PREF-8 | **언어(i18n)** — 인프라(순수 Localizer+테이블+LocExtension)·언어 페이지·문화 영속·**외부 `.lang` 파일화**([42](42-i18n-language-files.md): 설치+사용자 폴더·포맷 심 JSON↔properties·기준 en) **✅(07-08)**. 잔여: 문자열 전면 이관·번역 언어 추가 | P1 | 중 | — | 🚧 인프라·메뉴바·설정창·외부파일 ✅ |
 | ARCH-1 | **압축 파일 지원(내장 zip/아카이브)** — 가상 폴더 탐색(VFS Provider C-2) + 압축/해제(전송 엔진). 별도 ADR | P2 | 대 | C-2 | ☐ 설계 |

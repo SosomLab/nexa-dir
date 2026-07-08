@@ -139,19 +139,17 @@
                 <Button Content="&#xE72C;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="새로고침" />
                 <AppBarSeparator />
                 <Button Content="아이콘" /><Button Content="목록" /><Button Content="컬럼" /><Button Content="갤러리" />
-                <TextBlock Text="도구 모음 (placeholder · 16×16 기본)" Opacity="0.6" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <AppBarSeparator />
+                <!-- 도구 모음(개발자 제공 내장 기능) — 코드(InitToolbars)에서 16×16 글리프 버튼 채움 (docs/44) -->
+                <StackPanel x:Name="ToolbarToolsHost" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
 
         <!-- 2 · 퀵 런처 바 (초록) -->
         <Border x:Name="LauncherBar" Grid.Row="2" Background="{ThemeResource NexaChromeBackgroundBrush}"
                 BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,1" Padding="6,4">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Content="cmd" /><Button Content="pwsh" /><Button Content="WT" />
-                <AppBarSeparator />
-                <Button Content="VSCode" /><Button Content="＋" />
-                <TextBlock Text="퀵 런처 바 (placeholder)" Opacity="0.6" VerticalAlignment="Center" Margin="8,0,0,0" />
-            </StackPanel>
+            <!-- 퀵 런처(사용자 등록 외부 프로그램) — 코드(InitToolbars)에서 exe 아이콘 버튼 채움. 시드=VS Code (docs/44) -->
+            <StackPanel x:Name="LauncherHost" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" />
         </Border>
 
         <!-- 3 · 메인 영역 (좌/우 듀얼 패널 + splitter) -->
