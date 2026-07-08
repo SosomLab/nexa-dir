@@ -124,3 +124,18 @@ MenuOptions {
 - 인코딩(Base64) 메뉴는 구현 후 **사용자 결정으로 제거**(2026-07-08) — 필요 시 별도 "인코딩 ▶" 메뉴로
   재도입(Checksum과 범주 분리 원칙 유지). 서브메뉴 인프라는 존치.
 - 후속: 대용량 진행률/취소 · 결과 파일(.sha256) 저장 옵션 · 클립보드 비교(검증).
+
+### 7-5. 셸 동사 제자리 대체 (VerbReplacement, 구현됨 2026-07-08)
+
+- **문제**: 셸 컨텍스트 메뉴는 `IShellFolder::GetUIObjectOf(부모, 자식PIDL[])` 구조라 **단일 부모 폴더**만 표현.
+  플래그십 교차폴더 다중선택(서로 다른 폴더의 파일들) 시 호스트가 클릭 항목 폴더 기준으로 선택을 **축소**해 전달
+  (`OnRowContextRequested`의 `sameDir`) → 셸의 **"Copy as path"(copyaspath)** 가 4개 중 한 폴더 2개만 복사.
+- **해결**: `CmItemDef.ReplaceVerb`(예: `"copyaspath"`)를 단 고유 항목은 **셸 섹션에 안 들어가고**, 셸이 만든
+  HMENU에서 그 canonical verb(GCS_VERBW) 위치를 찾아 **원 항목 삭제 + 우리 항목 삽입**(`ShellContextMenu`:
+  `VerbReplacement`·`FindMenuPosByVerb`·`DeleteMenu`/`InsertMenuW` `MF_BYPOSITION`). 우리 항목은 축소 이전
+  **전체 선택(`CmCtx.Targets`)** 을 직접 클립보드로 → 교차폴더 전부 복사.
+- **서식**: 기본=`"경로"` 줄바꿈(역슬래시, 탐색기 동일) · **Alt(여는 시점 캡처, `CmCtx.Alt`)=POSIX(`/`)·따옴표 없이**.
+  Windows 관용(Shift→확장동사)과 동일하게 **여는 시점 수정자 판정**(진짜 맥식 실시간 모프는 네이티브 팝업 한계로
+  커스텀 렌더러 필요 — 별도 트랙).
+- **폴백**: 셸이 그 동사를 안 내면(예: Shift 없이 Win10) 고유 섹션 하단에 표시(기능은 항상 동작).
+- **설정 연동**: `ReplaceVerb` 항목도 레지스트리 소속이라 설정에서 표시/제거 가능 — 제거하면 셸 원본 동사가 그대로 노출.
