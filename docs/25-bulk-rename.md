@@ -81,14 +81,16 @@
 - **널 처리**: 없는 키 → 널(§4-3 정책 적용). 정보 패널은 있는 키만 표시.
 - **의존성 정책**: 전부 **퍼미시브(MIT/Apache) 순수 Rust 우선**. C 의존(gexiv2/rexiv2 등)은 배포·크로스 부담이라 회피.
 
-## 6. 개발자 확장 — 사용자 정의 함수(UDF) 스택 ★ (요청 2-4)
+## 6. 개발자 확장 — 사용자 정의 함수(UDF) ★ (요청 2-4)
 
-> 요청: "Python 커스텀 함수(플러그인 파일 방식)". 단, **CPython 임베드(PyO3)는 부적합** — 런타임 번들(배포·포터블
-> 훼손)·**샌드박스 불가**(임의 import/FS/네트워크)·비결정성·C 의존. 아래는 **Rust 임베드 인터프리터** 기준 추천.
+> **사용자 결정(2026-07-08): Python으로 작성.** 상세 설계·동작 메커니즘 → **[41 · Python UDF](41-rename-udf-python.md)**.
+> 요지: **2계층** — 기본 **RustPython**(순수 Rust Python VM: 진짜 Python + 샌드박스 + 무런타임번들 + 결정성 + 맥 테스트),
+> 옵션 **아웃오브프로세스 CPython**(서드파티 패키지 필요 시, 프로세스 격리·M6 T2 RPC). 계약 `def rename(ctx): return …`
+> 순수 함수(ctx=name/ext/meta/index/date). 아래 §6-0/6-1은 계층 배경(비-Python 대안 포함, Python 비요구 시 참고).
 
 ### 6-0. 계층(대부분은 스크립트 불요)
 - **Tier 0 — 내장 DSL(§4)**: 토큰+함수. 스크립트 엔진 없이 Rust 네이티브. 결정적·최속·안전. **90% 커버**.
-- **Tier 1 — UDF 스크립트(권장)**: 사용자가 `def rename(name, meta, ctx): ...` 선언·호출. 아래 스택.
+- **Tier 1 — Python UDF([41](41-rename-udf-python.md))**: `def rename(ctx): ...` — 기본 RustPython(임베드·샌드박스), 옵션 아웃오브프로세스 CPython.
 - **Tier 2 — 풀 플러그인**: 무겁거나 상태 있는 확장은 M6 플러그인(WASM/Lua, [09](09-plugin-architecture.md)).
 
 ### 6-1. UDF 요구 & 후보 비교
