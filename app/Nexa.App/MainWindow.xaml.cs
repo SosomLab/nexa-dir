@@ -1256,14 +1256,36 @@ public sealed partial class MainWindow : Window
     /// <summary>커스텀 항목 호출 컨텍스트 — 패널·클릭 항목·행 요소·작업 대상 경로들.</summary>
     private readonly record struct CmCtx(bool Left, DirItem Item, FrameworkElement Row, IReadOnlyList<string> Targets);
 
-    /// <summary>커스텀 항목 정의 — Id=설정 영속 키, DefaultOrder=섹션 내 기본 순서(100 간격).</summary>
+    /// <summary>커스텀 항목 정의 — Id=설정 영속 키, DefaultOrder=섹션 내 기본 순서(100 간격).
+    /// <see cref="Children"/>이 있으면 서브메뉴(부모의 Invoke는 무시, 부모 Visible이 그룹을 게이트).</summary>
     private sealed record CmItemDef(string Id, string Label, int DefaultOrder,
-        Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke);
+        Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke,
+        IReadOnlyList<CmItemDef>? Children = null);
 
     private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
 
     private void InitContextMenuRegistry()
     {
+        static Action<CmCtx> Noop() => _ => { };
+        // Checksum 서브메뉴 — 자주 쓰는 해시 종류(docs/38 §7-4). CRC32는 System.IO.Hashing(MIT).
+        CmItemDef Hash(string id, string label, int order) =>
+            new($"checksum.{id}", label, order, _ => true, _ => true, c => _ = ShowChecksumsAsync(c.Targets, label));
+        var checksumKids = new List<CmItemDef>
+        {
+            Hash("md5", "MD5", 10),
+            Hash("sha1", "SHA-1", 20),
+            Hash("sha256", "SHA-256", 30),
+            Hash("sha384", "SHA-384", 40),
+            Hash("sha512", "SHA-512", 50),
+            Hash("crc32", "CRC32", 60),
+        };
+        // 인코딩 서브메뉴 — Checksum(단방향 해시)과 범주가 달라 별도(가역 인코딩). 후속: 디코드·URL·Hex.
+        var encodingKids = new List<CmItemDef>
+        {
+            new("encoding.base64", "Base64 인코드 → 클립보드", 10,
+                _ => true, _ => true, c => _ = Base64EncodeToClipboardAsync(c.Targets)),
+        };
+
         // 셸이 제공하지 않거나(완전 삭제·폴더에 붙여넣기·Checksum) 앱 통합이 나은 것(인라인 이름변경 —
         // 셸 rename 동사는 호스트 밖 무동작이라 CMF_CANRENAME 미사용).
         _cmRegistry = new List<CmItemDef>
@@ -1274,29 +1296,61 @@ public sealed partial class MainWindow : Window
                 _ => true, _ => true, c => BeginRename(c.Row, c.Item, c.Left)),
             new("delete-permanent", "완전 삭제(Shift+Del)", 300,
                 _ => true, _ => true, c => DeletePaths(c.Left, c.Targets, permanent: true)),
-            new("checksum", "Checksum (SHA-256)", 400,
-                c => c.Targets.Any(File.Exists), _ => true, c => _ = ShowChecksumsAsync(c.Targets)),
+            new("checksum", "Checksum", 400,
+                c => c.Targets.Any(File.Exists), _ => true, Noop(), checksumKids),
+            new("encoding", "인코딩", 500,
+                c => c.Targets.Count(File.Exists) == 1, _ => true, Noop(), encodingKids),
         };
     }
 
-    /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem.</summary>
+    /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem(서브메뉴 재귀).</summary>
     private List<ShellContextMenu.CustomItem> BuildCustomMenuItems(CmCtx ctx)
     {
-        var list = new List<ShellContextMenu.CustomItem>();
         uint id = ShellContextMenu.IdCustomFirst;
-        foreach (var def in _cmRegistry
-            .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
-            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+
+        List<ShellContextMenu.CustomItem> Map(IReadOnlyList<CmItemDef> defs)
         {
-            var captured = def;   // 클로저 캡처 고정
-            list.Add(new ShellContextMenu.CustomItem(id++, captured.Label, captured.Enabled(ctx), () => captured.Invoke(ctx)));
+            var list = new List<ShellContextMenu.CustomItem>();
+            foreach (var def in defs
+                .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
+                .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+            {
+                var captured = def;   // 클로저 캡처 고정
+                var children = def.Children is { Count: > 0 } kids ? Map(kids) : null;
+                list.Add(new ShellContextMenu.CustomItem(
+                    id++, captured.Label, captured.Enabled(ctx), () => captured.Invoke(ctx), children));
+            }
+            return list;
         }
-        return list;
+
+        return Map(_cmRegistry);
     }
 
-    /// <summary>선택 목록의 <b>파일별 SHA-256 체크섬</b>(폴더 제외) — "파일명: 해시" 줄들을 복사 가능한
-    /// 대화상자로 표시(docs/38 §7-4). 알고리즘 선택·진행률은 후속.</summary>
-    private async Task ShowChecksumsAsync(IReadOnlyList<string> targets)
+    /// <summary>파일 하나의 해시 계산 — 알고리즘 라벨(MD5/SHA-1/SHA-256/SHA-384/SHA-512/CRC32)별 분기.
+    /// CRC32는 표준 표기(빅엔디언 8자리)로 바이트 뒤집음.</summary>
+    private static async Task<byte[]> HashFileAsync(string path, string algo)
+    {
+        await using var s = File.OpenRead(path);
+        switch (algo)
+        {
+            case "MD5": return await System.Security.Cryptography.MD5.HashDataAsync(s);
+            case "SHA-1": return await System.Security.Cryptography.SHA1.HashDataAsync(s);
+            case "SHA-256": return await System.Security.Cryptography.SHA256.HashDataAsync(s);
+            case "SHA-384": return await System.Security.Cryptography.SHA384.HashDataAsync(s);
+            case "SHA-512": return await System.Security.Cryptography.SHA512.HashDataAsync(s);
+            case "CRC32":
+                var crc = new System.IO.Hashing.Crc32();
+                await crc.AppendAsync(s);
+                byte[] h = crc.GetCurrentHash();   // 리틀엔디언 반환(문서) → 표준 표기로 뒤집기
+                Array.Reverse(h);
+                return h;
+            default: throw new ArgumentOutOfRangeException(nameof(algo), algo, null);
+        }
+    }
+
+    /// <summary>선택 목록의 <b>파일별 체크섬</b>(폴더 제외) — "파일명: 해시" 줄들을 복사 가능한
+    /// 대화상자로 표시(docs/38 §7-4). 진행률·취소는 후속.</summary>
+    private async Task ShowChecksumsAsync(IReadOnlyList<string> targets, string algo)
     {
         var files = targets.Where(File.Exists).ToList();   // 폴더는 제외
         if (files.Count == 0)
@@ -1304,15 +1358,14 @@ public sealed partial class MainWindow : Window
             StatusText.Text = "체크섬 대상 파일이 없습니다(폴더 제외)";
             return;
         }
-        StatusText.Text = $"체크섬 계산 중… ({files.Count}개)";
+        StatusText.Text = $"{algo} 계산 중… ({files.Count}개)";
         var sb = new System.Text.StringBuilder();
         foreach (string f in files)
         {
             string line;
             try
             {
-                await using var stream = File.OpenRead(f);
-                byte[] hash = await System.Security.Cryptography.SHA256.HashDataAsync(stream);
+                byte[] hash = await HashFileAsync(f, algo);
                 line = $"{Path.GetFileName(f)}: {Convert.ToHexString(hash).ToLowerInvariant()}";
             }
             catch (Exception ex)
@@ -1321,7 +1374,7 @@ public sealed partial class MainWindow : Window
             }
             sb.AppendLine(line);
         }
-        StatusText.Text = $"체크섬 완료 — {files.Count}개";
+        StatusText.Text = $"{algo} 완료 — {files.Count}개";
 
         string text = sb.ToString().TrimEnd();
         var box = new TextBox
@@ -1338,7 +1391,7 @@ public sealed partial class MainWindow : Window
         ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
         var dialog = new ContentDialog
         {
-            Title = "Checksum (SHA-256)",
+            Title = $"Checksum ({algo})",
             Content = box,
             PrimaryButtonText = "복사",
             CloseButtonText = "닫기",
@@ -1351,6 +1404,37 @@ public sealed partial class MainWindow : Window
             dp.SetText(text);
             Clipboard.SetContent(dp);
             StatusText.Text = "체크섬이 클립보드에 복사됨";
+        }
+    }
+
+    /// <summary>단일 파일 내용을 Base64로 인코드해 클립보드로(인코딩 메뉴, docs/38 §7-4).
+    /// 대용량 방지 16MB 상한. 디코드/URL/Hex 등은 후속.</summary>
+    private async Task Base64EncodeToClipboardAsync(IReadOnlyList<string> targets)
+    {
+        string? file = targets.FirstOrDefault(File.Exists);
+        if (file is null)
+        {
+            StatusText.Text = "인코딩 대상 파일이 없습니다";
+            return;
+        }
+        const long MaxBytes = 16 * 1024 * 1024;
+        var info = new FileInfo(file);
+        if (info.Length > MaxBytes)
+        {
+            StatusText.Text = $"Base64 인코드 상한(16MB) 초과 — {FileOps.LeafName(file)}";
+            return;
+        }
+        try
+        {
+            byte[] bytes = await File.ReadAllBytesAsync(file);
+            var dp = new DataPackage();
+            dp.SetText(Convert.ToBase64String(bytes));
+            Clipboard.SetContent(dp);
+            StatusText.Text = $"Base64 인코드 복사됨 — {FileOps.LeafName(file)} ({info.Length:N0}바이트)";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Base64 인코드 실패: {ex.Message}";
         }
     }
 

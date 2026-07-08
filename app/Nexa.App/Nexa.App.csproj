@@ -42,6 +42,8 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
     <!-- GridSplitter(영역 크기 조절) — CommunityToolkit Sizers (MIT) -->
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.*" />
+    <!-- CRC32 등 비암호 해시(체크섬 메뉴) — Microsoft System.IO.Hashing (MIT) -->
+    <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
   </ItemGroup>
 
   <!-- 재사용 컨트롤 라이브러리(NexaFileGrid 등) — ADR-0002 §9 -->

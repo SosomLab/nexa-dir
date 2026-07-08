@@ -20,8 +20,10 @@ internal sealed class ShellContextMenu
     /// <summary>고유(호스트) 항목 ID 시작 — 셸 대역과 겹치지 않는다(ADR-0005).</summary>
     public const uint IdCustomFirst = 0x8000;
 
-    /// <summary>병합할 고유 메뉴 항목. <see cref="Id"/>는 0x8000 이상.</summary>
-    public sealed record CustomItem(uint Id, string Text, bool Enabled, Action Invoke);
+    /// <summary>병합할 고유 메뉴 항목. <see cref="Id"/>는 0x8000 이상. <see cref="Children"/>이 있으면
+    /// 서브메뉴(팝업)로 렌더 — 이때 자신의 Invoke는 무시(리프만 실행).</summary>
+    public sealed record CustomItem(uint Id, string Text, bool Enabled, Action Invoke,
+        IReadOnlyList<CustomItem>? Children = null);
 
     /// <summary>표시 결과 — 셸 명령 실행 여부를 호출자가 알 수 있게(후처리 갱신 판단용).</summary>
     public enum Result { Cancelled, ShellCommand, CustomCommand }
@@ -80,13 +82,10 @@ internal sealed class ShellContextMenu
             _icm2 = icmObj as IContextMenu2;
             _icm3 = icmObj as IContextMenu3;
             hmenu = CreatePopupMenu();
-            // 3) 고유 항목 병합(0x8000+) — 구분자로 섹션 분리(ADR-0005). 위치=설정(docs/38 §7).
+            // 3) 고유 항목 병합(0x8000+) — 구분자로 섹션 분리(ADR-0005). 위치=설정(docs/38 §7). 서브메뉴 지원.
             if (custom.Count > 0 && customOnTop)
             {
-                foreach (var c in custom)
-                {
-                    AppendMenuW(hmenu, MF_STRING | (c.Enabled ? 0u : MF_GRAYED), (UIntPtr)c.Id, c.Text);
-                }
+                AppendCustomItems(hmenu, custom);
                 AppendMenuW(hmenu, MF_SEPARATOR, UIntPtr.Zero, null);
             }
             uint qcmFlags = extendedVerbs ? CMF_EXTENDEDVERBS : CMF_NORMAL;
@@ -98,10 +97,7 @@ internal sealed class ShellContextMenu
             if (custom.Count > 0 && !customOnTop)
             {
                 AppendMenuW(hmenu, MF_SEPARATOR, UIntPtr.Zero, null);
-                foreach (var c in custom)
-                {
-                    AppendMenuW(hmenu, MF_STRING | (c.Enabled ? 0u : MF_GRAYED), (UIntPtr)c.Id, c.Text);
-                }
+                AppendCustomItems(hmenu, custom);
             }
 
             // 4) 표시 — IContextMenu2/3 메시지 포워딩(동적 서브메뉴·owner-draw)을 위해 표시 구간만 서브클래스.
@@ -125,10 +121,10 @@ internal sealed class ShellContextMenu
                 return Result.Cancelled;
             }
 
-            // 5) 분기 — 고유 대역이면 콜백, 셸 대역이면 InvokeCommand.
+            // 5) 분기 — 고유 대역이면 콜백(서브메뉴 재귀 탐색), 셸 대역이면 InvokeCommand.
             if (sel >= IdCustomFirst)
             {
-                custom.FirstOrDefault(c => c.Id == sel)?.Invoke();
+                FindCustom(custom, sel)?.Invoke();
                 return Result.CustomCommand;
             }
             // 앱 통합이 필요한 동사(delete 등)는 호스트가 가로채 처리(undo 기록·전송 엔진 합류).
@@ -174,6 +170,41 @@ internal sealed class ShellContextMenu
                 Marshal.FreeCoTaskMem(pidl);   // ILFree 동등
             }
         }
+    }
+
+    /// <summary>고유 항목들을 HMENU에 추가 — Children이 있으면 서브 팝업으로(재귀). DestroyMenu가 서브까지 해제.</summary>
+    private static void AppendCustomItems(IntPtr hmenu, IReadOnlyList<CustomItem> items)
+    {
+        foreach (var c in items)
+        {
+            if (c.Children is { Count: > 0 })
+            {
+                IntPtr sub = CreatePopupMenu();
+                AppendCustomItems(sub, c.Children);
+                AppendMenuW(hmenu, MF_POPUP | (c.Enabled ? 0u : MF_GRAYED), (UIntPtr)sub, c.Text);
+            }
+            else
+            {
+                AppendMenuW(hmenu, MF_STRING | (c.Enabled ? 0u : MF_GRAYED), (UIntPtr)c.Id, c.Text);
+            }
+        }
+    }
+
+    /// <summary>선택 ID로 고유 항목(서브메뉴 포함) 탐색.</summary>
+    private static CustomItem? FindCustom(IReadOnlyList<CustomItem> items, uint id)
+    {
+        foreach (var c in items)
+        {
+            if (c.Id == id)
+            {
+                return c;
+            }
+            if (c.Children is { Count: > 0 } && FindCustom(c.Children, id) is CustomItem hit)
+            {
+                return hit;
+            }
+        }
+        return null;
     }
 
     /// <summary>선택된 셸 명령의 canonical verb(언어 무관 식별자, 예: "delete"/"copy"). 미구현 확장은 null.</summary>
@@ -234,6 +265,7 @@ internal sealed class ShellContextMenu
     private const uint MF_STRING = 0x0;
     private const uint MF_GRAYED = 0x1;
     private const uint MF_SEPARATOR = 0x800;
+    private const uint MF_POPUP = 0x10;
     private const uint TPM_RETURNCMD = 0x100;
     private const uint TPM_RIGHTBUTTON = 0x2;
     private const int SW_SHOWNORMAL = 1;
