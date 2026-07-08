@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/preferences` | 2026-07-08 | 2026-07-08 (`d99c550`) | 2026-07-08 | 3+docs | 설정 인프라(PREF-1 settings.json) + i18n(Localizer·ko/en) + 레이아웃 토글 영속 | [2026-07-08](journal/2026-07-08.md)·[docs/40](40-preferences-system.md) |
 | `feat/context-menu-custom` | 2026-07-08 | 2026-07-08 | 2026-07-08 | 3+docs | 커스텀 메뉴 레지스트리(사용자화 설계) + Checksum 서브메뉴(6종) | [2026-07-08](journal/2026-07-08.md)·[docs/38 §7](38-adr-0005-shell-context-menu.md) |
 | `feat/theme-system` | 2026-07-08 | 2026-07-08 | 2026-07-08 | 3+docs | 테마 S1(틴트 제거·토큰·라이트/다크) + 상태바 정리 + 가로 스크롤 | [2026-07-08](journal/2026-07-08.md)·[docs/39](39-theme-system.md) |
 | `feat/bottom-panel-info` | 2026-07-05 | 2026-07-06 (`3dd423a`) | 2026-07-06 | 9 | 하단 콘텐츠 — 정보/미리보기(플러그인 SDK)·터미널(BP-2/BP-T) | [2026-07-05](journal/2026-07-05.md) |
@@ -20,6 +21,15 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/preferences
+
+- **생성**: 2026-07-08 (분기: main `1b89b43` 설계 커밋 이후). **3커밋 + 저널**. 병합(`d99c550`, --no-ff)·삭제: 2026-07-08.
+- **작업**: **설정(Preferences) 시스템**([docs/40](40-preferences-system.md)) —
+  - **PREF-1**(`3ad019c`): `SettingsStore`(settings.json 로밍·`SessionStore` 규율 재사용) + `Ctrl+,` 설정 창(모양/레이아웃/메뉴/언어) — 재시작 소실되던 옵션 4벌(테마·표시·메뉴·탭) 영속.
+  - **i18n**(`91fa79b`, PREF-8/D-2): 순수 `Nexa.ViewModels.Localizer`(폴백 체인, **xUnit 7·총 74 green**) + JSON 문자열 테이블(ko/en 임베디드) + `LocExtension` 마크업 확장 + 메뉴 바 전면 이관 + 언어 페이지(재시작 전환).
+  - **레이아웃 영속**(`7b861b1`, PREF-3 부분): 퀵 런처·우 패널 토글 → `SessionState.Layout`(머신 로컬).
+- QA: 설정 영속·**영어 메뉴 전환 스크린샷 확인**.
 
 ## feat/context-menu-custom
 
