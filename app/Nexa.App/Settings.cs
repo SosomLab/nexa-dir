@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Nexa.App;
 
 /// <summary>
@@ -83,6 +86,22 @@ internal sealed class ViewOptions
     public bool AutoCloseTransferWindow { get; set; } = true;
 }
 
+/// <summary>
+/// 컨텍스트 메뉴 커스텀 항목 사용자화(docs/38 §7) — 항목 추가/제거·순서·섹션 위치.
+/// 설정 화면(메뉴 페이지)은 후속 구현, 스키마·적용 경로는 확정.
+/// </summary>
+internal sealed class MenuOptions
+{
+    /// <summary>제거(숨김)할 항목 Id 집합 — 레지스트리 Id 기준(paste-into/rename/delete-permanent/checksum …).</summary>
+    public HashSet<string> DisabledItems { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>항목별 순서 재정의(미지정=DefaultOrder). 값이 작을수록 위.</summary>
+    public Dictionary<string, int> OrderOverrides { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>커스텀 섹션 위치 — false=셸 항목 아래(기본) / true=셸 항목 위.</summary>
+    public bool CustomSectionOnTop { get; set; }
+}
+
 /// <summary>테마 모드(docs/39). System=OS 설정 추종.</summary>
 internal enum AppThemeMode
 {
@@ -118,6 +137,9 @@ internal static class AppSettings
 
     /// <summary>테마 옵션(라이트/다크 모드, docs/39).</summary>
     public static ThemeOptions Theme { get; } = new();
+
+    /// <summary>컨텍스트 메뉴 사용자화(커스텀 항목 표시/순서/위치, docs/38 §7).</summary>
+    public static MenuOptions Menu { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

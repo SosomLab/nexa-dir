@@ -83,6 +83,7 @@ public sealed partial class MainWindow : Window
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
         ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
         ApplyTheme();                  // 테마 모드 적용(기본 라이트 — docs/39, 구성 메뉴에서 전환)
+        InitContextMenuRegistry();     // 커스텀 컨텍스트 메뉴 항목 레지스트리(docs/38 §7)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
         _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
         _rightWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(false));
@@ -1221,15 +1222,8 @@ public sealed partial class MainWindow : Window
             sameDir.Add(item.FullPath);
         }
 
-        // 고유 병합 항목(0x8000+): 셸이 제공하지 않거나(완전 삭제·폴더에 붙여넣기) 앱 통합이 나은 것(인라인 이름변경 —
-        // 셸 rename 동사는 호스트 밖에선 무동작이라 CMF_CANRENAME 미사용, 우리 인라인 편집기 사용).
-        var custom = new List<ShellContextMenu.CustomItem>();
-        if (item.IsDir)
-        {
-            custom.Add(new(0x8001, "폴더에 붙여넣기", CanPaste(), () => PasteIntoDir(left, item.FullPath)));
-        }
-        custom.Add(new(0x8002, "이름 바꾸기(F2)", true, () => BeginRename(fe, item, left)));
-        custom.Add(new(0x8003, "완전 삭제(Shift+Del)", true, () => DeletePaths(left, targets, permanent: true)));
+        // 고유 병합 항목(0x8000+): 레지스트리 정의 → 설정(표시/순서) 적용 → CustomItem 변환(docs/38 §7).
+        var custom = BuildCustomMenuItems(new CmCtx(left, item, fe, targets));
 
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         bool shift = IsShiftDown();   // 키 상태는 클릭 시점 캡처
@@ -1238,6 +1232,7 @@ public sealed partial class MainWindow : Window
         _ = DispatcherQueue.TryEnqueue(() =>
         {
             var result = new ShellContextMenu().Show(hwnd, sameDir, custom, extendedVerbs: shift,
+                customOnTop: AppSettings.Menu.CustomSectionOnTop,
                 // "삭제" 동사는 셸 대신 우리 삭제 경로로 — undo 기록(DeleteBatchOp, B-13u)·상태바·재로드 통합.
                 verbInterceptor: verb =>
                 {
@@ -1254,6 +1249,109 @@ public sealed partial class MainWindow : Window
                 ScheduleShellRefresh();
             }
         });
+    }
+
+    // ── 커스텀 컨텍스트 메뉴 레지스트리 (docs/38 §7 — 설정으로 표시/순서/위치 제어, 설정 UI 후속) ─────
+
+    /// <summary>커스텀 항목 호출 컨텍스트 — 패널·클릭 항목·행 요소·작업 대상 경로들.</summary>
+    private readonly record struct CmCtx(bool Left, DirItem Item, FrameworkElement Row, IReadOnlyList<string> Targets);
+
+    /// <summary>커스텀 항목 정의 — Id=설정 영속 키, DefaultOrder=섹션 내 기본 순서(100 간격).</summary>
+    private sealed record CmItemDef(string Id, string Label, int DefaultOrder,
+        Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke);
+
+    private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
+
+    private void InitContextMenuRegistry()
+    {
+        // 셸이 제공하지 않거나(완전 삭제·폴더에 붙여넣기·Checksum) 앱 통합이 나은 것(인라인 이름변경 —
+        // 셸 rename 동사는 호스트 밖 무동작이라 CMF_CANRENAME 미사용).
+        _cmRegistry = new List<CmItemDef>
+        {
+            new("paste-into", "폴더에 붙여넣기", 100,
+                c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
+            new("rename", "이름 바꾸기(F2)", 200,
+                _ => true, _ => true, c => BeginRename(c.Row, c.Item, c.Left)),
+            new("delete-permanent", "완전 삭제(Shift+Del)", 300,
+                _ => true, _ => true, c => DeletePaths(c.Left, c.Targets, permanent: true)),
+            new("checksum", "Checksum (SHA-256)", 400,
+                c => c.Targets.Any(File.Exists), _ => true, c => _ = ShowChecksumsAsync(c.Targets)),
+        };
+    }
+
+    /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem.</summary>
+    private List<ShellContextMenu.CustomItem> BuildCustomMenuItems(CmCtx ctx)
+    {
+        var list = new List<ShellContextMenu.CustomItem>();
+        uint id = ShellContextMenu.IdCustomFirst;
+        foreach (var def in _cmRegistry
+            .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
+            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+        {
+            var captured = def;   // 클로저 캡처 고정
+            list.Add(new ShellContextMenu.CustomItem(id++, captured.Label, captured.Enabled(ctx), () => captured.Invoke(ctx)));
+        }
+        return list;
+    }
+
+    /// <summary>선택 목록의 <b>파일별 SHA-256 체크섬</b>(폴더 제외) — "파일명: 해시" 줄들을 복사 가능한
+    /// 대화상자로 표시(docs/38 §7-4). 알고리즘 선택·진행률은 후속.</summary>
+    private async Task ShowChecksumsAsync(IReadOnlyList<string> targets)
+    {
+        var files = targets.Where(File.Exists).ToList();   // 폴더는 제외
+        if (files.Count == 0)
+        {
+            StatusText.Text = "체크섬 대상 파일이 없습니다(폴더 제외)";
+            return;
+        }
+        StatusText.Text = $"체크섬 계산 중… ({files.Count}개)";
+        var sb = new System.Text.StringBuilder();
+        foreach (string f in files)
+        {
+            string line;
+            try
+            {
+                await using var stream = File.OpenRead(f);
+                byte[] hash = await System.Security.Cryptography.SHA256.HashDataAsync(stream);
+                line = $"{Path.GetFileName(f)}: {Convert.ToHexString(hash).ToLowerInvariant()}";
+            }
+            catch (Exception ex)
+            {
+                line = $"{Path.GetFileName(f)}: 오류 — {ex.Message}";
+            }
+            sb.AppendLine(line);
+        }
+        StatusText.Text = $"체크섬 완료 — {files.Count}개";
+
+        string text = sb.ToString().TrimEnd();
+        var box = new TextBox
+        {
+            Text = text,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.NoWrap,
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+            FontSize = 12,
+            MinWidth = 520,
+            MaxHeight = 360,
+        };
+        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+        var dialog = new ContentDialog
+        {
+            Title = "Checksum (SHA-256)",
+            Content = box,
+            PrimaryButtonText = "복사",
+            CloseButtonText = "닫기",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = RootGrid.XamlRoot,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = "체크섬이 클립보드에 복사됨";
+        }
     }
 
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.

@@ -78,3 +78,45 @@ Show(hwnd, paths, screenPt, customItems) → 선택 실행 여부
 
 - 우클릭이 탐색기(클래식)와 동일한 항목 + Nexa 고유 항목 → B-2(M1 P0) 핵심 충족.
 - XAML 메뉴 코드는 S1(행)·S2(빈영역)에서 순차 대체 — 진입점·액션 핸들러(`ContextTargets`·`DeletePaths` 등)는 재사용.
+
+## §7 · 커스텀 항목 사용자화 (2026-07-08 설계 변경 — 레지스트리 + 설정)
+
+> 목표: 고유(커스텀) 항목을 하드코딩이 아니라 **선언적 레지스트리**로 관리하고, **설정으로 추가/제거·순서·섹션
+> 위치**를 제어. 설정 **화면(UI)은 후속 구현**(docs/34 설정 시스템의 "메뉴" 페이지로 합류) — 모델·스키마·적용
+> 경로는 지금 확정(이 설계).
+
+### 7-1. 레지스트리 모델 (구현됨)
+
+```csharp
+CmCtx(bool Left, DirItem Item, FrameworkElement Row, IReadOnlyList<string> Targets)   // 호출 컨텍스트
+CmItemDef(string Id, string Label, int DefaultOrder,
+          Func<CmCtx,bool> Visible, Func<CmCtx,bool> Enabled, Action<CmCtx> Invoke)   // 항목 정의
+```
+
+- `Id` = 설정 영속 키(안정 계약). `DefaultOrder` = 커스텀 섹션 내 기본 순서(100 단위 간격 — 사이 삽입 여유).
+- 메뉴 표시 시: `Visible(ctx)` 필터 → 설정 정렬 → 셸 ID 대역 밖(0x8000+)으로 순차 부여 → `ShellContextMenu.CustomItem`.
+- 내장 항목(이관): `paste-into`(100) · `rename`(200) · `delete-permanent`(300) · **`checksum`(400, 신규)**.
+
+### 7-2. 설정 스키마 (구현됨 — UI 후속)
+
+```csharp
+MenuOptions {
+    HashSet<string> DisabledItems;          // 제거(숨김)할 항목 Id
+    Dictionary<string,int> OrderOverrides;  // 항목별 순서 재정의
+    bool CustomSectionOnTop;                // 커스텀 섹션 위치 — false=셸 항목 아래(기본) / true=위
+}
+```
+
+- settings.json(docs/34) `Menu` 섹션으로 영속(후속). 미지정 Id는 기본값(표시·DefaultOrder).
+
+### 7-3. 설정 화면 스케치 (후속 구현)
+
+- 설정 창 "메뉴" 페이지: 레지스트리 전 항목 목록(체크=표시/해제=제거) · **↑/↓ 순서 이동** ·
+  섹션 위치 라디오(셸 위/아래) · 미리보기(현재 구성으로 그린 가짜 메뉴). 후속: 사용자 정의 항목
+  (외부 명령 실행 — 경로/인자 템플릿 `%1`), 구분자 삽입, 파일종류별 조건.
+
+### 7-4. Checksum 항목 (구현됨)
+
+- **선택 목록의 파일별 SHA-256** — "파일명: 해시" 줄(여러 파일=여러 줄), **폴더는 제외**.
+- 결과는 복사 가능한 대화상자(고정폭·가로 스크롤) + "복사" 버튼(전체 클립보드). 대상 파일 없으면 상태바 안내.
+- 후속: 알고리즘 선택(MD5/SHA-1/SHA-256/SHA-512, 설정) · 대용량 진행률/취소 · 클립보드 형식 옵션.

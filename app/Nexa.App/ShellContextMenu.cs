@@ -33,9 +33,10 @@ internal sealed class ShellContextMenu
     /// <summary>셸 메뉴를 커서 위치에 표시. <paramref name="paths"/>는 같은 부모 폴더의 파일/폴더들.
     /// <paramref name="extendedVerbs"/>=Shift(확장 동사). 실패/취소 시 <see cref="Result.Cancelled"/>.
     /// <paramref name="verbInterceptor"/>: 선택된 셸 명령의 canonical verb(예: "delete")를 넘겨 true 반환 시
-    /// 셸 실행 대신 호스트가 처리(undo 기록 등 앱 통합이 필요한 동사 가로채기).</summary>
+    /// 셸 실행 대신 호스트가 처리(undo 기록 등 앱 통합이 필요한 동사 가로채기).
+    /// <paramref name="customOnTop"/>: 커스텀 섹션 위치 — false=셸 항목 아래(기본)/true=위(docs/38 §7).</summary>
     public Result Show(IntPtr hwnd, IReadOnlyList<string> paths, IReadOnlyList<CustomItem> custom,
-        bool extendedVerbs = false, Func<string?, bool>? verbInterceptor = null)
+        bool extendedVerbs = false, Func<string?, bool>? verbInterceptor = null, bool customOnTop = false)
     {
         var fullPidls = new List<IntPtr>();
         IShellFolder? folder = null;
@@ -79,14 +80,22 @@ internal sealed class ShellContextMenu
             _icm2 = icmObj as IContextMenu2;
             _icm3 = icmObj as IContextMenu3;
             hmenu = CreatePopupMenu();
+            // 3) 고유 항목 병합(0x8000+) — 구분자로 섹션 분리(ADR-0005). 위치=설정(docs/38 §7).
+            if (custom.Count > 0 && customOnTop)
+            {
+                foreach (var c in custom)
+                {
+                    AppendMenuW(hmenu, MF_STRING | (c.Enabled ? 0u : MF_GRAYED), (UIntPtr)c.Id, c.Text);
+                }
+                AppendMenuW(hmenu, MF_SEPARATOR, UIntPtr.Zero, null);
+            }
             uint qcmFlags = extendedVerbs ? CMF_EXTENDEDVERBS : CMF_NORMAL;
-            if (icm.QueryContextMenu(hmenu, 0, IdShellFirst, IdShellLast, qcmFlags) < 0)
+            uint insertAt = customOnTop ? (uint)(custom.Count + 1) : 0u;   // 셸 항목 삽입 위치(커스텀 뒤)
+            if (icm.QueryContextMenu(hmenu, insertAt, IdShellFirst, IdShellLast, qcmFlags) < 0)
             {
                 return Result.Cancelled;
             }
-
-            // 3) 고유 항목 병합(0x8000+) — 구분자로 섹션 분리(ADR-0005).
-            if (custom.Count > 0)
+            if (custom.Count > 0 && !customOnTop)
             {
                 AppendMenuW(hmenu, MF_SEPARATOR, UIntPtr.Zero, null);
                 foreach (var c in custom)
