@@ -1279,13 +1279,6 @@ public sealed partial class MainWindow : Window
             Hash("sha512", "SHA-512", 50),
             Hash("crc32", "CRC32", 60),
         };
-        // 인코딩 서브메뉴 — Checksum(단방향 해시)과 범주가 달라 별도(가역 인코딩). 후속: 디코드·URL·Hex.
-        var encodingKids = new List<CmItemDef>
-        {
-            new("encoding.base64", "Base64 인코드 → 클립보드", 10,
-                _ => true, _ => true, c => _ = Base64EncodeToClipboardAsync(c.Targets)),
-        };
-
         // 셸이 제공하지 않거나(완전 삭제·폴더에 붙여넣기·Checksum) 앱 통합이 나은 것(인라인 이름변경 —
         // 셸 rename 동사는 호스트 밖 무동작이라 CMF_CANRENAME 미사용).
         _cmRegistry = new List<CmItemDef>
@@ -1298,8 +1291,6 @@ public sealed partial class MainWindow : Window
                 _ => true, _ => true, c => DeletePaths(c.Left, c.Targets, permanent: true)),
             new("checksum", "Checksum", 400,
                 c => c.Targets.Any(File.Exists), _ => true, Noop(), checksumKids),
-            new("encoding", "인코딩", 500,
-                c => c.Targets.Count(File.Exists) == 1, _ => true, Noop(), encodingKids),
         };
     }
 
@@ -1379,16 +1370,18 @@ public sealed partial class MainWindow : Window
         string text = sb.ToString().TrimEnd();
         var box = new TextBox
         {
-            Text = text,
-            IsReadOnly = true,
+            // 주의: AcceptsReturn을 Text보다 먼저 — 단일줄 상태로 Text를 넣으면 개행이 제거되어 1줄로 합쳐짐.
             AcceptsReturn = true,
+            IsReadOnly = true,
             TextWrapping = TextWrapping.NoWrap,
             FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
             FontSize = 12,
             MinWidth = 520,
             MaxHeight = 360,
         };
+        box.Text = text;
         ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Auto);
         var dialog = new ContentDialog
         {
             Title = $"Checksum ({algo})",
@@ -1407,36 +1400,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>단일 파일 내용을 Base64로 인코드해 클립보드로(인코딩 메뉴, docs/38 §7-4).
-    /// 대용량 방지 16MB 상한. 디코드/URL/Hex 등은 후속.</summary>
-    private async Task Base64EncodeToClipboardAsync(IReadOnlyList<string> targets)
-    {
-        string? file = targets.FirstOrDefault(File.Exists);
-        if (file is null)
-        {
-            StatusText.Text = "인코딩 대상 파일이 없습니다";
-            return;
-        }
-        const long MaxBytes = 16 * 1024 * 1024;
-        var info = new FileInfo(file);
-        if (info.Length > MaxBytes)
-        {
-            StatusText.Text = $"Base64 인코드 상한(16MB) 초과 — {FileOps.LeafName(file)}";
-            return;
-        }
-        try
-        {
-            byte[] bytes = await File.ReadAllBytesAsync(file);
-            var dp = new DataPackage();
-            dp.SetText(Convert.ToBase64String(bytes));
-            Clipboard.SetContent(dp);
-            StatusText.Text = $"Base64 인코드 복사됨 — {FileOps.LeafName(file)} ({info.Length:N0}바이트)";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"Base64 인코드 실패: {ex.Message}";
-        }
-    }
 
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
     /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
