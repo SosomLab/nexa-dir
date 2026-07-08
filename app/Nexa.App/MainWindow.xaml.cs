@@ -48,6 +48,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // 사용자 설정 로드(settings.json) — 인메모리 옵션 그룹에 적용. 다른 옵션 사용 전에 먼저(docs/40 PREF-1).
+        SettingsStore.Apply(SettingsStore.Load(SettingsStore.DefaultPath()));
         // 좌/우 패널이 같은 컬럼 인스턴스를 공유 → 리사이즈가 헤더·본문·양쪽 패널에 동시 반영(A3/A4).
         // 표시 순서 = 이름 · 수정한 날짜 · 종류 · 크기(Finder 스타일).
         foreach (var key in new[] { "ColName", "ColExt", "ColDate", "ColKind", "ColSize" })
@@ -158,8 +160,42 @@ public sealed partial class MainWindow : Window
         // 세션 저장 엔진 가동(일반 설정과 별도 파일 session.json) — 디바운스+유휴+주기+종료 flush(급종료 대비).
         // 복원 이후에 생성 → 복원 중 MarkDirty 소음 없음(훅은 _session? 널가드).
         _session = new SessionStore(SessionStore.DefaultPath(), DispatcherQueue, CaptureSession);
-        Closed += (_, _) => _session?.Flush();
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => _session?.Flush();
+        // 사용자 설정 저장 엔진(settings.json, 로밍) — 변경 지점에서 MarkSettingsDirty + 종료 flush(docs/40 PREF-1).
+        _settings = new SettingsStore(SettingsStore.DefaultPath(), DispatcherQueue, SettingsStore.Capture);
+        SyncViewMenuChecks();   // 로드된 설정을 표시 메뉴 체크에 반영
+        Closed += (_, _) => { _session?.Flush(); _settings?.Flush(); };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => { _session?.Flush(); _settings?.Flush(); };
+    }
+
+    // ── 사용자 설정 영속화 — settings.json (SettingsStore, docs/40 PREF-1) ────────
+    private SettingsStore? _settings;
+
+    /// <summary>설정 변경 저장 예약(테마·표시 토글·메뉴·설정 창). 초저비용·다음 Tick 1회 저장.</summary>
+    private void MarkSettingsDirty() => _settings?.MarkDirty();
+
+    /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 상태에 반영(시작 시·설정 창 변경 후).</summary>
+    private void SyncViewMenuChecks()
+    {
+        ShowHiddenEntry.IsChecked = AppSettings.View.ShowHiddenFiles;
+        ShowDotEntry.IsChecked = AppSettings.View.ShowDotFiles;
+        ShowPathHeaderEntry.IsChecked = AppSettings.View.ShowPathHeader;
+    }
+
+    /// <summary>통합 설정 창 열기(Ctrl+, / 구성 메뉴). 변경은 라이브 적용 + MarkSettingsDirty.</summary>
+    private void OnOpenPreferences(object sender, EventArgs e)
+    {
+        var win = new PreferencesWindow(this);
+        win.Activate();
+    }
+
+    /// <summary>설정 창에서 값이 바뀐 뒤 호스트 반영 — 테마·헤더·표시 메뉴 동기 + 저장 예약.</summary>
+    internal void OnPreferencesChanged()
+    {
+        ApplyTheme();
+        ApplyPathHeaderVisibility();
+        SyncViewMenuChecks();
+        ReloadBothPanels();   // 숨김/점 파일 등 필터 반영
+        MarkSettingsDirty();
     }
 
     // ── 세션(탭) 상태 영속화 — session.json (SessionStore) ────────────────────
@@ -474,6 +510,7 @@ public sealed partial class MainWindow : Window
     {
         AppSettings.View.ShowHiddenFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles;
         ReloadBothPanels();
+        MarkSettingsDirty();
     }
 
     /// <summary>"점(.) 파일 보기" 토글(체크=표시) → 리눅스식 점 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
@@ -481,6 +518,7 @@ public sealed partial class MainWindow : Window
     {
         AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
         ReloadBothPanels();
+        MarkSettingsDirty();
     }
 
     // ── 테마(docs/39) — 라이트/다크 모드. 세부 설정(테마팩·폰트·크기) UI는 후속 "모양" 페이지 ─────
@@ -507,9 +545,9 @@ public sealed partial class MainWindow : Window
         ThemeDarkEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.Dark;
     }
 
-    private void OnThemeSystem(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.System; ApplyTheme(); }
-    private void OnThemeLight(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Light; ApplyTheme(); }
-    private void OnThemeDark(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Dark; ApplyTheme(); }
+    private void OnThemeSystem(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.System; ApplyTheme(); MarkSettingsDirty(); }
+    private void OnThemeLight(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Light; ApplyTheme(); MarkSettingsDirty(); }
+    private void OnThemeDark(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.Dark; ApplyTheme(); MarkSettingsDirty(); }
 
     /// <summary>"경로·항목 수 헤더 보기" 토글(체크=표시) — 경로 바 아래 헤더 줄(현재 경로 — N개 항목).
     /// 기본 감춤. 설정(ShowPathHeader) 반영, 설정 UI 노출은 후속.</summary>
@@ -517,6 +555,7 @@ public sealed partial class MainWindow : Window
     {
         AppSettings.View.ShowPathHeader = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowPathHeader;
         ApplyPathHeaderVisibility();
+        MarkSettingsDirty();
     }
 
     /// <summary>경로·항목 수 헤더 줄의 표시 상태를 설정값에 맞춘다(시작 시·토글 시).</summary>
@@ -1263,6 +1302,21 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<CmItemDef>? Children = null);
 
     private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
+    private static List<CmItemDef>? _cmRegistryShared;   // 설정 창 카탈로그 조회용(정적)
+
+    /// <summary>설정 창(메뉴 페이지)용 — 최상위 커스텀 항목 (Id, Label) 목록. 서브메뉴 항목은 제외.</summary>
+    internal static IReadOnlyList<(string Id, string Label)> CustomMenuItemCatalog()
+    {
+        var list = new List<(string, string)>();
+        if (_cmRegistryShared is not null)
+        {
+            foreach (var d in _cmRegistryShared)
+            {
+                list.Add((d.Id, d.Label));
+            }
+        }
+        return list;
+    }
 
     private void InitContextMenuRegistry()
     {
@@ -1292,6 +1346,7 @@ public sealed partial class MainWindow : Window
             new("checksum", "Checksum", 400,
                 c => c.Targets.Any(File.Exists), _ => true, Noop(), checksumKids),
         };
+        _cmRegistryShared = _cmRegistry;   // 설정 창 카탈로그 조회용
     }
 
     /// <summary>레지스트리 → 표시 필터(설정 Disabled·Visible) → 순서(설정 재정의) → 셸 병합용 CustomItem(서브메뉴 재귀).</summary>
@@ -3182,6 +3237,14 @@ public sealed partial class MainWindow : Window
         if (e.Key == (VirtualKey)0xC0 && IsCtrlDown())
         {
             ToggleBottomPanel();
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+, (VK_OEM_COMMA=0xBC): 통합 설정 창(docs/40 PREF-1).
+        if (e.Key == (VirtualKey)0xBC && IsCtrlDown())
+        {
+            OnOpenPreferences(this, EventArgs.Empty);
             e.Handled = true;
             return;
         }

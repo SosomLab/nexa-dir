@@ -104,10 +104,10 @@
                     <ctrls:NexaMenuEntry Text="목록" />
                     <ctrls:NexaMenuEntry Text="컬럼" />
                     <!-- 숨김 파일 보기 · 점(.) 파일 보기 — 독립 토글(동시 설정 가능, 기본 둘 다 표시=체크 ON) -->
-                    <ctrls:NexaMenuEntry Text="숨김 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
-                    <ctrls:NexaMenuEntry Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
+                    <ctrls:NexaMenuEntry x:Name="ShowHiddenEntry" Text="숨김 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowHidden" />
+                    <ctrls:NexaMenuEntry x:Name="ShowDotEntry" Text="점(.) 파일 보기" IsCheckable="True" IsChecked="True" Click="OnToggleShowDotFiles" />
                     <!-- 경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 — 기본 감춤(설정 ShowPathHeader, 설정 UI 후속) -->
-                    <ctrls:NexaMenuEntry Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
+                    <ctrls:NexaMenuEntry x:Name="ShowPathHeaderEntry" Text="경로·항목 수 헤더 보기" IsCheckable="True" IsChecked="False" Click="OnTogglePathHeader" />
                     <!-- 패널 보기 토글(상태바에서 이관 — 상태바는 상태 표시 전용, docs/20) -->
                     <ctrls:NexaMenuEntry x:Name="ShowLauncherEntry" Text="퀵 런처 바" IsCheckable="True" IsChecked="True" Click="OnToggleLauncher" />
                     <ctrls:NexaMenuEntry x:Name="ShowRightPanelEntry" Text="우 패널(듀얼)" IsCheckable="True" IsChecked="True" Click="OnToggleRightPanel" />
@@ -115,10 +115,12 @@
                     <ctrls:NexaMenuEntry x:Name="BottomSplitEntry" Text="하단 좌/우 분리" IsCheckable="True" IsChecked="True" Click="OnToggleBottomSplit" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="구성(O)">
-                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정 UI(모양 페이지)는 후속 -->
+                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정은 설정 창 모양 페이지 -->
                     <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="테마: 시스템" IsCheckable="True" Click="OnThemeSystem" />
                     <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="테마: 라이트" IsCheckable="True" IsChecked="True" Click="OnThemeLight" />
                     <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="테마: 다크" IsCheckable="True" Click="OnThemeDark" />
+                    <!-- 통합 설정 창(Ctrl+,) — docs/40 PREF-1 -->
+                    <ctrls:NexaMenuEntry Text="설정… (Ctrl+,)" Click="OnOpenPreferences" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="도움말(H)">
                     <ctrls:NexaMenuEntry Text="정보" />
