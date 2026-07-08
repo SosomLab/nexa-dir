@@ -1,9 +1,11 @@
 # 34 · 설정·세션 영속화 — 저장 매커니즘 · 위치 · 데이터 범위
 
 > 앱이 디스크에 남기는 상태를 **역할별로 분리**해 정리한다. 사용자 편집 대상(설정)과 앱이 관리하는
-> 세션/창 상태를 **다른 파일**로 둔다. 현재 **`session.json`(탭 세션)만 구현**됐고, `settings.json`·`state.json`은
-> 설정 시스템(β)과 함께 구현 예정.
-> 관련: 설정 시스템 스키마 [26 §5](26-command-palette.md) · 창 위치 복원 [28](28-window-session-restore.md) · 코드 [SessionStore.cs](../app/Nexa.App/SessionStore.cs).
+> 세션/창 상태를 **다른 파일**로 둔다. 현재 **`session.json`(탭 세션)·`settings.json`(사용자 설정, PREF-1) 구현 완료**,
+> `state.json`(창 위치)은 설정 시스템 후속.
+> 이 문서 = **영속 메커니즘·`session.json` 스키마·복원**의 단일 출처. 설정 스키마·페이지는 [40](40-preferences-system.md),
+> 전체 외부 파일 물리 위치 맵은 [43](43-external-files-and-config.md), 언어팩은 [42](42-i18n-language-files.md).
+> 관련: 창 위치 복원 [28](28-window-session-restore.md) · 코드 [SessionStore.cs](../app/Nexa.App/SessionStore.cs)·[SettingsStore.cs](../app/Nexa.App/SettingsStore.cs).
 
 ---
 
@@ -11,8 +13,8 @@
 
 | 파일 | 역할 | 위치 | 사용자 편집 | 상태 |
 | --- | --- | --- | :---: | --- |
-| **`session.json`** | **탭 세션**(활성 패널·열린 탭·경로·펼침·정렬) | **`%LOCALAPPDATA%\NexaDir\`** | ✕(앱 관리) | **✅ 구현** |
-| `settings.json` | 앱 설정(정렬·팔레트·명령 활성) | `%APPDATA%\NexaDir\` | ○(설정 UI+직접) | 설계([26 §5](26-command-palette.md)) |
+| **`session.json`** | **탭 세션**(활성 패널·열린 탭·경로·펼침·정렬·잠금/고정·**레이아웃·하단 패널**) | **`%LOCALAPPDATA%\NexaDir\`** | ✕(앱 관리) | **✅ 구현** |
+| **`settings.json`** | 사용자 설정(테마·표시·메뉴·탭·언어·정렬) | `%APPDATA%\NexaDir\` | ○(설정 UI+직접) | **✅ 구현**(PREF-1, 스키마 [40 §4](40-preferences-system.md)) |
 | `keybindings.json` | 단축키 재정의 | `%APPDATA%\NexaDir\` | ○ | 설계 |
 | `state.json` | 세션 상태(팔레트 MRU/빈도·**창 위치/크기**) | `%APPDATA%\NexaDir\` | ✕(앱 관리) | 설계([28](28-window-session-restore.md)) |
 
@@ -33,7 +35,9 @@
   "Version": 1,                 // 스키마 버전(후속 마이그레이션)
   "ActiveLeft": true,           // 활성(포커스) 패널: 좌=true / 우=false
   "Left":  { /* PanelSession */ },
-  "Right": { /* PanelSession */ }
+  "Right": { /* PanelSession */ },
+  "Bottom": { "Visible": true, "Height": 180, "Split": true, "LeftKind": 0, "RightKind": 0 }, // 하단 도킹 패널(BP-1)
+  "Layout": { "ShowLauncher": true, "ShowRightPanel": true }   // 레이아웃 토글(머신 로컬, PREF-3 부분)
 }
 // PanelSession
 {
@@ -42,11 +46,14 @@
     {
       "Path": "C:\\Users\\me\\Downloads",   // 탭의 현재 폴더
       "Expanded": [ "C:\\Users\\me\\Downloads\\sub" ],  // 인라인 펼침(열림)된 폴더 경로 집합
-      "Sort": [ { "Key": 3, "Descending": true } ]      // 정렬 키(0=이름 1=확장자 2=크기 3=수정날짜 4=종류)
+      "Sort": [ { "Key": 3, "Descending": true } ],     // 정렬 키(0=이름 1=확장자 2=크기 3=수정날짜 4=종류)
+      "Locked": false,          // 탭 잠금(닫기 제외, TAB-MENU)
+      "Pinned": false           // 탭 고정(핀 그룹 맨 앞)
     }
   ]
 }
 ```
+> **하단 패널·레이아웃**은 창/탭 배치라 **머신 로컬**(session.json에 동거). 표시 상세는 [43 §1](43-external-files-and-config.md).
 
 | 저장 항목 | 원본 | 비고 |
 | --- | --- | --- |
