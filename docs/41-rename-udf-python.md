@@ -1,9 +1,56 @@
-# 41 · 사용자 정의 함수(UDF) — Python 기반 이름변환 함수 설계
+# 41 · 사용자 정의 함수(UDF) — 파이썬계열 이름변환 함수 설계
 
-> 일괄 이름변경([25 §6](25-bulk-rename.md))의 **개발자 확장**: 사용자가 **Python**으로 작성한 함수를 리네임
-> 파이프라인에서 호출한다. 사용자 요청(2026-07-08): "사용자 정의 함수는 Python으로". 본 문서는 **기술 구조 +
-> 구체 동작 메커니즘**(구현 후속). 관련: 플러그인 아키텍처 [09](09-plugin-architecture.md) · 메타 [25 §5](25-bulk-rename.md).
+> 일괄 이름변경([25 §6](25-bulk-rename.md))의 **개발자 확장**: 사용자가 작성한 함수를 리네임 파이프라인에서 호출한다.
+> 본 문서는 **기술 구조 + 구체 동작 메커니즘**(구현 후속). 관련: 플러그인 [09](09-plugin-architecture.md) · 메타 [25 §5](25-bulk-rename.md).
+>
+> **결정(2026-07-08)**: **엔진 교체 가능한 추상화**로 구성하되, **초기 구현 = Starlark**(파이썬 부분집합·+1~3MB·설치0·최속).
+> 나중에 **RustPython**(진짜 Python·+8~15MB)로 **트레이트 구현 교체 + 카고 피처 플래그**만으로 전환. § 0이 그 설계.
 > 상태: **설계**.
+
+---
+
+## 0. 엔진 추상화 — 백엔드 교체 가능 설계 (Starlark ↔ RustPython ↔ CPython) ★
+
+리네임 UDF 실행을 **엔진 중립 트레이트** 뒤로 숨겨, 백엔드를 **런타임 선택 + 컴파일타임 포함**으로 갈아끼운다.
+초기엔 Starlark만 구현·기본값. RustPython은 트레이트 구현 1개 + 피처 플래그 추가로 후속.
+
+### 0-1. 중립 데이터 계약(엔진 무관)
+```rust
+// nexa-rename — 어느 엔진에도 동일하게 넘기는 순수 입출력.
+struct RenameCtx { name, ext, stem, path, parent: String,
+                   index, count: u32,
+                   meta: Map<String,String>,   // nexa-meta
+                   date: Map<String,String> }   // modified/created/accessed (ISO)
+type RenameOut = Result<Option<String>, UdfError>;   // 새 이름 / None(널 정책) / 오류
+```
+
+### 0-2. 엔진 트레이트(백엔드가 구현)
+```rust
+trait RenameUdfEngine {
+    fn id(&self) -> &'static str;                                   // "starlark" | "rustpython" | "cpython"
+    fn compile(&self, src: &str, path: &str) -> Result<Prog, UdfError>;   // 파일당 1회(재사용)
+    fn functions(&self, p: &Prog) -> Vec<String>;                  // 선언된 함수 목록(대화상자)
+    fn call(&self, p: &Prog, func: &str, ctx: &RenameCtx,
+            limits: &UdfLimits) -> RenameOut;                      // 항목별 순수 호출
+}
+struct UdfLimits { steps: u64, mem_bytes: usize, timeout_ms: u32 } // 엔진별 기구로 매핑
+```
+- `Prog` = 컴파일된 프로그램 **불투명 핸들**(배치 재사용). 엔진이 내부 표현 은닉.
+- **호출부(`nexa-rename`)는 트레이트만 의존** → 백엔드 무지. 미리보기·적용·오류격리 로직 불변.
+
+### 0-3. 공유 헬퍼 표면(스크립트 이식성)
+- 문자열/정규식/날짜 **헬퍼([25 §4-2](25-bulk-rename.md))를 모든 엔진에 동일 이름으로 노출**(`re_replace`·`date_fmt`·`left`·`pad`…).
+- 결과: **공유 헬퍼 + 파이썬 부분집합 문법만 쓴 사용자 스크립트는 엔진이 바뀌어도 그대로 동작**. RustPython 전용
+  기능(`import`·`class`·`while`)을 쓴 스크립트만 Starlark로 역이식 불가.
+
+### 0-4. 선택 & 크기 제어
+- **런타임**: `UdfEngineKind`(Starlark 기본) — 설정/대화상자에서 선택(RustPython 포함 빌드일 때만 노출).
+- **컴파일타임**: 카고 피처 `udf-starlark`(기본 on) · `udf-rustpython`(옵션) · `udf-cpython`(옵션). **끄면 그 의존·바이너리 증가 0** → +8~15MB는 RustPython 켤 때만.
+- **전환 절차**(후속): (1) `udf-rustpython` 피처 on, (2) `RustPythonEngine: RenameUdfEngine` 구현, (3) 팩토리에 등록. **호출부·UI·계약 무변경**.
+
+### 0-5. 순방향 호환(왜 Starlark 먼저가 안전한가)
+- Starlark는 **파이썬 부분집합** → 공유 헬퍼로 쓴 Starlark 스크립트는 대체로 **RustPython(진짜 Python)에서도 유효**. 역방향은 아님.
+- 즉 **Starlark로 시작해도 나중 RustPython 전환 시 사용자 스크립트 손실이 최소**. 반대(RustPython→Starlark)면 재작성 위험 큼.
 
 ---
 
@@ -136,11 +183,13 @@ def track_name(ctx):
 | `ctx.meta` 공급 | `nexa-meta`([25 §5]) |
 | 대화상자·엔진 선택·핫리로드 | Windows UI(배치 리네임 대화상자) |
 
-## 8. 단계적 구현
-- **1) 계약·러너(Tier A)**: RustPython 임베드 + `ctx` 주입 + 샌드박스(빌트인 화이트리스트·fuel) + 함수 로드/호출. 맥 단위테스트(순수).
-- **2) UI 통합**: 대화상자 "Python 함수" 블록·드롭다운·핫리로드·미리보기·오류행.
-- **3) Tier B(옵션)**: 아웃오브프로세스 CPython 워커 + RPC + Job Object 격리 + 재실행 검증(=M6 RPC와 공유).
-- **4) 헬퍼·토큰**: 내장 문자열 헬퍼 노출·`{fn:...}` 토큰·프리셋 저장.
+## 8. 단계적 구현 (초기 엔진 = Starlark, §0 추상화 위에)
+- **1) 추상화·계약**: `RenameUdfEngine` 트레이트 + `RenameCtx`/`UdfLimits`(§0) + 팩토리·피처 플래그 골격.
+- **2) StarlarkEngine**: `starlark-rust` 구현 — `compile`/`functions`/`call` + fuel·frozen ctx + 공유 헬퍼 노출. 맥 단위테스트(순수).
+- **3) UI 통합**: 대화상자 "함수" 블록·드롭다운·핫리로드·미리보기·오류행.
+- **4) 헬퍼·토큰**: 문자열/정규식/날짜 헬퍼([25 §4-2]) 노출·`{fn:...}` 토큰·프리셋 저장.
+- **5) (후속·옵션) RustPythonEngine**: `udf-rustpython` 피처 + 트레이트 구현 1개 등록(호출부/UI 무변경) → 진짜 Python 필요 시.
+- **6) (후속·옵션) CPython Tier B**: 아웃오브프로세스 워커·RPC·Job Object 격리(=M6 T2 공유).
 
 ## 9-1. Starlark vs Python — 설치·크기·성능 비교 (사용자 질문 2026-07-08)
 
@@ -200,5 +249,8 @@ def track_name(ctx):
 - 즉 **학습 난이도(Starlark 소폭) ↔ 바이너리 크기(RustPython)** 의 또 다른 맞교환. 이름변환처럼 짧은 순수 함수 위주면 Starlark 학습 부담이 작아 크기 이득이 큼.
 
 ## 9. 결정 기록(요약)
-- **엔진**: 기본 **RustPython**(진짜 Python + 샌드박스 + 무런타임번들 + 결정성 + 맥 테스트), 옵션 **아웃오브프로세스 CPython**(패키지 필요 시). 착수 시 **ADR**로 확정(RustPython 성숙도·stdlib 커버리지 실측 포함).
-- **보안 원칙**: 이름변환기는 **무 I/O 순수 함수**가 계약. Tier A는 강제, Tier B는 프로세스 격리 + "신뢰된 확장"으로 표기.
+- **엔진(2026-07-08 확정)**: **초기 구현 = Starlark**(파이썬 부분집합·+1~3MB·설치0·최속·순방향 호환). **엔진 추상화(§0)** 로
+  구성해 **RustPython**(진짜 Python·+8~15MB)·**CPython**(옵션·아웃오브프로세스)로 **트레이트 구현 + 피처 플래그**만으로 교체.
+- **왜 Starlark 먼저**: 이름변환은 짧은 순수 문자열 함수 위주 → 학습 부담 소폭·크기 이득 큼. 부분집합이라 후속 RustPython 전환 시 스크립트 순방향 호환(§0-5).
+- **보안 원칙**: 이름변환기는 **무 I/O 순수 함수**가 계약. Starlark=하메틱 강제, CPython Tier B=프로세스 격리 + "신뢰된 확장" 표기.
+- 착수 시 **ADR**로 확정(엔진 트레이트 API·피처 플래그·헬퍼 표면 동결).

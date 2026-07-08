@@ -83,14 +83,13 @@
 
 ## 6. 개발자 확장 — 사용자 정의 함수(UDF) ★ (요청 2-4)
 
-> **사용자 결정(2026-07-08): Python으로 작성.** 상세 설계·동작 메커니즘 → **[41 · Python UDF](41-rename-udf-python.md)**.
-> 요지: **2계층** — 기본 **RustPython**(순수 Rust Python VM: 진짜 Python + 샌드박스 + 무런타임번들 + 결정성 + 맥 테스트),
-> 옵션 **아웃오브프로세스 CPython**(서드파티 패키지 필요 시, 프로세스 격리·M6 T2 RPC). 계약 `def rename(ctx): return …`
-> 순수 함수(ctx=name/ext/meta/index/date). 아래 §6-0/6-1은 계층 배경(비-Python 대안 포함, Python 비요구 시 참고).
+> **결정(2026-07-08): 엔진 교체 가능한 추상화 + 초기 구현 = Starlark**(파이썬 부분집합·설치0·+1~3MB·최속).
+> 나중에 **RustPython**(진짜 Python·+8~15MB)·**CPython**(옵션)로 트레이트 구현+피처 플래그만으로 전환. 상세·동작
+> 메커니즘·엔진 추상화 → **[41 · UDF](41-rename-udf-python.md)**. 계약 `def rename(ctx): return …` 순수 함수(ctx=name/ext/meta/index/date).
 
 ### 6-0. 계층(대부분은 스크립트 불요)
 - **Tier 0 — 내장 DSL(§4)**: 토큰+함수. 스크립트 엔진 없이 Rust 네이티브. 결정적·최속·안전. **90% 커버**.
-- **Tier 1 — Python UDF([41](41-rename-udf-python.md))**: `def rename(ctx): ...` — 기본 RustPython(임베드·샌드박스), 옵션 아웃오브프로세스 CPython.
+- **Tier 1 — UDF([41](41-rename-udf-python.md))**: `def rename(ctx): ...` — **엔진 추상화**, 초기 Starlark(파이썬 부분집합), 후속 RustPython/CPython 교체.
 - **Tier 2 — 풀 플러그인**: 무겁거나 상태 있는 확장은 M6 플러그인(WASM/Lua, [09](09-plugin-architecture.md)).
 
 ### 6-1. UDF 요구 & 후보 비교

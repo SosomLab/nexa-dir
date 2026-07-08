@@ -134,6 +134,6 @@
 | REN-1 | **일괄 이름 변경 α** — 동작 6종(치환/정규식/삽입/대소문자/연번/날짜)+빌딩 블록(순서)+실시간 미리보기+충돌 검출+적용/Undo. `nexa-rename`(순수·맥 테스트). 진입=명령/컨텍스트/팔레트([25](25-bulk-rename.md)) | P1 | 대 | — | ☐ 설계(2026-07-08 스펙 확장) |
 | REN-2 | **리네임 표현식/함수 언어 β** — 토큰+문자열 함수(LEFT/SUBSTR/BETWEEN/PAD/PROPER/IF…)+널 처리(IFNULL/COALESCE/ISBLANK, 빈값 정책)+프리셋 저장/재사용([25 §4](25-bulk-rename.md)) | P2 | 중~대 | REN-1 | ☐ 설계 |
 | META-1 | **`nexa-meta` 메타데이터 추출** — EXIF/IPTC/XMP·MP4 atom·ID3/Vorbis·PDF/OOXML → 키-값(순수 Rust: kamadak-exif·mp4·lofty·lopdf·zip+quick-xml). **리네임 `{meta.KEY}` + 정보 패널 공용**([25 §5](25-bulk-rename.md)·[35 §4-1](35-preview-system.md)) | P2 | 대 | — | ☐ 설계 |
-| REN-3 | **리네임 UDF(Python) δ** — 사용자 결정=Python. 기본 **RustPython**(임베드·샌드박스·결정적·맥 테스트), 옵션 아웃오브프로세스 CPython(패키지 필요 시). 플러그인 파일 방식·핫리로드. 설계 [41](41-rename-udf-python.md), 착수 시 ADR([25 §6](25-bulk-rename.md)) | P3 | 대 | REN-2 | ☐ 설계 |
+| REN-3 | **리네임 UDF δ** — **엔진 추상화**(`RenameUdfEngine` 트레이트+피처 플래그) + **초기 구현 Starlark**(파이썬 부분집합·설치0·+1~3MB). 후속 RustPython/CPython 교체. 플러그인 파일·핫리로드. 설계 [41](41-rename-udf-python.md), 착수 시 ADR | P3 | 대 | REN-2 | ☐ 설계 |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->
