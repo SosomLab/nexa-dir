@@ -175,6 +175,7 @@ public sealed partial class TerminalView : UserControl
         int start = Math.Max(0, lines.Count - RenderCap);
         LinesPanel.Children.Clear();
         var fontFamily = new FontFamily("Consolas");
+        double maxLineWidth = 0;   // Canvas는 자식 크기를 반영하지 않음 → 스크롤 익스텐트용 명시 크기
 
         for (int li = start; li < lines.Count; li++)
         {
@@ -188,8 +189,9 @@ public sealed partial class TerminalView : UserControl
 
             // 고정폭 셀 그리드: run을 Canvas에 열×CharW 절대 위치로 배치 — 폭이 다른 글리프(폴백 폰트·전각)로
             // 인한 열 드리프트가 다음 run으로 누적되지 않는다(캐럿·열 정렬의 전제).
-            // 명시 Width + 기본 Stretch 정렬은 가운데 배치로 동작 → 반드시 Left 고정.
-            var line = new Canvas { Height = LineH, Width = Math.Max(1, end) * CharW, HorizontalAlignment = HorizontalAlignment.Left };
+            var line = new Canvas { Height = LineH, Width = Math.Max(1, end) * CharW };
+            Canvas.SetTop(line, (li - start) * LineH);   // 절대 배치 — 오버레이(캐럿/선택)와 동일 수식
+            maxLineWidth = Math.Max(maxLineWidth, (double)line.Width);
             int c = 0;
             while (c < end)
             {
@@ -242,6 +244,9 @@ public sealed partial class TerminalView : UserControl
             }
             LinesPanel.Children.Add(line);
         }
+        // Canvas는 자식으로 크기가 잡히지 않음 → 스크롤 익스텐트를 명시(세로=행수×LineH, 가로=최장 줄).
+        LinesPanel.Height = (lines.Count - start) * LineH;
+        LinesPanel.Width = maxLineWidth;
 
         // 맨 아래로 스크롤(항상 최신 보이게).
         Scroll.UpdateLayout();
