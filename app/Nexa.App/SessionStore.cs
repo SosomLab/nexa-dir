@@ -41,6 +41,14 @@ internal sealed class SessionState
     public PanelSession Left { get; set; } = new();
     public PanelSession Right { get; set; } = new();
     public BottomPanelState Bottom { get; set; } = new();
+    public LayoutState Layout { get; set; } = new();
+}
+
+/// <summary>레이아웃 표시 상태(머신 로컬) — 퀵 런처 바·우 패널(듀얼) 표시. 하단 패널은 <see cref="BottomPanelState"/>.</summary>
+internal sealed class LayoutState
+{
+    public bool ShowLauncher { get; set; } = true;
+    public bool ShowRightPanel { get; set; } = true;
 }
 
 /// <summary>하단 도킹 패널 상태(표시/높이/좌우 분리/콘텐츠 종류) — BP-1.</summary>

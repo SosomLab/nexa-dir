@@ -209,6 +209,11 @@ public sealed partial class MainWindow : Window
         Left = CapturePanel(_left),
         Right = CapturePanel(_right),
         Bottom = CaptureBottom(),
+        Layout = new LayoutState
+        {
+            ShowLauncher = ShowLauncherEntry.IsChecked,
+            ShowRightPanel = ShowRightPanelEntry.IsChecked,
+        },
     };
 
     /// <summary>하단 도킹 패널 상태 캡처(표시/높이/분리/콘텐츠 종류) — BP-1c.</summary>
@@ -264,6 +269,7 @@ public sealed partial class MainWindow : Window
             {
                 SetActivePanel(s.ActiveLeft);
             }
+            RestoreLayout(s.Layout);   // 런처·우 패널 표시(하단 도킹은 우 패널 듀얼 여부에 의존 → 먼저)
             RestoreBottom(s.Bottom);   // 하단 패널 상태 복원(탭 복원과 독립, BP-1c)
         }
         if (!restored)
@@ -271,6 +277,15 @@ public sealed partial class MainWindow : Window
             Navigate(true, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), record: false);
             Navigate(false, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), record: false);
         }
+    }
+
+    /// <summary>레이아웃 표시 상태 복원(퀵 런처 바·우 패널 듀얼) — 메뉴 체크 + 실제 표시 반영.</summary>
+    private void RestoreLayout(LayoutState l)
+    {
+        ShowLauncherEntry.IsChecked = l.ShowLauncher;
+        OnToggleLauncher(ShowLauncherEntry, EventArgs.Empty);
+        ShowRightPanelEntry.IsChecked = l.ShowRightPanel;
+        OnToggleRightPanel(ShowRightPanelEntry, EventArgs.Empty);
     }
 
     /// <summary>하단 도킹 패널 상태 복원(표시/높이/분리/콘텐츠 종류) — BP-1c.</summary>
@@ -3451,7 +3466,10 @@ public sealed partial class MainWindow : Window
     // 숨길 때 해당 splitter와 행/열 크기를 함께 0으로 만들어 빈 공간을 남기지 않는다(docs/20 §2).
 
     private void OnToggleLauncher(object sender, EventArgs e)
-        => LauncherBar.Visibility = Vis(ShowLauncherEntry.IsChecked);
+    {
+        LauncherBar.Visibility = Vis(ShowLauncherEntry.IsChecked);
+        _session?.MarkDirty();   // 레이아웃 표시 상태 → 세션 저장(재시작 유지). 복원 중엔 _session null(무시).
+    }
 
     private void OnToggleRightPanel(object sender, EventArgs e)
     {
@@ -3464,6 +3482,7 @@ public sealed partial class MainWindow : Window
         RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
         // 듀얼→단일(좌 마스터) 전환 시 하단 우 도킹도 연동해서 숨김
         UpdateBottomDock();
+        _session?.MarkDirty();
     }
 
     /// <summary>하단 패널 표시/숨김 토글(Ctrl+`, BP-1) — 메뉴 체크 상태를 뒤집고 동일 경로로 반영.</summary>
