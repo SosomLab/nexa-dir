@@ -13,6 +13,7 @@
 
 ## 2026-07-08
 
+- **컨텍스트 메뉴 사용자화 + Checksum(`feat/context-menu-custom`→main, QA 통과)**: 커스텀 항목을 **선언적 레지스트리**(Children 서브메뉴 지원)로 재설계 + 설정 스키마(표시/순서/섹션 위치 — 설정 UI 후속, [docs/38 §7](38-adr-0005-shell-context-menu.md)). **Checksum ▶ MD5/SHA-1/256/384/512/CRC32** — 파일별 줄·폴더 제외·복사 대화상자. 다중 파일 1줄 표시 버그(AcceptsReturn 순서) 수정. 인코딩(Base64)은 구현 후 사용자 결정으로 제거. 상세 [journal/2026-07-08.md](journal/2026-07-08.md).
 - **터미널 위치 정확도 라운드(5커밋) + 선택·복사·붙여넣기 — 실기 QA 통과**: ①세션 시작을 첫 레이아웃 이후로(초기 20×5 격자 어긋남) ②SU/SD·IND/NEL 스크롤 시퀀스 ③DECSTBM 스크롤 마진 ④**근본 원인 = UseLayoutRounding 누적 드리프트**(행당 0.45px → "1.8칸") → 줄 Canvas 절대 배치 ⑤Left/Top 정렬 고정. + **마우스 드래그 선택·Ctrl+C(선택 시 복사/아니면 SIGINT)·Ctrl+Shift+C·Ctrl+V**. 상세 [journal/2026-07-08.md](journal/2026-07-08.md).
 - **테마 시스템 S1(`feat/theme-system`→main)**: 영역 구분용 임시 틴트 전면 제거 → **시맨틱 토큰 10종**(App.xaml ThemeDictionaries)·**라이트 팔레트 정비**·구성(O) 메뉴 **테마 시스템/라이트/다크**(기본 Light — DR-2 다크 기본은 다크 정비 후 재결정), 후속 세부 설정 UI(테마팩·폰트·밀도) 설계 = [docs/39](39-theme-system.md). + **패널 보기 토글을 표시(S) 메뉴로 이관**(상태바=상태 전용) + **파일 목록 가로 스크롤**(넘칠 때만·헤더 동기). 상세 [journal/2026-07-08.md](journal/2026-07-08.md).
 - **앱 아이콘 제작·적용**: GDI+ 생성기 `scripts/make-app-icon.ps1`(재현 가능) — 다크 라운드 + 폴더 루트 트리 + 다중 선택 accent 행 + `</>`(개발자 지향) 컨셉. PNG 9종(16~1024)+멀티사이즈 ICO, exe 임베드(ApplicationIcon)+창 SetIcon. 파일명 `nexa-dir-*`(공용 브랜드와 구분). 저널 **⏱ 시각 표기 규약** 도입(git 커밋 시각 기준, CLAUDE.md §6). 상세 [journal/2026-07-08.md](journal/2026-07-08.md).
