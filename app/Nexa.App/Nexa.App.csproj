@@ -35,8 +35,11 @@
   <ItemGroup>
     <!-- 창/작업표시줄 아이콘(AppWindow.SetIcon)용 배포 — exe 아이콘은 ApplicationIcon이 임베드 -->
     <Content Include="Assets\AppIcon\nexa-dir.ico" CopyToOutputDirectory="PreserveNewest" />
-    <!-- i18n 문자열 테이블(D-2/PREF-8) — 임베디드 리소스로 Loc.LoadTable이 로드 -->
-    <EmbeddedResource Include="Strings\ko.json" />
+    <!-- i18n 외부 언어 파일(D-2/PREF-8, docs/42) — 설치 lang/ 폴더로 배포, LangCatalog가 로드.
+         재빌드 없이 언어 추가·수정 가능. 사용자 오버라이드: %APPDATA%/NexaDir/lang/ -->
+    <Content Include="lang\en.lang" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="lang\ko.lang" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 임베디드 en = 최후 안전망(lang/ 폴더가 통째로 없을 때 UI 붕괴 방지, docs/42 §2). -->
     <EmbeddedResource Include="Strings\en.json" />
   </ItemGroup>
 

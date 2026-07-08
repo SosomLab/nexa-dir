@@ -112,19 +112,25 @@ public sealed partial class PreferencesWindow : Window
         Note("pref.menu.note");
     }
 
-    // ── 언어(i18n, D-2/PREF-8) ───────────────────────────────────────
+    // ── 언어(i18n, D-2/PREF-8, docs/42) ──────────────────────────────
+    // 목록은 하드코딩이 아니라 발견된 .lang 파일(설치 + 사용자 폴더)에서 동적 구성.
     private void BuildLanguage()
     {
         Header("pref.lang.title");
-        AddLangRadio("pref.lang.system", "");
-        AddLangRadio("pref.lang.ko", "ko");
-        AddLangRadio("pref.lang.en", "en");
+        AddLangRadio(Loc.T("pref.lang.system"), "");
+        foreach (LangInfo info in LangCatalog.Discover())
+        {
+            string label = string.IsNullOrEmpty(info.NameEn) || info.NameEn == info.Name
+                ? info.Name
+                : $"{info.Name} ({info.NameEn})";
+            AddLangRadio(label, info.Code);
+        }
         Note("pref.lang.restartNote");
     }
 
-    private void AddLangRadio(string labelKey, string culture)
+    private void AddLangRadio(string label, string culture)
     {
-        var rb = new RadioButton { Content = Loc.T(labelKey), GroupName = "Culture", IsChecked = AppSettings.General.Culture == culture };
+        var rb = new RadioButton { Content = label, GroupName = "Culture", IsChecked = AppSettings.General.Culture == culture };
         rb.Checked += (_, _) => { AppSettings.General.Culture = culture; Changed(); };
         PageHost.Children.Add(rb);
     }
