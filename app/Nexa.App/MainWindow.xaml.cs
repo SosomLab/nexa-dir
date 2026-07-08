@@ -1359,7 +1359,7 @@ public sealed partial class MainWindow : Window
             // 경로 복사(Copy as path) — 셸의 "copyaspath"를 제자리 대체(ReplaceVerb). 셸 항목은 단일 부모
             // 폴더로 축소되나(교차폴더 미지원, S1), 이 고유 항목은 c.Targets(전체 선택)을 직접 클립보드로.
             // Alt=POSIX(/)·따옴표 없이. 셸이 verb를 안 내면(예: Shift 없이 Win10) 고유 섹션에 폴백.
-            new("copy-as-path", "경로 복사", 50,
+            new("copy-as-path", "Copy as path", 50,
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
             new("paste-into", "폴더에 붙여넣기", 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
