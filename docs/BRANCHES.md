@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/copy-as-path` | 2026-07-08 | 2026-07-08 (PR#5 `1bbce3f`) | 2026-07-08 | 1+docs | 경로 복사 커스텀 항목 — 셸 동사 제자리 대체(교차폴더 전체·Alt POSIX) | [2026-07-08](journal/2026-07-08.md)·[docs/38 §7-5](38-adr-0005-shell-context-menu.md) |
 | `feat/i18n-lang-files` | 2026-07-08 | 2026-07-08 (PR#4 `558117a`) | 2026-07-08 | 1+docs | i18n 외부 `.lang` 파일화 — 설치+사용자 폴더·포맷 심(JSON↔properties)·기준 en | [2026-07-08](journal/2026-07-08.md)·[docs/42](42-i18n-language-files.md) |
 | `feat/preferences` | 2026-07-08 | 2026-07-08 (`d99c550`) | 2026-07-08 | 3+docs | 설정 인프라(PREF-1 settings.json) + i18n(Localizer·ko/en) + 레이아웃 토글 영속 | [2026-07-08](journal/2026-07-08.md)·[docs/40](40-preferences-system.md) |
 | `feat/context-menu-custom` | 2026-07-08 | 2026-07-08 | 2026-07-08 | 3+docs | 커스텀 메뉴 레지스트리(사용자화 설계) + Checksum 서브메뉴(6종) | [2026-07-08](journal/2026-07-08.md)·[docs/38 §7](38-adr-0005-shell-context-menu.md) |
@@ -22,6 +23,16 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/copy-as-path
+
+- **생성**: 2026-07-08 (분기: main `dbdfc64`). **1커밋 + docs**. 병합(PR#5 `1bbce3f`)·삭제: 2026-07-08.
+- **작업**: **경로 복사(Copy as path)** 커스텀 항목 — 교차폴더 다중선택에서 셸 "Copy as path"가 단일 폴더만 복사하던 문제([docs/38 §7-5](38-adr-0005-shell-context-menu.md)).
+  - `ShellContextMenu.VerbReplacement` — HMENU의 canonical verb(`copyaspath`) 위치를 `FindMenuPosByVerb`로 찾아 `DeleteMenu`+`InsertMenuW`(MF_BYPOSITION)로 **제자리 대체**.
+  - `CmItemDef.ReplaceVerb` — 해당 항목은 셸 섹션 대신 대체 목록으로 분리(못 찾으면 하단 폴백).
+  - `CopyPathsAsText(Targets, alt)` — 축소 이전 전체 선택을 클립보드로. 기본=따옴표+역슬래시, **Alt=POSIX(`/`)**(여는 시점 `CmCtx.Alt`).
+- 동반 문서(main 직접): [docs/43](43-external-files-and-config.md) 외부 파일·환경값 레퍼런스.
+- CI: 전 job green(WinUI 앱 빌드 포함).
 
 ## feat/i18n-lang-files
 
