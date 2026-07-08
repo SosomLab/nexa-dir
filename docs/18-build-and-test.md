@@ -98,7 +98,7 @@ dotnet run     --project app/Nexa.App          # 실행(수동 확인)
 
 - **전제**: `cargo`가 PATH에 있어야 한다(bootstrap.ps1이 처리). 없으면 빌드 중 cargo 실행 단계에서 실패.
 - **프로필 매핑**: dotnet `Debug` → `cargo build`(`core/target/debug`), `Release` → `cargo build --release`(`core/target/release`).
-- **산출물**: `app/Nexa.App/bin/<plat>/<cfg>/.../nexa_interop.dll`.
+- **산출물**: `app/Nexa.App/bin/<plat>/<cfg>/.../nexa_interop.dll` · **i18n 언어 파일** `.../lang/*.lang`(Content 복사, 재빌드 없이 편집·추가; docs/42).
 - **의존성**: 따라서 **앱 빌드는 코어(Rust) 빌드에 의존** → CI app job에도 Rust 툴체인이 필요(§4).
 - **검증(dll 단독 P/Invoke)**: 빌드 후 PowerShell에서 왕복을 직접 확인 가능 —
   ```powershell

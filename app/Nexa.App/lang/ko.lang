@@ -1,4 +1,11 @@
 {
+  "@code": "ko",
+  "@name": "한국어",
+  "@name.en": "Korean",
+  "@author": "SosomLab",
+  "@app": "0.2.0",
+  "@fallback": "en",
+
   "menu.file": "파일(F)",
   "menu.file.newTab": "새 탭",
   "menu.file.newWindow": "새 창",
@@ -53,7 +60,5 @@
   "pref.menu.note": "순서 변경·사용자 정의 항목은 후속(docs/38 §7-3).",
   "pref.lang.title": "언어",
   "pref.lang.system": "시스템 언어",
-  "pref.lang.ko": "한국어",
-  "pref.lang.en": "English",
   "pref.lang.restartNote": "언어 변경은 재시작 후 완전히 적용됩니다."
 }
