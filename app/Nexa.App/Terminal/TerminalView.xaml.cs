@@ -49,8 +49,10 @@ public sealed partial class TerminalView : UserControl
         // (XAML 속성 핸들러는 Handled된 이벤트를 못 받음 → 클릭이 무시되던 원인.)
         // Pressed뿐 아니라 Released도 처리 — WinUI가 pointer release 기본 처리에서 포커스를 다시 뺏어가,
         // "누르는 동안은 입력되다 놓으면 안 되던" 증상. release 후 FocusSoon(enqueue)로 다시 포커스.
-        AddHandler(PointerPressedEvent, new PointerEventHandler(OnPointerPressed), handledEventsToo: true);
-        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerPressed), handledEventsToo: true);
+        // Moved는 마우스 드래그 선택(복사) 갱신용.
+        AddHandler(PointerPressedEvent, new PointerEventHandler(OnTermPointerPressed), handledEventsToo: true);
+        AddHandler(PointerMovedEvent, new PointerEventHandler(OnTermPointerMoved), handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTermPointerReleased), handledEventsToo: true);
         _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         _renderTimer = _dispatcher.CreateTimer();
         _renderTimer.Interval = TimeSpan.FromMilliseconds(33);   // ~30fps 코얼레싱
@@ -247,6 +249,7 @@ public sealed partial class TerminalView : UserControl
 
         _caretOn = true;   // 출력 직후엔 캐럿을 보이게(활동 시 항상 표시)
         UpdateCaret();
+        RenderSelection();   // 선택은 절대 라인 기준 — 새 출력으로 렌더 시작점이 밀려도 하이라이트 재배치
     }
 
     /// <summary>커서 위치에 캐럿(블록)을 오버레이. 포커스=반투명 채운 블록(깜빡임), 비포커스=외곽선(중공).</summary>
@@ -304,9 +307,152 @@ public sealed partial class TerminalView : UserControl
         return b;
     }
 
+    // ── 마우스 선택(복사) — 절대 라인(스크롤백 포함)·셀 경계 기준. Ctrl+C(선택 시)/Ctrl+Shift+C=복사,
+    //    Ctrl+V=붙여넣기. 선택 없으면 Ctrl+C는 기존대로 SIGINT. ─────────────────────────────
+    private bool _selecting;
+    private bool _hasSelection;
+    private (int Line, int Col) _selAnchor;   // Col은 셀 경계(0..Cols) — [작은쪽, 큰쪽) 범위 선택
+    private (int Line, int Col) _selEnd;
+
+    /// <summary>뷰포트 좌표 → (절대 라인, 셀 경계 열). 렌더 범위(RenderCap)와 동일한 인덱스 기준.</summary>
+    private (int Line, int Col) HitCell(Windows.Foundation.Point viewportPos)
+    {
+        if (_vt is null)
+        {
+            return (0, 0);
+        }
+        int count = _vt.ScrollbackCount + _vt.Rows;
+        int start = Math.Max(0, count - RenderCap);
+        int line = Math.Clamp(start + (int)Math.Floor((viewportPos.Y + Scroll.VerticalOffset) / LineH), 0, count - 1);
+        int col = Math.Clamp((int)Math.Round((viewportPos.X + Scroll.HorizontalOffset - 6) / CharW), 0, _vt.Cols);
+        return (line, col);
+    }
+
     // 동기 Focus는 pointer-pressed 처리 직후 WinUI 기본 포커스 로직에 덮여 "포커스 됐다 취소" 됨.
     // FocusSoon()은 dispatcher enqueue로 그 이후에 다시 포커스 → 클릭 포커스가 안정적으로 유지된다.
-    private void OnPointerPressed(object sender, PointerRoutedEventArgs e) => FocusSoon();
+    private void OnTermPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        FocusSoon();
+        var pt = e.GetCurrentPoint(Scroll);
+        if (!pt.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+        ClearSelection();
+        _selecting = true;
+        _selAnchor = _selEnd = HitCell(pt.Position);
+        CapturePointer(e.Pointer);
+    }
+
+    private void OnTermPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_selecting)
+        {
+            return;
+        }
+        _selEnd = HitCell(e.GetCurrentPoint(Scroll).Position);
+        _hasSelection = _selEnd != _selAnchor;
+        RenderSelection();
+    }
+
+    private void OnTermPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        FocusSoon();
+        if (_selecting)
+        {
+            _selecting = false;
+            ReleasePointerCaptures();
+            if (!_hasSelection)
+            {
+                ClearSelection();
+            }
+        }
+    }
+
+    private void ClearSelection()
+    {
+        _hasSelection = false;
+        SelLayer.Children.Clear();
+    }
+
+    private ((int Line, int Col) S, (int Line, int Col) E) OrderedSelection()
+    {
+        var a = _selAnchor;
+        var b = _selEnd;
+        bool aFirst = a.Line < b.Line || (a.Line == b.Line && a.Col <= b.Col);
+        return aFirst ? (a, b) : (b, a);
+    }
+
+    /// <summary>선택 하이라이트 렌더 — 라인별 사각형(첫 줄=시작 열부터, 마지막 줄=끝 경계까지, 중간=전폭).</summary>
+    private void RenderSelection()
+    {
+        SelLayer.Children.Clear();
+        if (!_hasSelection || _vt is null)
+        {
+            return;
+        }
+        var (s, en) = OrderedSelection();
+        int count = _vt.ScrollbackCount + _vt.Rows;
+        int start = Math.Max(0, count - RenderCap);
+        for (int li = Math.Max(s.Line, start); li <= Math.Min(en.Line, count - 1); li++)
+        {
+            int c0 = li == s.Line ? s.Col : 0;
+            int c1 = li == en.Line ? en.Col : _vt.Cols;
+            if (c1 <= c0)
+            {
+                continue;   // 끝 줄 경계가 시작 앞(빈 구간)
+            }
+            var r = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = (c1 - c0) * CharW,
+                Height = LineH,
+                Fill = Brush(0x553D8BFF),
+            };
+            Canvas.SetLeft(r, c0 * CharW);
+            Canvas.SetTop(r, (li - start) * LineH);
+            SelLayer.Children.Add(r);
+        }
+    }
+
+    /// <summary>선택 텍스트를 클립보드로 복사 후 선택 해제.</summary>
+    private void CopySelection()
+    {
+        if (!_hasSelection || _vt is null)
+        {
+            return;
+        }
+        var (s, en) = OrderedSelection();
+        string text = _vt.GetText(s.Line, s.Col, en.Line, en.Col - 1);
+        if (text.Length > 0)
+        {
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetText(text);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        }
+        ClearSelection();
+    }
+
+    /// <summary>클립보드 텍스트를 셸 입력으로(붙여넣기) — 터미널 개행은 CR.</summary>
+    private async System.Threading.Tasks.Task PasteClipboardAsync()
+    {
+        try
+        {
+            var view = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+            if (!view.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+            {
+                return;
+            }
+            string text = await view.GetTextAsync();
+            if (!string.IsNullOrEmpty(text))
+            {
+                _session?.Write(text.Replace("\r\n", "\r").Replace('\n', '\r'));
+            }
+        }
+        catch
+        {
+            // 클립보드 접근 실패는 무해(무동작)
+        }
+    }
 
     private void OnGotFocus(object sender, RoutedEventArgs e)
     {
@@ -367,6 +513,20 @@ public sealed partial class TerminalView : UserControl
         {
             _session.Write(seq);
             e.Handled = true;
+            return;
+        }
+        // 복사: 선택이 있으면 Ctrl+C=복사(SIGINT 아님 — Windows Terminal 관례), Ctrl+Shift+C=항상 복사.
+        if (IsCtrlDown() && e.Key == VirtualKey.C && (_hasSelection || IsShiftDown()))
+        {
+            e.Handled = true;
+            CopySelection();
+            return;
+        }
+        // 붙여넣기: Ctrl+V(/Ctrl+Shift+V) — 클립보드 텍스트를 셸 입력으로.
+        if (IsCtrlDown() && e.Key == VirtualKey.V)
+        {
+            e.Handled = true;
+            _ = PasteClipboardAsync();
             return;
         }
         if (IsCtrlDown() && e.Key >= VirtualKey.A && e.Key <= VirtualKey.Z)

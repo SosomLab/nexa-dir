@@ -31,6 +31,7 @@ public sealed class VtScreen
 
     private int _cx, _cy;
     private int _savedCx, _savedCy;   // DECSC/DECRC(ESC 7/8)·CSI s/u 커서 저장/복원
+    private int _top, _bottom;        // 스크롤 마진(DECSTBM, 포함 범위) — 기본 전체 화면
     private uint _fg = DefaultFg, _bg = DefaultBg;
     private bool _bold, _reverse, _faint;
 
@@ -53,6 +54,41 @@ public sealed class VtScreen
 
     /// <summary>스크롤백 라인 수(<see cref="Lines"/>에서 가시 화면 앞에 오는 라인 수).</summary>
     public int ScrollbackCount => _scrollback.Count;
+
+    /// <summary>절대 라인(스크롤백+화면) 범위의 텍스트 추출(양끝 포함) — 마우스 선택 복사용.
+    /// 전각 연속 셀('\0')은 건너뛰고, 각 줄 우측 공백은 트림, 줄 구분은 CRLF.</summary>
+    public string GetText(int startLine, int startCol, int endLine, int endCol)
+    {
+        var lines = Lines;
+        if (lines.Count == 0)
+        {
+            return string.Empty;
+        }
+        startLine = Math.Clamp(startLine, 0, lines.Count - 1);
+        endLine = Math.Clamp(endLine, 0, lines.Count - 1);
+        var sb = new System.Text.StringBuilder();
+        for (int li = startLine; li <= endLine; li++)
+        {
+            TermCell[] row = lines[li];
+            int c0 = li == startLine ? Math.Max(0, startCol) : 0;
+            int c1 = li == endLine ? Math.Min(row.Length - 1, endCol) : row.Length - 1;
+            var line = new System.Text.StringBuilder();
+            for (int c = c0; c <= c1 && c < row.Length; c++)
+            {
+                char ch = row[c].Ch;
+                if (ch != '\0')
+                {
+                    line.Append(ch);
+                }
+            }
+            sb.Append(line.ToString().TrimEnd());
+            if (li < endLine)
+            {
+                sb.Append("\r\n");
+            }
+        }
+        return sb.ToString();
+    }
 
     /// <summary>렌더용 라인 목록(스크롤백 + 현재 화면). 각 라인은 셀 배열.</summary>
     public IReadOnlyList<TermCell[]> Lines
@@ -92,6 +128,8 @@ public sealed class VtScreen
         _rows = rows;
         _cx = Math.Min(_cx, cols - 1);
         _cy = Math.Min(_cy, rows - 1);
+        _top = 0;
+        _bottom = rows - 1;   // 리사이즈 시 스크롤 마진 리셋(DECSTBM 관례)
     }
 
     private TermCell[] BlankRow(int cols)
@@ -212,6 +250,17 @@ public sealed class VtScreen
             case 'F': _cy = Math.Max(0, _cy - Math.Max(1, p0)); _cx = 0; break;           // CPL — 위 n줄 처음
             case 'S': ScrollUp(Math.Max(1, p0)); break;    // SU — 콘솔 스크롤(미구현 시 낡은 줄 잔존·커서 행 어긋남)
             case 'T': ScrollDown(Math.Max(1, p0)); break;  // SD
+            case 'r':   // DECSTBM — 스크롤 마진 설정(미구현 시 영역 스크롤이 전체 화면과 어긋남, ls 등)
+                _top = Math.Clamp(Par(0, 1) - 1, 0, _rows - 1);
+                _bottom = Math.Clamp(Par(1, _rows) - 1, 0, _rows - 1);
+                if (_bottom <= _top)
+                {
+                    _top = 0;
+                    _bottom = _rows - 1;   // 무효 → 전체 화면
+                }
+                _cx = 0;
+                _cy = 0;   // DECSTBM은 커서 홈(스펙)
+                break;
             case 'J': EraseDisplay(p0); break;
             case 'K': EraseLine(p0); break;
             case 'L': InsertLines(Math.Max(1, p0)); break;
@@ -253,58 +302,62 @@ public sealed class VtScreen
 
     private void LineFeed()
     {
+        if (_cy == _bottom)
+        {
+            ScrollUp(1);   // 마진 하단에서의 LF = 영역 스크롤(전체 화면 마진이면 스크롤백 보존)
+            return;
+        }
         if (_cy < _rows - 1)
         {
             _cy++;
-            return;
         }
-        ScrollUp(1);   // 최하단에서의 LF = 화면 위로 스크롤(맨 위 줄은 스크롤백으로)
     }
 
-    /// <summary>화면을 <paramref name="n"/>줄 위로 스크롤(SU) — 맨 위 줄은 스크롤백으로, 아래는 빈 줄. 커서 불변.</summary>
+    /// <summary>스크롤 마진 영역을 <paramref name="n"/>줄 위로 스크롤(SU). 전체 화면 마진이면 맨 위 줄을
+    /// 스크롤백으로 보존, 부분 마진(DECSTBM)이면 영역 내부만 이동(스크롤백 미보존 — 터미널 표준). 커서 불변.</summary>
     private void ScrollUp(int n)
     {
+        bool full = _top == 0 && _bottom == _rows - 1;
         for (int k = 0; k < n; k++)
         {
-            _scrollback.Add(_screen[0]);
-            for (int r = 1; r < _rows; r++)
+            if (full)
+            {
+                _scrollback.Add(_screen[_top]);
+            }
+            for (int r = _top + 1; r <= _bottom; r++)
             {
                 _screen[r - 1] = _screen[r];
             }
-            _screen[_rows - 1] = BlankRow(_cols);
+            _screen[_bottom] = BlankRow(_cols);
         }
-        if (_scrollback.Count > MaxScrollback)
+        if (full && _scrollback.Count > MaxScrollback)
         {
             _scrollback.RemoveRange(0, _scrollback.Count - MaxScrollback);
         }
     }
 
-    /// <summary>화면을 <paramref name="n"/>줄 아래로 스크롤(SD) — 위는 빈 줄, 맨 아래 줄은 버림. 커서 불변.</summary>
+    /// <summary>스크롤 마진 영역을 <paramref name="n"/>줄 아래로 스크롤(SD) — 영역 위는 빈 줄, 맨 아래는 버림. 커서 불변.</summary>
     private void ScrollDown(int n)
     {
         for (int k = 0; k < n; k++)
         {
-            for (int r = _rows - 1; r > 0; r--)
+            for (int r = _bottom; r > _top; r--)
             {
                 _screen[r] = _screen[r - 1];
             }
-            _screen[0] = BlankRow(_cols);
+            _screen[_top] = BlankRow(_cols);
         }
     }
 
     private void ReverseIndex()
     {
-        if (_cy > 0)
+        if (_cy == _top)
+        {
+            ScrollDown(1);   // 마진 상단에서의 RI = 영역 아래로 스크롤
+        }
+        else if (_cy > 0)
         {
             _cy--;
-        }
-        else
-        {
-            for (int r = _rows - 1; r > 0; r--)
-            {
-                _screen[r] = _screen[r - 1];
-            }
-            _screen[0] = BlankRow(_cols);
         }
     }
 
@@ -407,6 +460,8 @@ public sealed class VtScreen
     {
         _fg = DefaultFg; _bg = DefaultBg; _bold = _reverse = _faint = false;
         _cx = _cy = 0;
+        _top = 0;
+        _bottom = _rows - 1;
         for (int r = 0; r < _rows; r++) { _screen[r] = BlankRow(_cols); }
     }
 

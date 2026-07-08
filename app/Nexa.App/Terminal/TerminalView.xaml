@@ -14,10 +14,12 @@
         <ScrollViewer x:Name="Scroll" Padding="6,0" IsTabStop="False"
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollMode="Enabled" HorizontalScrollMode="Enabled">
-            <!-- 셀 그리드(LinesPanel) 위에 캐럿(커서) 오버레이(CaretLayer)를 겹쳐 렌더 — 함께 스크롤 -->
+            <!-- 셀 그리드(LinesPanel) 위에 선택(SelLayer)·캐럿(CaretLayer) 오버레이를 겹쳐 렌더 — 함께 스크롤 -->
             <Grid>
                 <!-- VtScreen 셀 그리드를 색과 함께 렌더(라인=가로 StackPanel of 색 runs) -->
                 <StackPanel x:Name="LinesPanel" />
+                <!-- 마우스 드래그 선택 하이라이트(복사용) -->
+                <Canvas x:Name="SelLayer" IsHitTestVisible="False" />
                 <Canvas x:Name="CaretLayer" IsHitTestVisible="False">
                     <Border x:Name="Caret" Visibility="Collapsed" />
                 </Canvas>
