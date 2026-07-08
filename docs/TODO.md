@@ -131,6 +131,9 @@
 | PREF-8 | **언어(i18n)** — `.resw`/ResourceLoader 인프라(D-2) + 언어 페이지·재시작/부분 라이브 | P1 | 중 | — | ☐ |
 | ARCH-1 | **압축 파일 지원(내장 zip/아카이브)** — 가상 폴더 탐색(VFS Provider C-2) + 압축/해제(전송 엔진). 별도 ADR | P2 | 대 | C-2 | ☐ 설계 |
 | SRCH-1 | **파일 찾기(Everything식)** = M3([24](24-search-everything.md)) — MFT/USN 인덱스·필터 문법 | P2 | 대 | — | ☐ M3 |
-| REN-1 | **일괄 이름 변경** = M1 파일작업([25](25-bulk-rename.md)) — 규칙 스택+실시간 미리보기, 진입점(컨텍스트 메뉴/명령) | P1 | 중~대 | — | ☐ 설계 |
+| REN-1 | **일괄 이름 변경 α** — 동작 6종(치환/정규식/삽입/대소문자/연번/날짜)+빌딩 블록(순서)+실시간 미리보기+충돌 검출+적용/Undo. `nexa-rename`(순수·맥 테스트). 진입=명령/컨텍스트/팔레트([25](25-bulk-rename.md)) | P1 | 대 | — | ☐ 설계(2026-07-08 스펙 확장) |
+| REN-2 | **리네임 표현식/함수 언어 β** — 토큰+문자열 함수(LEFT/SUBSTR/BETWEEN/PAD/PROPER/IF…)+널 처리(IFNULL/COALESCE/ISBLANK, 빈값 정책)+프리셋 저장/재사용([25 §4](25-bulk-rename.md)) | P2 | 중~대 | REN-1 | ☐ 설계 |
+| META-1 | **`nexa-meta` 메타데이터 추출** — EXIF/IPTC/XMP·MP4 atom·ID3/Vorbis·PDF/OOXML → 키-값(순수 Rust: kamadak-exif·mp4·lofty·lopdf·zip+quick-xml). **리네임 `{meta.KEY}` + 정보 패널 공용**([25 §5](25-bulk-rename.md)·[35 §4-1](35-preview-system.md)) | P2 | 대 | — | ☐ 설계 |
+| REN-3 | **리네임 UDF(사용자 정의 함수) δ** — 플러그인 파일 방식, **Starlark**(파이썬 문법·결정적·샌드박스, 권장) 임베드. 별도 ADR([25 §6](25-bulk-rename.md)) | P3 | 대 | REN-2 | ☐ 설계 |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->
