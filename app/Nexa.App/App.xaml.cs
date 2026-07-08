@@ -34,6 +34,10 @@ public partial class App : Application
     {
         try
         {
+            // i18n 초기화(창 생성 전 — 마크업 확장이 XAML 파싱 시점에 조회). 문화는 설정에서.
+            var loaded = SettingsStore.Load(SettingsStore.DefaultPath());
+            Loc.Init(loaded?.General.Culture ?? string.Empty);
+
             _window = new MainWindow();
             _window.Activate();
         }

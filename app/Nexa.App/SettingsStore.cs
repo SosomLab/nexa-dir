@@ -25,6 +25,13 @@ internal sealed class SettingsState
     public ViewSettings View { get; set; } = new();
     public MenuSettings Menu { get; set; } = new();
     public TabSettings Tab { get; set; } = new();
+    public GeneralSettings General { get; set; } = new();
+}
+
+/// <summary>일반 — 언어(i18n).</summary>
+internal sealed class GeneralSettings
+{
+    public string Culture { get; set; } = string.Empty;
 }
 
 /// <summary>모양 — 테마 모드(후속: 팩·폰트·밀도, docs/39 §5).</summary>
@@ -212,6 +219,7 @@ internal sealed class SettingsStore
         m.CustomSectionOnTop = s.Menu.CustomSectionOnTop;
 
         AppSettings.Tab.DoubleClick = s.Tab.DoubleClick;
+        AppSettings.General.Culture = s.General.Culture;
     }
 
     /// <summary>현재 <see cref="AppSettings"/>를 직렬화용 상태로 캡처.</summary>
@@ -242,6 +250,7 @@ internal sealed class SettingsStore
                 CustomSectionOnTop = m.CustomSectionOnTop,
             },
             Tab = new TabSettings { DoubleClick = AppSettings.Tab.DoubleClick },
+            General = new GeneralSettings { Culture = AppSettings.General.Culture },
         };
     }
 

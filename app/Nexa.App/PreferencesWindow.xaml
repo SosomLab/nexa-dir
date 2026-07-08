@@ -13,11 +13,8 @@
 
         <Border Grid.Column="0" Background="{ThemeResource NexaChromeBackgroundBrush}"
                 BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,1,0">
-            <ListView x:Name="PageList" SelectionMode="Single" Padding="4,8">
-                <ListViewItem Content="모양" />
-                <ListViewItem Content="레이아웃" />
-                <ListViewItem Content="메뉴" />
-            </ListView>
+            <!-- 페이지 항목은 코드에서 Loc로 채움(언어 전환 대비) -->
+            <ListView x:Name="PageList" SelectionMode="Single" Padding="4,8" />
         </Border>
 
         <ScrollViewer Grid.Column="1" Padding="20">
