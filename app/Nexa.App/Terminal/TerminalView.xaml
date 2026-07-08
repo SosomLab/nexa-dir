@@ -10,7 +10,8 @@
     LostFocus="OnLostFocus">
 
     <Grid Background="#0C0F12">
-        <ScrollViewer x:Name="Scroll" Padding="6,4" IsTabStop="False"
+        <!-- 세로 패딩 0: 항상 최하단 스크롤이라 상단 패딩만큼 첫 줄이 잘려 보이던 문제 방지 -->
+        <ScrollViewer x:Name="Scroll" Padding="6,0" IsTabStop="False"
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollMode="Enabled" HorizontalScrollMode="Enabled">
             <!-- 셀 그리드(LinesPanel) 위에 캐럿(커서) 오버레이(CaretLayer)를 겹쳐 렌더 — 함께 스크롤 -->

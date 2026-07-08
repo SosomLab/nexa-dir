@@ -64,7 +64,9 @@ public sealed partial class TerminalView : UserControl
         Unloaded += (_, _) => Stop();
     }
 
-    /// <summary>세션 시작(lazy — 터미널 탭 활성 시에만). 이미 시작이면 포커스만.</summary>
+    /// <summary>세션 시작(lazy — 터미널 탭 활성 시에만). 이미 시작이면 포커스만.
+    /// <b>레이아웃 전(ActualSize 0)이면 첫 실측 후로 지연</b> — 최소 격자(20×5)로 세션이 열리고 곧바로
+    /// 리사이즈되며 초기 출력이 어긋나던 문제(상단 잘림·캐럿 행 불일치) 방지.</summary>
     public void Start()
     {
         if (_started)
@@ -72,9 +74,24 @@ public sealed partial class TerminalView : UserControl
             FocusSoon();
             return;
         }
+        if (ActualHeight < 1 || ActualWidth < 1)
+        {
+            SizeChanged += StartWhenSized;   // 실제 크기 확정 후 시작(중복 가드는 _started)
+            return;
+        }
         _started = true;
         StartSession(reset: true);
         FocusSoon();
+    }
+
+    private void StartWhenSized(object sender, SizeChangedEventArgs e)
+    {
+        if (ActualHeight < 1 || ActualWidth < 1)
+        {
+            return;
+        }
+        SizeChanged -= StartWhenSized;
+        Start();
     }
 
     /// <summary>레이아웃/가시화 직후 포커스(즉시 Focus가 실패하는 타이밍 회피) — 키보드 입력 캡처.</summary>
@@ -375,7 +392,7 @@ public sealed partial class TerminalView : UserControl
 
     private (int cols, int rows) MeasureGrid()
     {
-        int cols = Math.Clamp((int)(ActualWidth / CharW), 20, 500);
+        int cols = Math.Clamp((int)((ActualWidth - 12) / CharW), 20, 500);   // 좌우 패딩(6×2) 제외
         int rows = Math.Clamp((int)(ActualHeight / LineH), 5, 200);
         return (cols, rows);
     }
