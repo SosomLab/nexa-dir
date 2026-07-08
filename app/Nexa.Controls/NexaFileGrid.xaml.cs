@@ -65,6 +65,23 @@ public sealed partial class NexaFileGrid : UserControl
         AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnMarqueePointerEnd), handledEventsToo: true);
         // 헤더 셀(패널별 정렬 상태 래퍼)은 호스트가 Columns를 채운 뒤(생성자 이후) 구성 → Loaded에서 1회 빌드.
         Loaded += (_, _) => BuildHeaderCells();
+        // 가로 스크롤 동기(헤더→본문 방향) — 본문→헤더는 OnBodyViewChanged. 오프셋 비교 가드로 루프 방지.
+        HeaderScroll.ViewChanged += (_, _) =>
+        {
+            if (Math.Abs(HeaderScroll.HorizontalOffset - BodyScroll.HorizontalOffset) > 0.5)
+            {
+                BodyScroll.ChangeView(HeaderScroll.HorizontalOffset, null, null, disableAnimation: true);
+            }
+        };
+    }
+
+    /// <summary>본문 스크롤 변경 → 헤더 가로 오프셋 동기(컬럼이 뷰포트를 넘을 때 헤더·본문이 함께 이동).</summary>
+    private void OnBodyViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (Math.Abs(HeaderScroll.HorizontalOffset - BodyScroll.HorizontalOffset) > 0.5)
+        {
+            HeaderScroll.ChangeView(BodyScroll.HorizontalOffset, null, null, disableAnimation: true);
+        }
     }
 
     // 이 패널(그리드)만의 헤더 셀 — 정렬 표시(▲/▼)가 좌/우 독립(공유 컬럼은 너비만 공유).
@@ -186,7 +203,9 @@ public sealed partial class NexaFileGrid : UserControl
         _marqueeCandidate = true;
         _marqueeActive = false;
         _marqueePointerId = e.Pointer.PointerId;
-        _marqueeOriginContent = new Windows.Foundation.Point(pt.Position.X, pt.Position.Y + BodyScroll.VerticalOffset);
+        _marqueeOriginContent = new Windows.Foundation.Point(
+            pt.Position.X + BodyScroll.HorizontalOffset,   // 가로 스크롤 보정(콘텐츠 좌표)
+            pt.Position.Y + BodyScroll.VerticalOffset);
     }
 
     /// <summary>행(콘텐츠) 총폭 — 컬럼 너비 합. 밴드가 이 폭과 겹칠 때만 행 선택(탐색기 details 동일).</summary>
@@ -216,7 +235,7 @@ public sealed partial class NexaFileGrid : UserControl
         if (!_marqueeActive)
         {
             // 4px 임계 — 클릭/더블클릭 제스처 보존(임계 전엔 캡처하지 않아 행 이벤트 흐름 유지).
-            double dx = vp.X - _marqueeOriginContent.X;
+            double dx = (vp.X + BodyScroll.HorizontalOffset) - _marqueeOriginContent.X;
             double dy = (vp.Y + BodyScroll.VerticalOffset) - _marqueeOriginContent.Y;
             if (Math.Abs(dx) < 4 && Math.Abs(dy) < 4)
             {
@@ -247,7 +266,8 @@ public sealed partial class NexaFileGrid : UserControl
     private void UpdateMarquee(Windows.Foundation.Point viewport)
     {
         double offset = BodyScroll.VerticalOffset;
-        double curX = viewport.X;
+        double hOffset = BodyScroll.HorizontalOffset;
+        double curX = viewport.X + hOffset;
         double curYContent = viewport.Y + offset;
 
         // 콘텐츠 좌표의 밴드.
@@ -259,8 +279,8 @@ public sealed partial class NexaFileGrid : UserControl
         // 시각(뷰포트 좌표, 본문 영역으로 클램프).
         double vy1 = Math.Max(0, y1 - offset);
         double vy2 = Math.Min(BodyScroll.ActualHeight, y2 - offset);
-        double vx1 = Math.Max(0, x1);
-        double vx2 = Math.Min(BodyScroll.ActualWidth, x2);
+        double vx1 = Math.Max(0, x1 - hOffset);
+        double vx2 = Math.Min(BodyScroll.ActualWidth, x2 - hOffset);
         Canvas.SetLeft(MarqueeRect, vx1);
         Canvas.SetTop(MarqueeRect, vy1);
         MarqueeRect.Width = Math.Max(0, vx2 - vx1);

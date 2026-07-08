@@ -19,6 +19,9 @@
             <!-- 헤더 바 배경 — 본문과 다른 색으로 구분. HeaderBackground DP 바인딩(설정 오버라이드) -->
             <Border Background="{x:Bind HeaderBackground, Mode=OneWay}"
                     BorderBrush="#33808080" BorderThickness="0,0,0,1" />
+            <!-- 헤더도 가로 스크롤(스크롤바 숨김, 클리핑용) — 본문 가로 오프셋과 양방향 동기(코드) -->
+            <ScrollViewer x:Name="HeaderScroll" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" IsTabStop="False">
             <!-- 헤더는 패널별 HeaderCell 래퍼로 렌더(정렬 표시는 패널별, 너비는 공유 컬럼 바인딩=좌/우 동기) -->
             <ItemsRepeater x:Name="HeaderRepeater">
                 <ItemsRepeater.Layout>
@@ -50,13 +53,17 @@
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>
             </ItemsRepeater>
+            </ScrollViewer>
         </Grid>
 
         <!-- 본문(가상화). 드래그 중 가장자리 근처면 자동 스크롤(AllowDrop + DragOver 타이머).
-             Background=Transparent: 행 밖 빈 영역(행 우측·목록 아래)도 히트 가능 → 빈영역 클릭/러버밴드(B-4). -->
+             Background=Transparent: 행 밖 빈 영역(행 우측·목록 아래)도 히트 가능 → 빈영역 클릭/러버밴드(B-4).
+             가로 스크롤 Auto: 컬럼 총폭이 표시 영역을 벗어날 때만 스크롤바 표시(세로와 동일 규약) — 헤더와 동기. -->
         <Grid Grid.Row="1">
             <ScrollViewer x:Name="BodyScroll" Background="Transparent"
                           VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto"
+                          ViewChanged="OnBodyViewChanged"
                           AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
                 <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
                     <ItemsRepeater.Layout>
