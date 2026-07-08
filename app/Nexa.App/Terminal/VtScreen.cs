@@ -145,6 +145,8 @@ public sealed class VtScreen
             case ']': _state = S.Osc; break;
             case '(': case ')': case '*': case '+': _state = S.Ground; break;   // charset 지정 — 다음 1글자는 무시(간이)
             case 'M': ReverseIndex(); _state = S.Ground; break;
+            case 'D': LineFeed(); _state = S.Ground; break;                       // IND — 아래로(최하단이면 스크롤)
+            case 'E': _cx = 0; LineFeed(); _state = S.Ground; break;              // NEL — 다음 줄 처음
             case '7': _savedCx = _cx; _savedCy = _cy; _state = S.Ground; break;   // DECSC 커서 저장
             case '8': RestoreCursor(); _state = S.Ground; break;                  // DECRC 커서 복원
             case '=': case '>': _state = S.Ground; break;
@@ -206,6 +208,10 @@ public sealed class VtScreen
             case 'D': _cx = Math.Max(0, _cx - Math.Max(1, p0)); break;
             case 'G': _cx = Math.Clamp(Math.Max(1, p0) - 1, 0, _cols - 1); break;
             case 'd': _cy = Math.Clamp(Math.Max(1, p0) - 1, 0, _rows - 1); break;
+            case 'E': _cy = Math.Min(_rows - 1, _cy + Math.Max(1, p0)); _cx = 0; break;   // CNL — 아래 n줄 처음
+            case 'F': _cy = Math.Max(0, _cy - Math.Max(1, p0)); _cx = 0; break;           // CPL — 위 n줄 처음
+            case 'S': ScrollUp(Math.Max(1, p0)); break;    // SU — 콘솔 스크롤(미구현 시 낡은 줄 잔존·커서 행 어긋남)
+            case 'T': ScrollDown(Math.Max(1, p0)); break;  // SD
             case 'J': EraseDisplay(p0); break;
             case 'K': EraseLine(p0); break;
             case 'L': InsertLines(Math.Max(1, p0)); break;
@@ -247,20 +253,42 @@ public sealed class VtScreen
 
     private void LineFeed()
     {
-        _cy++;
-        if (_cy >= _rows)
+        if (_cy < _rows - 1)
         {
-            _cy = _rows - 1;
+            _cy++;
+            return;
+        }
+        ScrollUp(1);   // 최하단에서의 LF = 화면 위로 스크롤(맨 위 줄은 스크롤백으로)
+    }
+
+    /// <summary>화면을 <paramref name="n"/>줄 위로 스크롤(SU) — 맨 위 줄은 스크롤백으로, 아래는 빈 줄. 커서 불변.</summary>
+    private void ScrollUp(int n)
+    {
+        for (int k = 0; k < n; k++)
+        {
             _scrollback.Add(_screen[0]);
             for (int r = 1; r < _rows; r++)
             {
                 _screen[r - 1] = _screen[r];
             }
             _screen[_rows - 1] = BlankRow(_cols);
-            if (_scrollback.Count > MaxScrollback)
+        }
+        if (_scrollback.Count > MaxScrollback)
+        {
+            _scrollback.RemoveRange(0, _scrollback.Count - MaxScrollback);
+        }
+    }
+
+    /// <summary>화면을 <paramref name="n"/>줄 아래로 스크롤(SD) — 위는 빈 줄, 맨 아래 줄은 버림. 커서 불변.</summary>
+    private void ScrollDown(int n)
+    {
+        for (int k = 0; k < n; k++)
+        {
+            for (int r = _rows - 1; r > 0; r--)
             {
-                _scrollback.RemoveRange(0, _scrollback.Count - MaxScrollback);
+                _screen[r] = _screen[r - 1];
             }
+            _screen[0] = BlankRow(_cols);
         }
     }
 
