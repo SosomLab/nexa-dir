@@ -129,20 +129,10 @@
             </ctrls:NexaMenuBar.Menus>
         </ctrls:NexaMenuBar>
 
-        <!-- 1 · 도구 모음 (파랑) -->
+        <!-- 1 · 도구 모음 — 코드(InitToolbars)에서 16×16 글리프 버튼 채움 (docs/44) -->
         <Border Grid.Row="1" Background="{ThemeResource NexaChromeBackgroundBrush}"
-                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="6,4">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <Button Content="&#xE72B;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="뒤로" />
-                <Button Content="&#xE72A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="앞으로" />
-                <Button Content="&#xE74A;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="위로" />
-                <Button Content="&#xE72C;" FontFamily="Segoe MDL2 Assets" ToolTipService.ToolTip="새로고침" />
-                <AppBarSeparator />
-                <Button Content="아이콘" /><Button Content="목록" /><Button Content="컬럼" /><Button Content="갤러리" />
-                <AppBarSeparator />
-                <!-- 도구 모음(개발자 제공 내장 기능) — 코드(InitToolbars)에서 16×16 글리프 버튼 채움 (docs/44) -->
-                <StackPanel x:Name="ToolbarToolsHost" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" />
-            </StackPanel>
+                BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="6,2">
+            <StackPanel x:Name="ToolbarToolsHost" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" />
         </Border>
 
         <!-- 2 · 퀵 런처 바 (초록) -->

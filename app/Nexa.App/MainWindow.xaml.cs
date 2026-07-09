@@ -1776,6 +1776,9 @@ public sealed partial class MainWindow : Window
                 FontSize = 16,
             },
             Padding = new Thickness(6, 2, 6, 2),
+            // 기본 Button MinHeight(32)가 도구 바 높이를 키우므로 해제 — 글리프 16px + 상하 패딩만큼만
+            MinHeight = 0,
+            MinWidth = 0,
         };
         ToolTipService.SetToolTip(btn, tooltip);
         btn.Click += (_, _) => onClick();
