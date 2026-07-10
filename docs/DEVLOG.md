@@ -13,6 +13,7 @@
 
 ## 2026-07-10
 
+- **글꼴 설정 6종 + 밀도 + 설정 창 VS Code식 재구성(`feat/font-settings`, 3커밋)**: **글꼴 슬롯 6종**(기본/콘솔[쉼표 폴백]/경로/상태표시줄/파일 목록/파일 헤더[꾸미기만]) — `FontOptions` 영속(`Fonts` 섹션)+`MainWindow.ApplyFonts` 라이브 적용, App.xaml 암시적 TextBlock 스타일 제거(상속 차단 해소), 터미널 셀 폭 실측. **밀도** — 행 상하 1px·행간 0·탭 MinItemHeight 20(Double Commander 지향). **설정 창** — 상단 검색+좌 카테고리 트리+설정 레지스트리, **영속 설정 전부 UI 수록**(+`Sort.FoldersFirst` 영속 신규, dwell 라이브 재반영). 글꼴 입력은 목록 선택+직접 입력, 엔터/포커스 이탈 시 검증·경고. [docs/40 §8](40-preferences-system.md). 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 - **도구 모음 정리(docs/44 후속)**: 구형 자리표시자 버튼 8종(뒤로/앞으로/위로/새로고침·아이콘/목록/컬럼/갤러리)+구분선 제거(전부 XAML 전용 — 이벤트 없음, 경로 바 네비 버튼은 별개 유지) → 도구 바 = `InitToolbars` 내장 도구 3종만. **높이 최소화**(패딩 6,2 + 버튼 `MinHeight=0`, 기본 32 해제). 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 
 ## 2026-07-09
