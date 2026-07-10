@@ -163,8 +163,6 @@
   "toolbar.showDot": "Show dotfiles (.)",
   "toolbar.terminalCd": "Move terminal to the current tab folder",
   "tool.terminalCd": "Terminal moved to: {0}",
-  "tabctx.copyName": "Copy folder name",
-  "tabctx.copyPath": "Copy full folder path",
   "tab.copied": "Copied: {0}",
   "status.namesCopied": "{0} file name(s) copied",
   "pref.toolbar.title": "Toolbar",

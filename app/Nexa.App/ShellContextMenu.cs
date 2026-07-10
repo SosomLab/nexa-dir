@@ -28,7 +28,9 @@ internal sealed class ShellContextMenu
     /// <summary>셸 동사를 우리 항목으로 <b>제자리 대체</b> — 셸 메뉴의 해당 verb(예: "copyaspath") 위치에서
     /// 원 항목을 지우고 <see cref="Item"/>을 끼워 넣는다(교차폴더처럼 셸이 못 하는 동작을 같은 자리에서 제공).
     /// verb를 못 찾으면 고유 섹션 하단에 폴백 추가.</summary>
-    public sealed record VerbReplacement(string Verb, CustomItem Item);
+    /// <summary><see cref="Before"/>: 대체 항목 <b>바로 위</b>에 함께 끼워 넣을 동반 항목들(나열 순서 유지)
+    /// — 예: Copy as filename을 Copy as path 위에. verb 미발견 폴백 시에도 같은 순서로 하단 추가.</summary>
+    public sealed record VerbReplacement(string Verb, CustomItem Item, IReadOnlyList<CustomItem>? Before = null);
 
     /// <summary>표시 결과 — 셸 명령 실행 여부를 호출자가 알 수 있게(후처리 갱신 판단용).</summary>
     public enum Result { Cancelled, ShellCommand, CustomCommand }
@@ -113,9 +115,22 @@ internal sealed class ShellContextMenu
                         DeleteMenu(hmenu, (uint)pos, MF_BYPOSITION);
                         InsertMenuW(hmenu, (uint)pos, MF_BYPOSITION | MF_STRING | (rep.Item.Enabled ? 0u : MF_GRAYED),
                             (UIntPtr)rep.Item.Id, rep.Item.Text);
+                        if (rep.Before is { Count: > 0 } before)
+                        {
+                            // 같은 pos에 역순 삽입 → 나열 순서 그대로 대체 항목 위에 쌓인다.
+                            for (int b = before.Count - 1; b >= 0; b--)
+                            {
+                                InsertMenuW(hmenu, (uint)pos, MF_BYPOSITION | MF_STRING | (before[b].Enabled ? 0u : MF_GRAYED),
+                                    (UIntPtr)before[b].Id, before[b].Text);
+                            }
+                        }
                     }
                     else
                     {
+                        if (rep.Before is { Count: > 0 } fallback)
+                        {
+                            unplaced.AddRange(fallback);
+                        }
                         unplaced.Add(rep.Item);
                     }
                 }
@@ -158,7 +173,9 @@ internal sealed class ShellContextMenu
                 CustomItem? hit = FindCustom(custom, sel);
                 if (hit is null && replacements is not null)
                 {
-                    hit = FindCustom(replacements.Select(r => r.Item).ToList(), sel);
+                    hit = FindCustom(replacements
+                        .SelectMany(r => (r.Before ?? Array.Empty<CustomItem>()).Append(r.Item))
+                        .ToList(), sel);
                 }
                 hit?.Invoke();
                 return Result.CustomCommand;

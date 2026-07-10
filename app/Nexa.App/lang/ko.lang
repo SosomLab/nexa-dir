@@ -168,8 +168,6 @@
   "toolbar.showDot": "도트파일(.) 표시",
   "toolbar.terminalCd": "터미널을 현재 탭 폴더로 이동",
   "tool.terminalCd": "터미널 위치 이동: {0}",
-  "tabctx.copyName": "폴더 이름 복사",
-  "tabctx.copyPath": "전체 폴더 경로 복사",
   "tab.copied": "복사됨: {0}",
   "status.namesCopied": "파일명 {0}개 복사됨",
   "pref.toolbar.title": "도구 모음",

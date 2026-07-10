@@ -1394,9 +1394,11 @@ public sealed partial class MainWindow : Window
     /// <see cref="Children"/>이 있으면 서브메뉴(부모의 Invoke는 무시, 부모 Visible이 그룹을 게이트).</summary>
     /// <summary><see cref="ReplaceVerb"/>가 있으면 고유 섹션이 아니라 <b>해당 셸 동사 위치에 제자리 대체</b>
     /// (예: "copyaspath") — 셸이 못 하는 교차폴더 동작을 같은 자리에서 제공(docs/38 §7-5).</summary>
+    /// <summary><see cref="InsertAboveVerb"/>: 해당 동사의 <b>대체 항목 바로 위</b>에 동반 삽입(예: 파일명 복사를
+    /// 경로 복사 위에). 대체 항목이 비활성(설정 숨김 등)이면 고유 섹션으로 폴백.</summary>
     private sealed record CmItemDef(string Id, string Label, int DefaultOrder,
         Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke,
-        IReadOnlyList<CmItemDef>? Children = null, string? ReplaceVerb = null);
+        IReadOnlyList<CmItemDef>? Children = null, string? ReplaceVerb = null, string? InsertAboveVerb = null);
 
     private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
     private static List<CmItemDef>? _cmRegistryShared;   // 설정 창 카탈로그 조회용(정적)
@@ -1440,8 +1442,9 @@ public sealed partial class MainWindow : Window
             new("copy-as-path", Loc.T("ctx.copyAsPath"), 50,
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
             // 파일명만 복사 — Copy as path와 동일 대상 규칙(교차폴더 전체 선택·한 줄에 하나), 내용만 리프 이름.
+            // 경로 복사 대체 항목 "바로 위"에 동반 삽입(InsertAboveVerb, docs/38 §7-5).
             new("copy-as-filename", Loc.T("ctx.copyAsFilename"), 60,
-                _ => true, _ => true, c => CopyFileNamesAsText(c.Targets)),
+                _ => true, _ => true, c => CopyFileNamesAsText(c.Targets), InsertAboveVerb: "copyaspath"),
             new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
             new("rename", Loc.T("ctx.rename"), 200,
@@ -1478,9 +1481,12 @@ public sealed partial class MainWindow : Window
 
         var section = new List<ShellContextMenu.CustomItem>();
         var replacements = new List<ShellContextMenu.VerbReplacement>();
-        foreach (var def in _cmRegistry
+        var beforeByVerb = new Dictionary<string, List<ShellContextMenu.CustomItem>>(StringComparer.OrdinalIgnoreCase);
+        var visible = _cmRegistry
             .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
-            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder)
+            .ToList();
+        foreach (var def in visible)
         {
             var captured = def;
             var children = def.Children is { Count: > 0 } kids ? Map(kids) : null;
@@ -1490,9 +1496,26 @@ public sealed partial class MainWindow : Window
             {
                 replacements.Add(new ShellContextMenu.VerbReplacement(verb, item));
             }
+            else if (captured.InsertAboveVerb is string above
+                && visible.Any(d => d.ReplaceVerb == above))   // 대상 대체 항목이 살아 있을 때만 동반
+            {
+                if (!beforeByVerb.TryGetValue(above, out var list))
+                {
+                    beforeByVerb[above] = list = new List<ShellContextMenu.CustomItem>();
+                }
+                list.Add(item);
+            }
             else
             {
                 section.Add(item);
+            }
+        }
+        // 동반(Before) 항목을 해당 대체 항목에 붙인다 — 대체 위치 바로 위에 나열 순서대로.
+        for (int i = 0; i < replacements.Count; i++)
+        {
+            if (beforeByVerb.TryGetValue(replacements[i].Verb, out var before))
+            {
+                replacements[i] = replacements[i] with { Before = before };
             }
         }
         return (section, replacements);
@@ -3587,11 +3610,11 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(newTab);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        // 탭 폴더 복사 — 이름(리프)만 / 전체 경로.
-        var copyName = new MenuFlyoutItem { Text = Loc.T("tabctx.copyName") };
+        // 탭 폴더 복사 — 이름(리프)만 / 전체 경로. 파일 컨텍스트 메뉴와 같은 명칭(ctx.copyAs*)·같은 순서.
+        var copyName = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsFilename") };
         copyName.Click += (_, _) => CopyTextToClipboard(FolderLabel(tab.Current));
         flyout.Items.Add(copyName);
-        var copyPath = new MenuFlyoutItem { Text = Loc.T("tabctx.copyPath") };
+        var copyPath = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsPath") };
         copyPath.Click += (_, _) => CopyTextToClipboard(tab.Current);
         flyout.Items.Add(copyPath);
         flyout.Items.Add(new MenuFlyoutSeparator());
