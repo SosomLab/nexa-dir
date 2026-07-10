@@ -11,6 +11,10 @@
 
 ---
 
+## 2026-07-11
+
+- **클래식 설치기 setup.exe(PKG-5, `feat/packaging-setup`)**: MSIX 서명 조사(Azure Artifact Signing=한국 개인 불가 → Store 제출 또는 OV 클라우드 서명이 현실 경로, [TODO PKG-4](TODO.md)) 후 서명 확정 전 설치형 채널로 **Inno Setup** 채택 — `nexa-setup.iss`(사용자 단위 기본·언인스톨러·AppId 고정)+`make-setup.ps1`(설치형 self-contained 게시). CI `package` job이 zip+setup.exe를 빌드해 태그 릴리스에 **모두 자동 첨부**(Inno=러너 기본 포함, 로컬 빌드 불요). 상세 [journal/2026-07-11.md](journal/2026-07-11.md)·[docs/12 §7](12-packaging-portable.md).
+
 ## 2026-07-10
 
 - 🏷️ **릴리스 `0.3.1`**: CI `package` 잡에 Release 자동 첨부 단계 추가 후 태그 — **첫 바이너리 자산** `NexaDir-0.3.1-portable-win-x64.zip`(CI 빌드) 릴리스 동봉. 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
