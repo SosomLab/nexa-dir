@@ -141,9 +141,7 @@ internal sealed class FontOptions
     public string ConsoleFamily { get; set; } = "Consolas";
     public double ConsoleSize { get; set; } = 13;
 
-    /// <summary>경로(브레드크럼) 글꼴.</summary>
-    public string PathFamily { get; set; } = "Segoe UI";
-    public double PathSize { get; set; } = 12;
+    // 경로(브레드크럼)·탭 제목은 별도 슬롯 없이 기본 글꼴(Base)을 따른다(사용자 결정 2026-07-10).
 
     /// <summary>상태표시줄 글꼴.</summary>
     public string StatusFamily { get; set; } = "Segoe UI";

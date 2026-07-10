@@ -168,6 +168,9 @@
                             BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="L" x:Name="LeftTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <!-- 폰트 상속 루트(기본 글꼴) — 탭 제목 TextBlock이 이 컨트롤의 FontFamily/FontSize를 상속(ApplyFonts) -->
+                        <ContentControl x:Name="LeftTabsFontHost" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                         <Grid>
                         <ItemsRepeater x:Name="LeftTabs">
                             <ItemsRepeater.Layout>
@@ -200,8 +203,9 @@
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
                                                 <!-- 긴 폴더명은 탭 폭 안에서 끝에 …(말줄임)로 축약 -->
+                                                <!-- FontSize 미지정 — 폰트 상속 루트(TabsFontHost, 기본 글꼴)에서 상속 -->
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1"
                                                            VerticalAlignment="Center" />
                                                 <FontIcon Grid.Column="2" Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="4,0,0,0" Opacity="0.85" VerticalAlignment="Center"
@@ -218,6 +222,7 @@
                                        Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
+                        </ContentControl>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
@@ -307,6 +312,9 @@
                             BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="R" x:Name="RightTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <!-- 폰트 상속 루트(기본 글꼴) — 좌 탭 바와 동일(ApplyFonts) -->
+                        <ContentControl x:Name="RightTabsFontHost" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                         <Grid>
                         <ItemsRepeater x:Name="RightTabs">
                             <ItemsRepeater.Layout>
@@ -339,8 +347,9 @@
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
                                                 <!-- 긴 폴더명은 탭 폭 안에서 끝에 …(말줄임)로 축약 -->
+                                                <!-- FontSize 미지정 — 폰트 상속 루트(TabsFontHost, 기본 글꼴)에서 상속 -->
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1"
                                                            VerticalAlignment="Center" />
                                                 <FontIcon Grid.Column="2" Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="4,0,0,0" Opacity="0.85" VerticalAlignment="Center"
@@ -357,6 +366,7 @@
                                        Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
+                        </ContentControl>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">

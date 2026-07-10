@@ -583,17 +583,32 @@ public sealed partial class MainWindow : Window
     {
         var f = AppSettings.Fonts;
 
-        MainMenuBar.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(f.BaseFamily);
+        var baseFam = new Microsoft.UI.Xaml.Media.FontFamily(f.BaseFamily);
+        MainMenuBar.FontFamily = baseFam;
         MainMenuBar.FontSize = f.BaseSize;
         MainMenuBar.RefreshFonts();
         BottomLeftDockView.ApplyFonts();
         BottomRightDockView.ApplyFonts();
 
-        var pathFam = new Microsoft.UI.Xaml.Media.FontFamily(f.PathFamily);
+        // 경로(브레드크럼)·탭 제목 = 기본 글꼴(별도 슬롯 없음). 편집 모드는 EnterEdit가 컨트롤 폰트 복사.
         foreach (var bar in new[] { PathBarL, PathBarR })
         {
-            bar.FontFamily = pathFam;
-            bar.FontSize = f.PathSize;
+            bar.FontFamily = baseFam;
+            bar.FontSize = f.BaseSize;
+        }
+        foreach (var host in new[] { LeftTabsFontHost, RightTabsFontHost })
+        {
+            host.FontFamily = baseFam;
+            host.FontSize = f.BaseSize;
+        }
+        // 탭 높이 = 기본 글꼴 크기에서 계산(제목 줄높이 + 위 스트라이프 2 + 상하 패딩 2) — 12px → 20px.
+        double tabHeight = Math.Ceiling(f.BaseSize * 4.0 / 3.0) + 4;
+        foreach (var strip in new[] { LeftTabs, RightTabs })
+        {
+            if (strip.Layout is Microsoft.UI.Xaml.Controls.UniformGridLayout ugl)
+            {
+                ugl.MinItemHeight = tabHeight;
+            }
         }
 
         StatusText.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(f.StatusFamily);

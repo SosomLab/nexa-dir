@@ -37,8 +37,6 @@ internal sealed class FontSettings
     public double BaseSize { get; set; } = 12;
     public string ConsoleFamily { get; set; } = "Consolas";
     public double ConsoleSize { get; set; } = 13;
-    public string PathFamily { get; set; } = "Segoe UI";
-    public double PathSize { get; set; } = 12;
     public string StatusFamily { get; set; } = "Segoe UI";
     public double StatusSize { get; set; } = 12;
     public string ListFamily { get; set; } = "Segoe UI";
@@ -230,8 +228,6 @@ internal sealed class SettingsStore
         f.BaseSize = s.Fonts.BaseSize;
         f.ConsoleFamily = s.Fonts.ConsoleFamily;
         f.ConsoleSize = s.Fonts.ConsoleSize;
-        f.PathFamily = s.Fonts.PathFamily;
-        f.PathSize = s.Fonts.PathSize;
         f.StatusFamily = s.Fonts.StatusFamily;
         f.StatusSize = s.Fonts.StatusSize;
         f.ListFamily = s.Fonts.ListFamily;
@@ -280,8 +276,6 @@ internal sealed class SettingsStore
                 BaseSize = f.BaseSize,
                 ConsoleFamily = f.ConsoleFamily,
                 ConsoleSize = f.ConsoleSize,
-                PathFamily = f.PathFamily,
-                PathSize = f.PathSize,
                 StatusFamily = f.StatusFamily,
                 StatusSize = f.StatusSize,
                 ListFamily = f.ListFamily,
