@@ -291,6 +291,10 @@
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>
                     </ctrls:NexaFileGrid>
+
+                    <!-- 타입어헤드 검색어 HUD(docs/32 §7-A) — 목록 좌하단 플로팅, 타임아웃 자동 소거 -->
+                    <ctrls:EphemeralOverlay x:Name="TypeAheadHudL" Grid.Row="3"
+                                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,14" />
                 </Grid>
             </Border>
 
@@ -435,6 +439,10 @@
                             </DataTemplate>
                         </ctrls:NexaFileGrid.ItemTemplate>
                     </ctrls:NexaFileGrid>
+
+                    <!-- 타입어헤드 검색어 HUD — 우 패널용 -->
+                    <ctrls:EphemeralOverlay x:Name="TypeAheadHudR" Grid.Row="3"
+                                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,14" />
                 </Grid>
             </Border>
         </Grid>

@@ -38,6 +38,8 @@ public sealed partial class PreferencesWindow : Window
         InitializeComponent();
         _host = host;
         Title = Loc.T("pref.title");
+        // 창/작업표시줄 아이콘 — 미지정 시 .NET 기본 아이콘이 떠서 앱 아이콘으로(메인 창과 동일 경로). 실패 무해.
+        try { AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon", "nexa-dir.ico")); } catch { }
         AppWindow.Resize(new SizeInt32(880, 640));
         SearchBox.PlaceholderText = Loc.T("pref.search.placeholder");
 
@@ -104,6 +106,7 @@ public sealed partial class PreferencesWindow : Window
         new("list", "pref.list.typeahead", TypeAheadRadios),
         new("list", "pref.list.typeaheadTimeout", () => NumberRow("pref.list.typeaheadTimeout",
             AppSettings.View.TypeAheadTimeoutMs, 200, 5000, 100, v => AppSettings.View.TypeAheadTimeoutMs = (long)v)),
+        new("list", "pref.list.hudPos", HudPositionPicker),   // 우측에 입력 옵션 3종 동반 배치
         // 탭
         new("tabs", "pref.tabs.doubleClick", TabDoubleClickCombo),
         // 도구 모음(docs/44) — 그룹/항목 순서 편집기
@@ -462,6 +465,110 @@ public sealed partial class PreferencesWindow : Window
         ("pref.list.typeahead.current", AppSettings.View.TypeAheadScope == 1, () => AppSettings.View.TypeAheadScope = 1),
         ("pref.list.typeahead.visible", AppSettings.View.TypeAheadScope == 2, () => AppSettings.View.TypeAheadScope = 2),
     });
+
+    /// <summary>타입어헤드 검색어 HUD 위치(3×3) — <b>매트릭스 타일 피커</b>: 각 타일은 미니 패널 안의
+    /// 배지 점 위치를 그대로 보여주고(머티리얼풍 라운드·강조색 선택), 클릭으로 선택·즉시 반영.</summary>
+    private FrameworkElement HudPositionPicker()
+    {
+        var root = new StackPanel { Spacing = 6 };
+        root.Children.Add(new TextBlock { Text = Loc.T("pref.list.hudPos"), Opacity = 0.7 });
+
+        var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3D, 0x8B, 0xFF));       // 선택 100%(NexaAccent)
+        var accentSoft = new SolidColorBrush(Windows.UI.Color.FromArgb(0x2E, 0x3D, 0x8B, 0xFF));
+        var accentHover = new SolidColorBrush(Windows.UI.Color.FromArgb(0x80, 0x3D, 0x8B, 0xFF));  // hover 50%
+        var accentHoverBg = new SolidColorBrush(Windows.UI.Color.FromArgb(0x17, 0x3D, 0x8B, 0xFF));
+        var idleBorder = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0x80, 0x80, 0x80));   // 미선택 회색
+        var idleDot = new SolidColorBrush(Windows.UI.Color.FromArgb(0x99, 0x80, 0x80, 0x80));
+
+        string[] tipKeys =
+        {
+            "pos.topLeft", "pos.top", "pos.topRight",
+            "pos.left", "pos.center", "pos.right",
+            "pos.bottomLeft", "pos.bottom", "pos.bottomRight",
+        };
+        var grid = new Grid { ColumnSpacing = 6, RowSpacing = 6, HorizontalAlignment = HorizontalAlignment.Left };
+        for (int i = 0; i < 3; i++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        }
+
+        // 타일은 Button이 아니라 Border — Button 템플릿의 PointerOver 상태가 잠시 뒤 우리 hover 색을
+        // 덮어써 "짧게 보였다 사라지던" 문제 회피(Border는 시각 상태 템플릿이 없어 지정 색이 유지됨).
+        var transparent = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        var tiles = new (Border Tile, Border Dot)[9];
+        void Refresh()
+        {
+            int sel = (int)AppSettings.View.TypeAheadHudPosition;
+            for (int i = 0; i < 9; i++)
+            {
+                bool on = i == sel;
+                tiles[i].Tile.Background = on ? accentSoft : transparent;
+                tiles[i].Tile.BorderBrush = on ? accent : idleBorder;
+                tiles[i].Dot.Background = on ? accent : idleDot;
+            }
+        }
+
+        for (int i = 0; i < 9; i++)
+        {
+            int idx = i;
+            var dot = new Border
+            {
+                Width = 8,
+                Height = 8,
+                CornerRadius = new CornerRadius(2.5),
+                Margin = new Thickness(4),
+                HorizontalAlignment = (i % 3) switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right },
+                VerticalAlignment = (i / 3) switch { 0 => VerticalAlignment.Top, 1 => VerticalAlignment.Center, _ => VerticalAlignment.Bottom },
+            };
+            var tile = new Border
+            {
+                Width = 32,
+                Height = 32,
+                CornerRadius = new CornerRadius(5),
+                BorderThickness = new Thickness(1),
+                Child = dot,
+            };
+            ToolTipService.SetToolTip(tile, Loc.T(tipKeys[i]));
+            tile.Tapped += (_, _) =>
+            {
+                AppSettings.View.TypeAheadHudPosition = (HudPosition)idx;
+                Refresh();
+                Changed();
+            };
+            // hover = 강조색 50%(벗어날 때까지 유지) / 선택 = 100% / 미선택 = 회색(Refresh 복원).
+            tile.PointerEntered += (_, _) =>
+            {
+                if ((int)AppSettings.View.TypeAheadHudPosition != idx)
+                {
+                    tiles[idx].Tile.BorderBrush = accentHover;
+                    tiles[idx].Tile.Background = accentHoverBg;
+                    tiles[idx].Dot.Background = accentHover;
+                }
+            };
+            tile.PointerExited += (_, _) => Refresh();
+            Grid.SetRow(tile, i / 3);
+            Grid.SetColumn(tile, i % 3);
+            grid.Children.Add(tile);
+            tiles[i] = (tile, dot);
+        }
+        Refresh();
+
+        // 매트릭스 우측에 타입어헤드 입력 옵션 3종 배치(사용자 요청) — 세로 중앙 정렬.
+        var options = new StackPanel { Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        options.Children.Add(CheckRow("pref.list.taSpecial",
+            AppSettings.View.TypeAheadSpecialChars, v => AppSettings.View.TypeAheadSpecialChars = v));
+        options.Children.Add(CheckRow("pref.list.taSpace",
+            AppSettings.View.TypeAheadSpace, v => AppSettings.View.TypeAheadSpace = v));
+        options.Children.Add(CheckRow("pref.list.taBackspace",
+            AppSettings.View.TypeAheadBackspace, v => AppSettings.View.TypeAheadBackspace = v));
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20 };
+        row.Children.Add(grid);
+        row.Children.Add(options);
+        root.Children.Add(row);
+        return root;
+    }
 
     // ── 탭 ───────────────────────────────────────────────────────────
     private FrameworkElement TabDoubleClickCombo()

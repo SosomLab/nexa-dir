@@ -74,6 +74,18 @@ internal sealed class ViewOptions
     /// <summary>타입어헤드 입력 버퍼 리셋·검색어 표시 소거 타임아웃(ms, 기본 1000). 설정 UI 예정.</summary>
     public long TypeAheadTimeoutMs { get; set; } = 1000;
 
+    /// <summary>타입어헤드 검색어 HUD 표시 위치(3×3, 기본 좌하 — docs/32 §7-A).</summary>
+    public HudPosition TypeAheadHudPosition { get; set; } = HudPosition.BottomLeft;
+
+    /// <summary>타입어헤드에 특수문자(파일명 허용, Space 제외) 포함(기본 true — false면 영숫자만).</summary>
+    public bool TypeAheadSpecialChars { get; set; } = true;
+
+    /// <summary>타입어헤드에 Space 포함(접두사 진행 중일 때만 누적, 기본 true — false면 항상 선택 토글).</summary>
+    public bool TypeAheadSpace { get; set; } = true;
+
+    /// <summary>Backspace로 타입어헤드 접두사 한 글자 지우기(기본 true).</summary>
+    public bool TypeAheadBackspace { get; set; } = true;
+
     /// <summary>경로 바 아래 "현재 경로 — N개 항목" 헤더 줄 표시 여부(기본 <c>false</c>=감춤).
     /// 표시(S) 메뉴 토글로 변경, 설정 UI 노출은 후속.</summary>
     public bool ShowPathHeader { get; set; }
@@ -107,6 +119,20 @@ internal sealed class GeneralOptions
 {
     /// <summary>UI 언어 코드. "" = 시스템 UI 문화 추종, "ko"/"en" = 강제. 변경은 재시작 후 완전 반영.</summary>
     public string Culture { get; set; } = string.Empty;
+}
+
+/// <summary>HUD(EphemeralOverlay) 표시 위치 — 3×3 격자(기본 좌하).</summary>
+internal enum HudPosition
+{
+    TopLeft = 0,
+    TopCenter = 1,
+    TopRight = 2,
+    MiddleLeft = 3,
+    Center = 4,
+    MiddleRight = 5,
+    BottomLeft = 6,
+    BottomCenter = 7,
+    BottomRight = 8,
 }
 
 /// <summary>테마 모드(docs/39). System=OS 설정 추종.</summary>

@@ -70,8 +70,8 @@ public sealed partial class MainWindow : Window
         DirGrid.SortRequested += d => OnSortRequested(true, d);
         DirGrid2.SortRequested += d => OnSortRequested(false, d);
         // 타입어헤드(docs/32 TA-5): 문자 입력 → 버퍼 → find_prefix → 선택 이동(패널별 버퍼).
-        DirGrid.CharacterReceived += (_, e) => OnTypeAhead(true, e);
-        DirGrid2.CharacterReceived += (_, e) => OnTypeAhead(false, e);
+        // 트리거는 OnGridKeyDown(전역 KeyDown, 활성 패널 기준)에서 영숫자 합성 — CharacterReceived는
+        // WinUI에서 포커스 요소에만 발화(비버블)라 전역 수신 불가(실기 검증: 방향키는 오고 문자만 안 옴).
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -92,7 +92,8 @@ public sealed partial class MainWindow : Window
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
         ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
-        ApplyTheme();                  // 테마 모드 적용(기본 라이트 — docs/39, 구성 메뉴에서 전환)
+        ApplyHudPosition();            // 타입어헤드 HUD 위치(설정, 기본 좌하)
+        ApplyTheme();                  // 테마 모드 적용(기본 System — docs/39, 구성 메뉴에서 전환)
         ApplyFonts();                  // 설정 글꼴 6종 슬롯 적용(메뉴/경로/상태바/목록/헤더/하단, PREF-3)
         InitContextMenuRegistry();     // 커스텀 컨텍스트 메뉴 항목 레지스트리(docs/38 §7)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
@@ -206,6 +207,7 @@ public sealed partial class MainWindow : Window
         ApplyFonts();         // 글꼴 슬롯 라이브 적용(PREF-3)
         BuildToolbar();       // 도구 모음 그룹/항목 순서 라이브 반영(docs/44)
         ApplyPathHeaderVisibility();
+        ApplyHudPosition();   // 타입어헤드 HUD 위치(3×3) 라이브 반영
         SyncViewMenuChecks();
         // 생성자에서 1회만 읽던 dwell 시간(B-15h)도 라이브 재반영.
         _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
@@ -421,24 +423,84 @@ public sealed partial class MainWindow : Window
     /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
     /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
     /// </summary>
-    private void OnTypeAhead(bool left, CharacterReceivedRoutedEventArgs e)
+    /// <summary>타입어헤드 HUD(EphemeralOverlay) 위치 적용 — 설정 3×3 격자(docs/32 §7-A). 가장자리 여백 20/14px.</summary>
+    private void ApplyHudPosition()
     {
-        // 이름 편집 박스가 포커스면(편집 중) 타입어헤드 금지 — 편집 텍스트가 처리.
-        if (e.OriginalSource is TextBox || IsCtrlDown() || IsAltDown())
+        var pos = AppSettings.View.TypeAheadHudPosition;
+        HorizontalAlignment h = pos switch
         {
-            return;
+            HudPosition.TopLeft or HudPosition.MiddleLeft or HudPosition.BottomLeft => HorizontalAlignment.Left,
+            HudPosition.TopRight or HudPosition.MiddleRight or HudPosition.BottomRight => HorizontalAlignment.Right,
+            _ => HorizontalAlignment.Center,
+        };
+        VerticalAlignment v = pos switch
+        {
+            HudPosition.TopLeft or HudPosition.TopCenter or HudPosition.TopRight => VerticalAlignment.Top,
+            HudPosition.BottomLeft or HudPosition.BottomCenter or HudPosition.BottomRight => VerticalAlignment.Bottom,
+            _ => VerticalAlignment.Center,
+        };
+        var margin = new Thickness(
+            h == HorizontalAlignment.Left ? 20 : 0,
+            v == VerticalAlignment.Top ? 14 : 0,
+            h == HorizontalAlignment.Right ? 20 : 0,
+            v == VerticalAlignment.Bottom ? 14 : 0);
+        foreach (var hud in new[] { TypeAheadHudL, TypeAheadHudR })
+        {
+            hud.HorizontalAlignment = h;
+            hud.VerticalAlignment = v;
+            hud.Margin = margin;
         }
+    }
+
+    /// <summary>KeyDown → 타입어헤드 문자 변환(미국식 배열 기준). 파일명에 못 쓰는 문자
+    /// (\ / : * ? " &lt; &gt; |)는 제외('\0'). Space는 호출부가 진행 중일 때만 통과시킨다.</summary>
+    private static char TypeAheadKeyToChar(VirtualKey key, bool shift) => key switch
+    {
+        >= VirtualKey.A and <= VirtualKey.Z => (char)('a' + (key - VirtualKey.A)),
+        VirtualKey.Number1 when shift => '!',
+        VirtualKey.Number2 when shift => '@',
+        VirtualKey.Number3 when shift => '#',
+        VirtualKey.Number4 when shift => '$',
+        VirtualKey.Number5 when shift => '%',
+        VirtualKey.Number6 when shift => '^',
+        VirtualKey.Number7 when shift => '&',
+        VirtualKey.Number9 when shift => '(',
+        VirtualKey.Number0 when shift => ')',
+        >= VirtualKey.Number0 and <= VirtualKey.Number9 when !shift => (char)('0' + (key - VirtualKey.Number0)),
+        >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 => (char)('0' + (key - VirtualKey.NumberPad0)),
+        VirtualKey.Add => '+',
+        VirtualKey.Subtract => '-',
+        VirtualKey.Decimal => '.',
+        (VirtualKey)0xBD => shift ? '_' : '-',    // OEM_MINUS
+        (VirtualKey)0xBB => shift ? '+' : '=',    // OEM_PLUS
+        (VirtualKey)0xBE when !shift => '.',      // OEM_PERIOD ('>' 파일명 불가)
+        (VirtualKey)0xBC when !shift => ',',      // OEM_COMMA ('<' 불가)
+        (VirtualKey)0xBA when !shift => ';',      // OEM_1 (':' 불가)
+        (VirtualKey)0xDE when !shift => '\'',     // OEM_7 ('"' 불가)
+        (VirtualKey)0xDB => shift ? '{' : '[',    // OEM_4
+        (VirtualKey)0xDD => shift ? '}' : ']',    // OEM_6
+        (VirtualKey)0xC0 => shift ? '~' : '`',    // OEM_3
+        VirtualKey.Space => ' ',                  // 접두사 진행 중일 때만(호출부 판정)
+        VirtualKey.Back => '\b',
+        _ => '\0',
+    };
+
+    /// <summary>타입어헤드 문자 처리(docs/32) — OnGridKeyDown(전역 KeyDown)에서 합성된
+    /// 문자/Backspace를 활성 패널 버퍼에 누적하고 매치로 이동. 소비했으면 true.
+    /// (IME 한글 매칭은 후속 §9 — CharacterReceived가 포커스 전용이라 전역 경로 없음.)</summary>
+    private bool TypeAheadChar(bool left, char c)
+    {
         var panel = Panel(left);
-        char c = e.Character;
+        var hud = left ? TypeAheadHudL : TypeAheadHudR;   // 검색어 HUD(docs/32 §7-A) — 해당 패널 좌하단
         long now = Environment.TickCount64;
         string prefix;
         if (c == '\b')                    // Backspace = 접두사 축소
         {
+            if (hud.Visibility != Visibility.Visible)
+            {
+                return false;   // 진행 중 접두사 없음 → Backspace는 소비하지 않음(다른 용도 보존)
+            }
             prefix = panel.TypeAhead.Backspace(now);
-        }
-        else if (c == ' ' || c < ' ')     // Space 제외 + 제어문자 제외
-        {
-            return;
         }
         else
         {
@@ -446,21 +508,24 @@ public sealed partial class MainWindow : Window
         }
         if (prefix.Length == 0)
         {
-            return;   // 빈 접두사(전부 지움) → 무동작
+            hud.Clear();
+            return true;   // 빈 접두사(전부 지움) — 키는 소비
         }
+        // 매치 실패여도 버퍼를 계속 표시(오타 인지, docs/32 §7 결정 5). 소거 = 버퍼 리셋과 동일 타임아웃.
+        hud.Timeout = TimeSpan.FromMilliseconds(AppSettings.View.TypeAheadTimeoutMs);
+        hud.Show(prefix);
         int caret = panel.Items.CaretIndex;
         // 확장(refine)=현재 캐럿 포함(캐럿-1로 시작), 새 시작·반복키=캐럿 다음(이동/cycle).
         int searchCaret = panel.TypeAhead.IsExtend ? (caret >= 0 ? caret - 1 : -1) : caret;
         int hit = panel.Items.FindPrefix(searchCaret, prefix, AppSettings.View.TypeAheadScope);
         if (hit >= 0)
         {
-            SetActivePanel(left);
             panel.Items.Select(panel.Items[hit], 0);   // 단일 선택
             panel.Items.SetCaret(hit);
             panel.Grid.BringIndexIntoView(hit);
             UpdateSelectionCount(panel.Items);
         }
-        e.Handled = true;
+        return true;
     }
 
     /// <summary>
@@ -792,12 +857,22 @@ public sealed partial class MainWindow : Window
         {
             Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);   // → OnRenameLostFocus → CommitRename
         }
-        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4).
+        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4)
+        // + 그 패널 그리드로 **키보드 포커스 회수**. 터미널이 한 번 포커스를 가지면(위치 이동 등)
+        // 파일 영역을 클릭해도 포커스가 남아 방향키/타입어헤드가 전부 터미널 소유로 차단되던 문제
+        // (사용자 QA: "위/아래 누르면 터미널이 포커스됨·키 입력 안 됨") — 클릭 시 명시 회수로 해소.
         if ((props.IsLeftButtonPressed || props.IsRightButtonPressed)
-            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft
-            && _activeLeft != paneLeft)
+            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft)
         {
-            SetActivePanel(paneLeft);
+            if (_activeLeft != paneLeft)
+            {
+                SetActivePanel(paneLeft);
+            }
+            // 이름변경 편집기(TextBox) 안 클릭은 편집이 포커스를 가져야 하므로 제외.
+            if (e.OriginalSource is not TextBox && !IsWithinRenameEditor(e.OriginalSource as DependencyObject))
+            {
+                Panel(paneLeft).Grid.Focus(FocusState.Programmatic);
+            }
         }
         if (e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
         {
@@ -3876,6 +3951,33 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // 타입어헤드(문자 합성) — 파일명 허용 문자 전체를 KeyDown에서 변환해 위임(docs/32).
+        // CharacterReceived는 포커스 요소 전용(비버블)이라 전역 수신 불가 → 방향키와 같은 검증된 경로 사용.
+        // Ctrl/Alt 조합은 단축키 영역이라 제외. Space는 **접두사 진행 중일 때만** 포함(평상시=선택 토글 유지).
+        if (!IsCtrlDown() && !IsAltDown())
+        {
+            char ch = TypeAheadKeyToChar(e.Key, IsShiftDown());
+            var ta = AppSettings.View;
+            if (ch == '\b' && !ta.TypeAheadBackspace)
+            {
+                ch = '\0';   // 설정: Backspace 미적용
+            }
+            else if (ch == ' ' && (!ta.TypeAheadSpace
+                || (_activeLeft ? TypeAheadHudL : TypeAheadHudR).Visibility != Visibility.Visible))
+            {
+                ch = '\0';   // 설정 OFF 또는 진행 중 접두사 없음 → Space는 선택 토글로(아래 space 분기)
+            }
+            else if (ch != '\0' && ch != '\b' && ch != ' ' && !char.IsLetterOrDigit(ch) && !ta.TypeAheadSpecialChars)
+            {
+                ch = '\0';   // 설정: 영숫자만
+            }
+            if (ch != '\0' && TypeAheadChar(_activeLeft, ch))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
         bool space = e.Key == VirtualKey.Space;
         bool vertical = e.Key == VirtualKey.Up || e.Key == VirtualKey.Down;
         bool horizontal = e.Key == VirtualKey.Left || e.Key == VirtualKey.Right;
@@ -4187,7 +4289,7 @@ public sealed partial class MainWindow : Window
             {
                 it.Name,
                 Loc.T("info.kind", it.KindText),
-                it.IsDir ? null : Loc.T("info.size", it.SizeLabel),
+                it.IsDir ? null : Loc.T("info.size", it.SizeBytesLabel),   // 정보 패널=원시 바이트(Byte/Bytes)
                 string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : Loc.T("info.modified", it.ModifiedDateTimeLabel),
                 Loc.T("info.path", it.FullPath),
             };

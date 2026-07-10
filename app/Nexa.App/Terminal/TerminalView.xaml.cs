@@ -109,14 +109,19 @@ public sealed partial class TerminalView : UserControl
         }
     }
 
-    /// <summary>세션 시작(lazy — 터미널 탭 활성 시에만). 이미 시작이면 포커스만.
+    /// <summary>세션 시작(lazy — 터미널 탭 활성 시에만). 이미 시작이면 <paramref name="focus"/>일 때만 포커스.
+    /// <para><paramref name="focus"/>=false는 <b>속성 갱신 재렌더 경로</b>(선택 변경 → 도크 정보 갱신 등)용 —
+    /// 이 경로가 포커스를 훔치면 파일 목록에서 방향키/타입어헤드 입력이 매번 터미널로 넘어간다(QA 버그).</para>
     /// <b>레이아웃 전(ActualSize 0)이면 첫 실측 후로 지연</b> — 최소 격자(20×5)로 세션이 열리고 곧바로
     /// 리사이즈되며 초기 출력이 어긋나던 문제(상단 잘림·캐럿 행 불일치) 방지.</summary>
-    public void Start()
+    public void Start(bool focus = true)
     {
         if (_started)
         {
-            FocusSoon();
+            if (focus)
+            {
+                FocusSoon();
+            }
             return;
         }
         if (ActualHeight < 1 || ActualWidth < 1)
@@ -126,7 +131,10 @@ public sealed partial class TerminalView : UserControl
         }
         _started = true;
         StartSession(reset: true);
-        FocusSoon();
+        if (focus)
+        {
+            FocusSoon();
+        }
     }
 
     private void StartWhenSized(object sender, SizeChangedEventArgs e)
