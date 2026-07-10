@@ -1,6 +1,6 @@
 # 32 · 타입어헤드 찾기(Type-ahead find) — 설계 방향
 
-> 상태: **설계 확정(구현 대기)** — 사용자 결정 반영(2026-07-03): 범위 A/B/C 설정선택(기본 C)·Space 제외·IME 확정문자·타임아웃 1000ms 설정화·**휘발성 검색어 표시 전용 컨트롤 `EphemeralOverlay`**.
+> 상태: **구현 완료**(§10 단계 1~5, 2026-07-04~07-10) — 코어 find_prefix(A/B/C)·버퍼·설정(범위/타임아웃, 설정 창 노출)·전역 배선(활성 패널 기준)·검색어 HUD(EphemeralOverlay). 잔여=§9 후속.
 > 원 요청 — "탐색기 키보드 Start-with 찾기를 도입하되 **단레벨 vs 다레벨** 차이를 설계로 정리."
 > 관련: [26 커맨드팔레트/키바인딩](26-command-palette.md) · [24 검색](24-search.md) · [29 코어 트리 모델](29-adr-0004-core-tree-model.md) · [STATUS](STATUS.md).
 
@@ -123,8 +123,8 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 **구현 단위(순차, 각 커밋)**:
 1. ✅ 코어 `nexa-tree.find_prefix(caret, prefix, scope)` + ABI(`nexa_tree_find_prefix`, **v6→v7**) + 관리형(`TreeFindPrefix`/`VirtualTreeCollection.FindPrefix`) — A/B/C 3범위, **맥 단위테스트**(코어 3·인터롭 1). `FindScope` enum, `Node.parent` 실사용 승격. (2026-07-04)
 2. ✅ `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — **맥 단위테스트 7**. `IsExtend`(확장=현재 포함/새·반복=다음). (2026-07-05)
-3. ⏸ `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — **이동 자체엔 불필요(뒤로)**. 검색어 시각 표시용 후속.
+3. ✅ `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — 검색 아이콘+텍스트 배지, Show/Clear/Timeout 자동 소거. 각 패널 목록 좌하단 배치, 매치 실패에도 버퍼 유지 표시(§7 결정 5), 소거=버퍼 리셋 타임아웃 동기. (2026-07-10, `feat/typeahead-hud`)
 4. ✅ `ViewOptions.TypeAheadScope`(기본 2=C)/`TypeAheadTimeoutMs`(1000) 추가. (2026-07-05)
-5. ✅ 앱 배선 — `NexaFileGrid.CharacterReceived` → `OnTypeAhead(left, e)`: 가드(편집 TextBox·Ctrl/Alt·Space·제어문자) → 패널별 `PanelView.TypeAhead` 버퍼 → `Items.FindPrefix(searchCaret, prefix, scope)` → 단일 선택+캐럿+스크롤. `IsExtend`면 캐럿 포함(캐럿-1), 아니면 캐럿 다음. **실기 QA 대기**(Windows). (2026-07-05)
+5. ✅ 앱 배선 — ~~그리드 `CharacterReceived`(포커스 의존)~~ → **RootGrid 전역 버블 수신 → 활성 패널 기준**(방향키와 동일 규약, 2026-07-10 재배선 — 포커스가 경로 바 등으로 가면 무반응이던 문제 해소): 가드(터미널/TextBox 소유·Ctrl/Alt·Space·제어문자) → 패널별 `PanelView.TypeAhead` 버퍼 → `Items.FindPrefix(searchCaret, prefix, scope)` → 단일 선택+캐럿+스크롤. `IsExtend`면 캐럿 포함(캐럿-1), 아니면 캐럿 다음.
 
-> **1·2·4·5 완료 → 타이핑 이동 배선됨(Windows 빌드 후 동작).** 3(HUD 표시)만 후속. 방향키 이동과 독립.
+> **1~5 전부 구현 완료(2026-07-10).** 잔여 후속 = 한글 초성·IME 미리보기·매치 없음 소리·UIA 알림(§9).
