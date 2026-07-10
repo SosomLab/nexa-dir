@@ -70,8 +70,10 @@ public sealed partial class MainWindow : Window
         DirGrid.SortRequested += d => OnSortRequested(true, d);
         DirGrid2.SortRequested += d => OnSortRequested(false, d);
         // 타입어헤드(docs/32 TA-5): 문자 입력 → 버퍼 → find_prefix → 선택 이동(패널별 버퍼).
-        DirGrid.CharacterReceived += (_, e) => OnTypeAhead(true, e);
-        DirGrid2.CharacterReceived += (_, e) => OnTypeAhead(false, e);
+        // 전역(RootGrid 버블) 수신 → **활성 패널** 기준 — 방향키와 동일 규약. (그리드 포커스에
+        // 의존하던 이전 배선은 포커스가 경로 바/도구 버튼 등으로 가면 무반응이던 원인.)
+        RootGrid.AddHandler(UIElement.CharacterReceivedEvent,
+            new Windows.Foundation.TypedEventHandler<UIElement, CharacterReceivedRoutedEventArgs>(OnGlobalTypeAhead), handledEventsToo: false);
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -421,6 +423,17 @@ public sealed partial class MainWindow : Window
     /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
     /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
     /// </summary>
+    /// <summary>전역 문자 수신(RootGrid 버블) → 활성 패널 타입어헤드. 터미널/TextBox(경로 편집·
+    /// 이름변경·설정 창 입력)가 키보드를 소유 중이면 미개입.</summary>
+    private void OnGlobalTypeAhead(UIElement sender, CharacterReceivedRoutedEventArgs e)
+    {
+        if (e.Handled || IsKeyboardOwnedByInput())
+        {
+            return;
+        }
+        OnTypeAhead(_activeLeft, e);
+    }
+
     private void OnTypeAhead(bool left, CharacterReceivedRoutedEventArgs e)
     {
         // 이름 편집 박스가 포커스면(편집 중) 타입어헤드 금지 — 편집 텍스트가 처리.
@@ -429,6 +442,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         var panel = Panel(left);
+        var hud = left ? TypeAheadHudL : TypeAheadHudR;   // 검색어 HUD(docs/32 §7-A) — 해당 패널 좌하단
         char c = e.Character;
         long now = Environment.TickCount64;
         string prefix;
@@ -446,8 +460,12 @@ public sealed partial class MainWindow : Window
         }
         if (prefix.Length == 0)
         {
+            hud.Clear();
             return;   // 빈 접두사(전부 지움) → 무동작
         }
+        // 매치 실패여도 버퍼를 계속 표시(오타 인지, docs/32 §7 결정 5). 소거 = 버퍼 리셋과 동일 타임아웃.
+        hud.Timeout = TimeSpan.FromMilliseconds(AppSettings.View.TypeAheadTimeoutMs);
+        hud.Show(prefix);
         int caret = panel.Items.CaretIndex;
         // 확장(refine)=현재 캐럿 포함(캐럿-1로 시작), 새 시작·반복키=캐럿 다음(이동/cycle).
         int searchCaret = panel.TypeAhead.IsExtend ? (caret >= 0 ? caret - 1 : -1) : caret;
