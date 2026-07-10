@@ -134,6 +134,7 @@
   "rename.selectFirst": "이름을 바꿀 항목을 먼저 선택하세요",
   "ctx.copyAsPath": "경로 복사",
   "ctx.copyAsName": "이름 복사",
+  "ctx.openInTerminal": "터미널에서 열기 (내장)",
   "ctx.pasteInto": "폴더에 붙여넣기",
   "ctx.rename": "이름 바꾸기(F2)",
   "ctx.deletePermanent": "완전 삭제(Shift+Del)",

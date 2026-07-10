@@ -129,6 +129,7 @@
   "rename.selectFirst": "Select an item to rename first",
   "ctx.copyAsPath": "Copy as path",
   "ctx.copyAsName": "Copy as name",
+  "ctx.openInTerminal": "Open in terminal (embedded)",
   "ctx.pasteInto": "Paste into folder",
   "ctx.rename": "Rename (F2)",
   "ctx.deletePermanent": "Delete permanently (Shift+Del)",

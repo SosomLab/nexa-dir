@@ -403,9 +403,11 @@ public sealed partial class TerminalView : UserControl
         {
             return;
         }
-        _selEnd = HitCell(e.GetCurrentPoint(Scroll).Position);
+        var pos = e.GetCurrentPoint(Scroll).Position;
+        _selEnd = HitCell(pos);
         _hasSelection = _selEnd != _selAnchor;
         RenderSelection();
+        UpdateSelAutoScroll(pos);   // 뷰포트 가장자리 대기 → 자동 스크롤(오프스크린 선택)
     }
 
     private void OnTermPointerReleased(object sender, PointerRoutedEventArgs e)
@@ -414,11 +416,55 @@ public sealed partial class TerminalView : UserControl
         if (_selecting)
         {
             _selecting = false;
+            _selScrollTimer?.Stop();
             ReleasePointerCaptures();
             if (!_hasSelection)
             {
                 ClearSelection();
             }
+        }
+    }
+
+    // ── 선택 드래그 자동 스크롤 — 뷰포트 밖(위/아래) 내용도 선택 가능하게(파일 목록 B-11과 동일 UX) ──
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _selScrollTimer;
+    private double _selScrollDelta;                    // 틱당 스크롤(px, 부호=방향)
+    private Windows.Foundation.Point _selLastPos;      // Scroll 기준 마지막 포인터 위치(틱마다 재판정)
+
+    /// <summary>선택 드래그 중 포인터가 뷰포트 상/하단 가장자리에 있으면 자동 스크롤 타이머 가동 —
+    /// 틱마다 스크롤을 밀고 같은 포인터 위치로 선택 끝을 재계산해 하이라이트를 늘린다.</summary>
+    private void UpdateSelAutoScroll(Windows.Foundation.Point pos)
+    {
+        const double edge = 24;    // 가장자리 감지 폭(px)
+        const double speed = 40;   // 틱당 스크롤(px)
+        _selLastPos = pos;
+        double h = Scroll.ActualHeight;
+        _selScrollDelta = pos.Y < edge ? -speed : (pos.Y > h - edge ? speed : 0);
+        if (_selScrollDelta == 0)
+        {
+            _selScrollTimer?.Stop();
+            return;
+        }
+        if (_selScrollTimer is null)
+        {
+            _selScrollTimer = _dispatcher.CreateTimer();
+            _selScrollTimer.Interval = TimeSpan.FromMilliseconds(60);
+            _selScrollTimer.IsRepeating = true;
+            _selScrollTimer.Tick += (_, _) =>
+            {
+                if (!_selecting)
+                {
+                    _selScrollTimer!.Stop();
+                    return;
+                }
+                Scroll.ChangeView(null, Scroll.VerticalOffset + _selScrollDelta, null, disableAnimation: true);
+                _selEnd = HitCell(_selLastPos);   // 새 오프셋 기준 같은 화면 위치 = 더 위/아래 라인
+                _hasSelection = _selEnd != _selAnchor;
+                RenderSelection();
+            };
+        }
+        if (!_selScrollTimer.IsRunning)
+        {
+            _selScrollTimer.Start();
         }
     }
 
