@@ -4215,7 +4215,7 @@ public sealed partial class MainWindow : Window
             {
                 it.Name,
                 Loc.T("info.kind", it.KindText),
-                it.IsDir ? null : Loc.T("info.size", it.SizeLabel),
+                it.IsDir ? null : Loc.T("info.size", it.SizeBytesLabel),   // 정보 패널=원시 바이트(Byte/Bytes)
                 string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : Loc.T("info.modified", it.ModifiedDateTimeLabel),
                 Loc.T("info.path", it.FullPath),
             };

@@ -83,6 +83,11 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>유효 3자리(1.39 → 13.9 → 139) — StrFormatByteSize 관례.</summary>
     private static string Sig3(double v) => v.ToString(v < 10 ? "0.##" : v < 100 ? "0.#" : "0");
 
+    /// <summary>정보 패널용 원시 바이트 표기 — "13,014 Bytes"(1이면 "1 Byte"). 폴더는 빈 문자열.</summary>
+    public string SizeBytesLabel => Kind == NexaFileKind.Dir
+        ? string.Empty
+        : $"{Size:N0} {(Size == 1 ? "Byte" : "Bytes")}";
+
     /// <summary>깊이별 들여쓰기 폭(px). 이름 셀 앞 여백.</summary>
     public double IndentWidth => Depth * 16;
 
