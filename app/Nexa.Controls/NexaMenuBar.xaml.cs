@@ -21,10 +21,23 @@ namespace Nexa.Controls;
 public sealed partial class NexaMenuBar : UserControl
 {
     private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
-    // 흰색 메뉴 바 기준: 활성 헤더 = 연한 파랑(고전 Windows 메뉴), 헤더/항목 텍스트 = 어두운색.
-    private static readonly SolidColorBrush ActiveHeaderBrush = new(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
-    private static readonly SolidColorBrush ItemHoverBrush = new(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
-    private static readonly SolidColorBrush ItemTextBrush = new(Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A));
+
+    // 색은 호스트 앱 테마 토큰(NexaMenu*, App.xaml ThemeDictionaries)에서 ActualTheme 기준으로 조회 —
+    // 다크 모드에서 어두운 텍스트가 안 보이던 하드코딩 제거. 토큰이 없으면 라이트 기본값 폴백.
+    private Brush MenuTextBrush => ThemeBrush("NexaMenuTextBrush", Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A));
+    private Brush MenuHoverBrush => ThemeBrush("NexaMenuHoverBrush", Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7));
+
+    /// <summary>호스트 앱 테마 사전에서 브러시 조회(현재 <see cref="FrameworkElement.ActualTheme"/> 기준).</summary>
+    private Brush ThemeBrush(string key, Color fallback)
+    {
+        string theme = ActualTheme == ElementTheme.Dark ? "Dark" : "Light";
+        if (Application.Current.Resources.ThemeDictionaries.TryGetValue(theme, out object? dict)
+            && dict is ResourceDictionary rd && rd.TryGetValue(key, out object? value) && value is Brush brush)
+        {
+            return brush;
+        }
+        return new SolidColorBrush(fallback);
+    }
 
     private readonly List<Button> _headers = new();
     private readonly List<char> _mnemonics = new();   // 각 메뉴의 Alt 단축 문자(대문자), 없으면 '\0'
@@ -38,6 +51,8 @@ public sealed partial class NexaMenuBar : UserControl
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        // 라이트/다크 전환 시 헤더 색 재적용(드롭다운 항목은 열 때마다 생성이라 자동 반영).
+        ActualThemeChanged += (_, _) => { CloseMenu(); if (IsLoaded) { BuildHeaders(); } };
     }
 
     /// <summary>최상위 메뉴 목록(XAML에서 <c>NexaMenuBar.Menus</c>로 채운다).</summary>
@@ -111,7 +126,7 @@ public sealed partial class NexaMenuBar : UserControl
                 MinWidth = 0,
                 Padding = new Thickness(8, 0, 8, 0),
                 Background = TransparentBrush,
-                Foreground = ItemTextBrush,   // 흰색 바 위에서 헤더 텍스트 가독성 확보
+                Foreground = MenuTextBrush,   // 테마 토큰(라이트=어두운색/다크=밝은 회색)
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(0),
                 VerticalAlignment = VerticalAlignment.Stretch,
@@ -156,6 +171,8 @@ public sealed partial class NexaMenuBar : UserControl
             _activeIndex = index;
             return;
         }
+        // Popup 콘텐츠는 루트 RequestedTheme를 상속하지 않음 → 팝업의 ThemeResource가 현재 테마를 따르게 지정.
+        PopupBorder.RequestedTheme = ActualTheme;
 
         // 항목 구성(사각 하이라이트 Border).
         ItemsHost.Children.Clear();
@@ -182,12 +199,13 @@ public sealed partial class NexaMenuBar : UserControl
         SetActiveHeader(-1);
     }
 
-    /// <summary>활성 헤더만 배경 하이라이트.</summary>
+    /// <summary>활성 헤더만 배경 하이라이트(테마 토큰).</summary>
     private void SetActiveHeader(int index)
     {
+        var active = MenuHoverBrush;
         for (int i = 0; i < _headers.Count; i++)
         {
-            _headers[i].Background = i == index ? ActiveHeaderBrush : TransparentBrush;
+            _headers[i].Background = i == index ? active : TransparentBrush;
         }
     }
 
@@ -199,6 +217,8 @@ public sealed partial class NexaMenuBar : UserControl
     private Border CreateItem(NexaMenuEntry entry)
     {
         var content = new StackPanel { Orientation = Orientation.Horizontal };
+        var text = MenuTextBrush;    // 테마 토큰(항목은 열 때마다 생성 → 현재 테마 반영)
+        var hover = MenuHoverBrush;
 
         // 체크 칸(18px)은 체크 가능 여부와 무관하게 모든 항목에 상시 예약(미체크/체크불가=투명) —
         // 항목 간 텍스트 시작 위치를 통일한다(체크 해제 시 왼쪽으로 붙던 정렬 문제).
@@ -207,7 +227,7 @@ public sealed partial class NexaMenuBar : UserControl
             Glyph = "",   // Segoe MDL2 CheckMark
             FontFamily = new FontFamily("Segoe MDL2 Assets"),
             FontSize = FontSize,
-            Foreground = ItemTextBrush,
+            Foreground = text,
             Width = 18,
             Opacity = entry.IsCheckable && entry.IsChecked ? 1 : 0,
         };
@@ -218,7 +238,7 @@ public sealed partial class NexaMenuBar : UserControl
             Text = entry.Text,
             FontSize = FontSize,
             FontFamily = FontFamily,
-            Foreground = ItemTextBrush,
+            Foreground = text,
         });
 
         var item = new Border
@@ -227,7 +247,7 @@ public sealed partial class NexaMenuBar : UserControl
             Background = TransparentBrush,
             Child = content,
         };
-        item.PointerEntered += (_, _) => item.Background = ItemHoverBrush;
+        item.PointerEntered += (_, _) => item.Background = hover;
         item.PointerExited += (_, _) => item.Background = TransparentBrush;
         item.Tapped += (_, _) =>
         {

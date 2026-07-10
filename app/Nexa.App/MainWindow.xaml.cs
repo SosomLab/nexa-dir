@@ -4032,9 +4032,15 @@ public sealed partial class MainWindow : Window
         RightPanel.Visibility = Vis(show);
         PanelSplitter.Visibility = Vis(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
-        // 표시 시 좌/우 동일 크기(star) 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
+        // 표시 시 좌/우 동일 크기(50:50) 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
         RightCol.MinWidth = show ? 160 : 0;
         RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        if (show)
+        {
+            // 숨기기 전 스플리터 드래그가 LeftCol을 절대/편중 star로 바꿔 두면 재표시가 50:50이 아니게 됨
+            // → 좌 열도 1*로 되써 항상 중앙 분할로 복귀(사용자 요청).
+            LeftCol.Width = new GridLength(1, GridUnitType.Star);
+        }
         // 듀얼→단일(좌 마스터) 전환 시 하단 우 도킹도 연동해서 숨김
         UpdateBottomDock();
         _session?.MarkDirty();

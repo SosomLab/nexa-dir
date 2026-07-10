@@ -30,6 +30,11 @@
                  라이트/다크는 RequestedTheme(설정 Theme.Mode)로 전환. 값 변경은 여기 한 곳. ── -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <!-- 메뉴 바 드롭다운(NexaMenuBar) — 고전 라이트 팝업 -->
+                    <SolidColorBrush x:Key="NexaMenuPopupBackgroundBrush" Color="#F6F6F6" />
+                    <SolidColorBrush x:Key="NexaMenuPopupBorderBrush" Color="#9A9A9A" />
+                    <SolidColorBrush x:Key="NexaMenuTextBrush" Color="#1A1A1A" />
+                    <SolidColorBrush x:Key="NexaMenuHoverBrush" Color="#CCE4F7" />
                     <SolidColorBrush x:Key="NexaWindowBackgroundBrush" Color="#F6F7F9" />
                     <SolidColorBrush x:Key="NexaChromeBackgroundBrush" Color="#EEF1F5" />
                     <SolidColorBrush x:Key="NexaPanelBackgroundBrush" Color="#FFFFFF" />
@@ -42,6 +47,11 @@
                     <SolidColorBrush x:Key="NexaAccentBrush" Color="#3D8BFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <!-- 메뉴 바 드롭다운 — VS Code식: 크롬보다 조금 밝은 바탕 + 밝은 회색 텍스트 -->
+                    <SolidColorBrush x:Key="NexaMenuPopupBackgroundBrush" Color="#262B33" />
+                    <SolidColorBrush x:Key="NexaMenuPopupBorderBrush" Color="#454B55" />
+                    <SolidColorBrush x:Key="NexaMenuTextBrush" Color="#CFD2D6" />
+                    <SolidColorBrush x:Key="NexaMenuHoverBrush" Color="#3A414C" />
                     <SolidColorBrush x:Key="NexaWindowBackgroundBrush" Color="#14161A" />
                     <SolidColorBrush x:Key="NexaChromeBackgroundBrush" Color="#1E2228" />
                     <SolidColorBrush x:Key="NexaPanelBackgroundBrush" Color="#191C21" />
