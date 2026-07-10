@@ -70,10 +70,8 @@ public sealed partial class MainWindow : Window
         DirGrid.SortRequested += d => OnSortRequested(true, d);
         DirGrid2.SortRequested += d => OnSortRequested(false, d);
         // 타입어헤드(docs/32 TA-5): 문자 입력 → 버퍼 → find_prefix → 선택 이동(패널별 버퍼).
-        // 전역(RootGrid 버블) 수신 → **활성 패널** 기준 — 방향키와 동일 규약. (그리드 포커스에
-        // 의존하던 이전 배선은 포커스가 경로 바/도구 버튼 등으로 가면 무반응이던 원인.)
-        RootGrid.AddHandler(UIElement.CharacterReceivedEvent,
-            new Windows.Foundation.TypedEventHandler<UIElement, CharacterReceivedRoutedEventArgs>(OnGlobalTypeAhead), handledEventsToo: false);
+        // 트리거는 OnGridKeyDown(전역 KeyDown, 활성 패널 기준)에서 영숫자 합성 — CharacterReceived는
+        // WinUI에서 포커스 요소에만 발화(비버블)라 전역 수신 불가(실기 검증: 방향키는 오고 문자만 안 옴).
         // 방향키 이동: UserControl 포커스 경로에 의존하지 않도록 최상위 RootGrid에서 받는다(활성 패널 기준).
         // handledEventsToo=true → 내부 ScrollViewer가 방향키를 먼저 처리(Handled)해도 항상 수신.
         RootGrid.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnGridKeyDown), handledEventsToo: true);
@@ -423,36 +421,22 @@ public sealed partial class MainWindow : Window
     /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
     /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
     /// </summary>
-    /// <summary>전역 문자 수신(RootGrid 버블) → 활성 패널 타입어헤드. 터미널/TextBox(경로 편집·
-    /// 이름변경·설정 창 입력)가 키보드를 소유 중이면 미개입.</summary>
-    private void OnGlobalTypeAhead(UIElement sender, CharacterReceivedRoutedEventArgs e)
+    /// <summary>타입어헤드 문자 처리(docs/32) — OnGridKeyDown(전역 KeyDown)에서 합성된
+    /// 영숫자/Backspace를 활성 패널 버퍼에 누적하고 매치로 이동. 소비했으면 true.
+    /// (IME 한글 등 비영숫자 매칭은 후속 §9 — CharacterReceived가 포커스 전용이라 전역 경로 없음.)</summary>
+    private bool TypeAheadChar(bool left, char c)
     {
-        if (e.Handled || IsKeyboardOwnedByInput())
-        {
-            return;
-        }
-        OnTypeAhead(_activeLeft, e);
-    }
-
-    private void OnTypeAhead(bool left, CharacterReceivedRoutedEventArgs e)
-    {
-        // 이름 편집 박스가 포커스면(편집 중) 타입어헤드 금지 — 편집 텍스트가 처리.
-        if (e.OriginalSource is TextBox || IsCtrlDown() || IsAltDown())
-        {
-            return;
-        }
         var panel = Panel(left);
         var hud = left ? TypeAheadHudL : TypeAheadHudR;   // 검색어 HUD(docs/32 §7-A) — 해당 패널 좌하단
-        char c = e.Character;
         long now = Environment.TickCount64;
         string prefix;
         if (c == '\b')                    // Backspace = 접두사 축소
         {
+            if (hud.Visibility != Visibility.Visible)
+            {
+                return false;   // 진행 중 접두사 없음 → Backspace는 소비하지 않음(다른 용도 보존)
+            }
             prefix = panel.TypeAhead.Backspace(now);
-        }
-        else if (c == ' ' || c < ' ')     // Space 제외 + 제어문자 제외
-        {
-            return;
         }
         else
         {
@@ -461,7 +445,7 @@ public sealed partial class MainWindow : Window
         if (prefix.Length == 0)
         {
             hud.Clear();
-            return;   // 빈 접두사(전부 지움) → 무동작
+            return true;   // 빈 접두사(전부 지움) — 키는 소비
         }
         // 매치 실패여도 버퍼를 계속 표시(오타 인지, docs/32 §7 결정 5). 소거 = 버퍼 리셋과 동일 타임아웃.
         hud.Timeout = TimeSpan.FromMilliseconds(AppSettings.View.TypeAheadTimeoutMs);
@@ -472,13 +456,12 @@ public sealed partial class MainWindow : Window
         int hit = panel.Items.FindPrefix(searchCaret, prefix, AppSettings.View.TypeAheadScope);
         if (hit >= 0)
         {
-            SetActivePanel(left);
             panel.Items.Select(panel.Items[hit], 0);   // 단일 선택
             panel.Items.SetCaret(hit);
             panel.Grid.BringIndexIntoView(hit);
             UpdateSelectionCount(panel.Items);
         }
-        e.Handled = true;
+        return true;
     }
 
     /// <summary>
@@ -3902,6 +3885,26 @@ public sealed partial class MainWindow : Window
             e.Handled = true;
             DeletePaths(_activeLeft, KeyboardTargets(_activeLeft), permanent: IsShiftDown());
             return;
+        }
+
+        // 타입어헤드(문자 합성) — A–Z/0–9/NumPad/Backspace를 KeyDown에서 문자로 변환해 위임(docs/32).
+        // CharacterReceived는 포커스 요소 전용(비버블)이라 전역 수신 불가 → 방향키와 같은 검증된 경로 사용.
+        // Ctrl/Alt 조합은 단축키 영역이라 제외(Shift+문자는 대소문자 무관 매칭이므로 허용).
+        if (!IsCtrlDown() && !IsAltDown())
+        {
+            char ch = e.Key switch
+            {
+                >= VirtualKey.A and <= VirtualKey.Z => (char)('a' + (e.Key - VirtualKey.A)),
+                >= VirtualKey.Number0 and <= VirtualKey.Number9 => (char)('0' + (e.Key - VirtualKey.Number0)),
+                >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 => (char)('0' + (e.Key - VirtualKey.NumberPad0)),
+                VirtualKey.Back => '\b',
+                _ => '\0',
+            };
+            if (ch != '\0' && TypeAheadChar(_activeLeft, ch))
+            {
+                e.Handled = true;
+                return;
+            }
         }
 
         bool space = e.Key == VirtualKey.Space;
