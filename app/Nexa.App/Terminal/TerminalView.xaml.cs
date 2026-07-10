@@ -387,6 +387,16 @@ public sealed partial class TerminalView : UserControl
     {
         FocusSoon();
         var pt = e.GetCurrentPoint(Scroll);
+        // 우클릭: 드래그 선택이 있으면 그 영역을 복사(Windows Terminal 관례 — 복사 후 선택 해제).
+        if (pt.Properties.IsRightButtonPressed)
+        {
+            if (_hasSelection)
+            {
+                CopySelection();
+                e.Handled = true;
+            }
+            return;
+        }
         if (!pt.Properties.IsLeftButtonPressed)
         {
             return;
