@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Nexa.App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -165,14 +165,14 @@
                     <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄.
                          탭 드래그(TAB-DND): 바 빈 영역 드롭=맨 끝 이동, 삽입 위치는 오버레이 바(TabInsertL)로 표시. -->
                     <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
-                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="L" x:Name="LeftTabBar"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="L" x:Name="LeftTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                         <Grid>
                         <ItemsRepeater x:Name="LeftTabs">
                             <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
-                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="20"
+                                                   MinRowSpacing="2" MinColumnSpacing="3" ItemsStretch="None" />
                             </ItemsRepeater.Layout>
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
@@ -246,7 +246,7 @@
                                         ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
+                                <StackPanel Orientation="Horizontal" Padding="0,1" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
@@ -304,14 +304,14 @@
 
                     <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙 — TAB-DND 삽입 표시 포함) -->
                     <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
-                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="R" x:Name="RightTabBar"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="R" x:Name="RightTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
                         <Grid>
                         <ItemsRepeater x:Name="RightTabs">
                             <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
-                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="20"
+                                                   MinRowSpacing="2" MinColumnSpacing="3" ItemsStretch="None" />
                             </ItemsRepeater.Layout>
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
@@ -385,7 +385,7 @@
                                         ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
+                                <StackPanel Orientation="Horizontal" Padding="0,1" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"

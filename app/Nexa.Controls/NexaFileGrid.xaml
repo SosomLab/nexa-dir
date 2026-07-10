@@ -31,7 +31,7 @@
                     <DataTemplate x:DataType="local:HeaderCell">
                         <Grid Width="{x:Bind Column.Width, Mode=OneWay}">
                             <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당). 클릭=3상태 정렬(▲/▼) -->
-                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33808080"
+                            <Border Padding="6,2" BorderThickness="0,0,1,0" BorderBrush="#33808080"
                                     Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
                                     <!-- 정렬 화살표(▲/▼) — 컬럼명 앞. 정렬 없으면 접힘 -->
@@ -67,9 +67,11 @@
                           HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto"
                           ViewChanged="OnBodyViewChanged"
                           AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
+                <!-- 행 간 간격 0 — 상하 여백은 행 템플릿 Padding(0,1)만(밀도 극대화, Double Commander 지향).
+                     변경 시 EstimateRowStride(코드)의 간격 가산도 함께 갱신할 것. -->
                 <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
                     <ItemsRepeater.Layout>
-                        <StackLayout Orientation="Vertical" Spacing="2" />
+                        <StackLayout Orientation="Vertical" Spacing="0" />
                     </ItemsRepeater.Layout>
                 </ItemsRepeater>
             </ScrollViewer>

@@ -453,10 +453,10 @@ public sealed partial class NexaFileGrid : UserControl
         {
             if (Repeater.TryGetElement(i) is FrameworkElement fe && fe.ActualHeight > 0)
             {
-                return fe.ActualHeight + 2;   // StackLayout Spacing=2
+                return fe.ActualHeight;   // StackLayout Spacing=0 — 행 높이가 곧 stride
             }
         }
-        return 24;   // 폴백(아이콘 16 + 패딩 6 + 간격 2)
+        return 18;   // 폴백(아이콘 16 + 행 패딩 상하 1+1)
     }
 
     // ── 컬럼 리사이즈 (헤더 우측 핸들 드래그, PointerMove + 포인터 캡처) ──
