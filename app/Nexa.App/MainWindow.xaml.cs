@@ -421,9 +421,42 @@ public sealed partial class MainWindow : Window
     /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
     /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
     /// </summary>
+    /// <summary>KeyDown → 타입어헤드 문자 변환(미국식 배열 기준). 파일명에 못 쓰는 문자
+    /// (\ / : * ? " &lt; &gt; |)는 제외('\0'). Space는 호출부가 진행 중일 때만 통과시킨다.</summary>
+    private static char TypeAheadKeyToChar(VirtualKey key, bool shift) => key switch
+    {
+        >= VirtualKey.A and <= VirtualKey.Z => (char)('a' + (key - VirtualKey.A)),
+        VirtualKey.Number1 when shift => '!',
+        VirtualKey.Number2 when shift => '@',
+        VirtualKey.Number3 when shift => '#',
+        VirtualKey.Number4 when shift => '$',
+        VirtualKey.Number5 when shift => '%',
+        VirtualKey.Number6 when shift => '^',
+        VirtualKey.Number7 when shift => '&',
+        VirtualKey.Number9 when shift => '(',
+        VirtualKey.Number0 when shift => ')',
+        >= VirtualKey.Number0 and <= VirtualKey.Number9 when !shift => (char)('0' + (key - VirtualKey.Number0)),
+        >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 => (char)('0' + (key - VirtualKey.NumberPad0)),
+        VirtualKey.Add => '+',
+        VirtualKey.Subtract => '-',
+        VirtualKey.Decimal => '.',
+        (VirtualKey)0xBD => shift ? '_' : '-',    // OEM_MINUS
+        (VirtualKey)0xBB => shift ? '+' : '=',    // OEM_PLUS
+        (VirtualKey)0xBE when !shift => '.',      // OEM_PERIOD ('>' 파일명 불가)
+        (VirtualKey)0xBC when !shift => ',',      // OEM_COMMA ('<' 불가)
+        (VirtualKey)0xBA when !shift => ';',      // OEM_1 (':' 불가)
+        (VirtualKey)0xDE when !shift => '\'',     // OEM_7 ('"' 불가)
+        (VirtualKey)0xDB => shift ? '{' : '[',    // OEM_4
+        (VirtualKey)0xDD => shift ? '}' : ']',    // OEM_6
+        (VirtualKey)0xC0 => shift ? '~' : '`',    // OEM_3
+        VirtualKey.Space => ' ',                  // 접두사 진행 중일 때만(호출부 판정)
+        VirtualKey.Back => '\b',
+        _ => '\0',
+    };
+
     /// <summary>타입어헤드 문자 처리(docs/32) — OnGridKeyDown(전역 KeyDown)에서 합성된
-    /// 영숫자/Backspace를 활성 패널 버퍼에 누적하고 매치로 이동. 소비했으면 true.
-    /// (IME 한글 등 비영숫자 매칭은 후속 §9 — CharacterReceived가 포커스 전용이라 전역 경로 없음.)</summary>
+    /// 문자/Backspace를 활성 패널 버퍼에 누적하고 매치로 이동. 소비했으면 true.
+    /// (IME 한글 매칭은 후속 §9 — CharacterReceived가 포커스 전용이라 전역 경로 없음.)</summary>
     private bool TypeAheadChar(bool left, char c)
     {
         var panel = Panel(left);
@@ -3887,19 +3920,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // 타입어헤드(문자 합성) — A–Z/0–9/NumPad/Backspace를 KeyDown에서 문자로 변환해 위임(docs/32).
+        // 타입어헤드(문자 합성) — 파일명 허용 문자 전체를 KeyDown에서 변환해 위임(docs/32).
         // CharacterReceived는 포커스 요소 전용(비버블)이라 전역 수신 불가 → 방향키와 같은 검증된 경로 사용.
-        // Ctrl/Alt 조합은 단축키 영역이라 제외(Shift+문자는 대소문자 무관 매칭이므로 허용).
+        // Ctrl/Alt 조합은 단축키 영역이라 제외. Space는 **접두사 진행 중일 때만** 포함(평상시=선택 토글 유지).
         if (!IsCtrlDown() && !IsAltDown())
         {
-            char ch = e.Key switch
+            char ch = TypeAheadKeyToChar(e.Key, IsShiftDown());
+            if (ch == ' ' && (_activeLeft ? TypeAheadHudL : TypeAheadHudR).Visibility != Visibility.Visible)
             {
-                >= VirtualKey.A and <= VirtualKey.Z => (char)('a' + (e.Key - VirtualKey.A)),
-                >= VirtualKey.Number0 and <= VirtualKey.Number9 => (char)('0' + (e.Key - VirtualKey.Number0)),
-                >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 => (char)('0' + (e.Key - VirtualKey.NumberPad0)),
-                VirtualKey.Back => '\b',
-                _ => '\0',
-            };
+                ch = '\0';   // 진행 중 접두사 없으면 Space는 선택 토글로(아래 space 분기)
+            }
             if (ch != '\0' && TypeAheadChar(_activeLeft, ch))
             {
                 e.Handled = true;
