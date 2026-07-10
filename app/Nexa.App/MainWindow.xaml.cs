@@ -197,7 +197,10 @@ public sealed partial class MainWindow : Window
         ApplyFonts();         // 글꼴 6종 슬롯 라이브 적용(PREF-3)
         ApplyPathHeaderVisibility();
         SyncViewMenuChecks();
-        ReloadBothPanels();   // 숨김/점 파일 등 필터 반영
+        // 생성자에서 1회만 읽던 dwell 시간(B-15h)도 라이브 재반영.
+        _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
+        _folderDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.FolderDwellMs);
+        ReloadBothPanels();   // 숨김/점 파일·폴더 우선 정렬 등 반영
         MarkSettingsDirty();
     }
 
