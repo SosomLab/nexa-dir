@@ -59,6 +59,8 @@
   "pref.fonts.baseDesc": "특별한 지정이 없는 곳 — 메뉴·탭·경로(브레드크럼)·설명·하단 정보/미리보기 창.",
   "pref.fonts.console": "콘솔 글꼴",
   "pref.fonts.consoleDesc": "터미널 전용. 쉼표(,)로 2개 이상 지정하면 앞에서부터 폴백.",
+  "pref.fonts.menu": "컨텍스트 메뉴 글꼴",
+  "pref.fonts.menuDesc": "탭·빈 영역 우클릭 메뉴. 파일 우클릭(셸 메뉴)은 OS 글꼴을 따릅니다.",
   "pref.fonts.status": "상태표시줄 글꼴",
   "pref.fonts.statusDesc": "하단 상태표시줄.",
   "pref.fonts.list": "파일 목록 글꼴",

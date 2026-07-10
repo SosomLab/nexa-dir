@@ -1666,11 +1666,29 @@ public sealed partial class MainWindow : Window
     }
 
 
-    /// <summary>플랫(고전) 컨텍스트 메뉴 — 사각·패널 배경 프레젠터 스타일(App.xaml NexaMenuPresenterStyle).</summary>
+    /// <summary>플랫(고전) 컨텍스트 메뉴 — 사각·패널 배경 프레젠터 스타일(App.xaml NexaMenuPresenterStyle).
+    /// 표시 직전 <see cref="ApplyMenuFont"/>로 설정 "컨텍스트 메뉴 글꼴"을 항목에 적용할 것.</summary>
     private static MenuFlyout FlatMenu() => new()
     {
         MenuFlyoutPresenterStyle = (Style)Application.Current.Resources["NexaMenuPresenterStyle"],
     };
+
+    /// <summary>설정 "컨텍스트 메뉴 글꼴"(PREF-3)을 플랫 메뉴 항목 전체(서브메뉴 재귀)에 적용.
+    /// 메뉴는 열 때마다 새로 만들므로 설정 변경은 다음 열림부터 반영. 셸(HMENU) 메뉴는 OS 글꼴이라 대상 아님.</summary>
+    private static void ApplyMenuFont(IList<MenuFlyoutItemBase> items)
+    {
+        var f = AppSettings.Fonts;
+        var family = new Microsoft.UI.Xaml.Media.FontFamily(f.MenuFamily);
+        foreach (var item in items)
+        {
+            item.FontFamily = family;
+            item.FontSize = f.MenuSize;
+            if (item is MenuFlyoutSubItem sub)
+            {
+                ApplyMenuFont(sub.Items);
+            }
+        }
+    }
 
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
     /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
@@ -1754,6 +1772,7 @@ public sealed partial class MainWindow : Window
         refresh.Click += (_, _) => ReloadPanel(left);
         flyout.Items.Add(refresh);
 
+        ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
         if (e.TryGetPosition(fe, out var pos))
         {
             flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
@@ -3644,6 +3663,7 @@ public sealed partial class MainWindow : Window
         options.Items.Add(pinItem);
         flyout.Items.Add(options);
 
+        ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
         if (e.TryGetPosition(fe, out var pos))
         {
             flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });

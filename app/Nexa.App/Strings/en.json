@@ -52,6 +52,8 @@
   "pref.fonts.baseDesc": "Used where nothing specific is set — menus, tabs, path (breadcrumb), descriptions, bottom info/preview panes.",
   "pref.fonts.console": "Console font",
   "pref.fonts.consoleDesc": "Terminal only. Separate two or more with commas for fallback order.",
+  "pref.fonts.menu": "Context menu font",
+  "pref.fonts.menuDesc": "Tab and empty-area right-click menus. The file right-click (shell) menu follows the OS font.",
   "pref.fonts.status": "Status bar font",
   "pref.fonts.statusDesc": "Bottom status bar.",
   "pref.fonts.list": "File list font",

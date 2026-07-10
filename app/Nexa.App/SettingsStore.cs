@@ -41,6 +41,8 @@ internal sealed class FontSettings
     public double ConsoleSize { get; set; } = 13;
     public string StatusFamily { get; set; } = "Segoe UI";
     public double StatusSize { get; set; } = 12;
+    public string MenuFamily { get; set; } = "Segoe UI";
+    public double MenuSize { get; set; } = 12;
     public string ListFamily { get; set; } = "Segoe UI";
     public double ListSize { get; set; } = 12;
     public bool FolderBold { get; set; } = true;
@@ -239,6 +241,8 @@ internal sealed class SettingsStore
         f.ConsoleSize = s.Fonts.ConsoleSize;
         f.StatusFamily = s.Fonts.StatusFamily;
         f.StatusSize = s.Fonts.StatusSize;
+        f.MenuFamily = s.Fonts.MenuFamily;
+        f.MenuSize = s.Fonts.MenuSize;
         f.ListFamily = s.Fonts.ListFamily;
         f.ListSize = s.Fonts.ListSize;
         f.FolderBold = s.Fonts.FolderBold;
@@ -293,6 +297,8 @@ internal sealed class SettingsStore
                 ConsoleSize = f.ConsoleSize,
                 StatusFamily = f.StatusFamily,
                 StatusSize = f.StatusSize,
+                MenuFamily = f.MenuFamily,
+                MenuSize = f.MenuSize,
                 ListFamily = f.ListFamily,
                 ListSize = f.ListSize,
                 FolderBold = f.FolderBold,

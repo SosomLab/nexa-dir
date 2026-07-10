@@ -147,6 +147,10 @@ internal sealed class FontOptions
     public string StatusFamily { get; set; } = "Segoe UI";
     public double StatusSize { get; set; } = 12;
 
+    /// <summary>컨텍스트 메뉴 글꼴 — 앱이 그리는 플랫 메뉴(탭·빈 영역 우클릭). 셸(HMENU) 메뉴는 OS 글꼴.</summary>
+    public string MenuFamily { get; set; } = "Segoe UI";
+    public double MenuSize { get; set; } = 12;
+
     /// <summary>파일 목록 글꼴 — 좌/우 패널 목록 + 컬럼 헤더(글꼴/크기 공유).</summary>
     public string ListFamily { get; set; } = "Segoe UI";
     public double ListSize { get; set; } = 12;
