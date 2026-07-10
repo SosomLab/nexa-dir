@@ -49,6 +49,7 @@ public sealed partial class PreferencesWindow : Window
             new("list", "pref.cat.list"),
             new("tabs", "pref.cat.tabs"),
             new("toolbar", "pref.toolbar.title", NoteKey: "pref.toolbar.note"),
+            new("terminal", "pref.cat.terminal"),
             new("ops", "pref.cat.ops"),
             new("menu", "pref.menu.title", NoteKey: "pref.menu.note"),
             new("lang", "pref.lang.title", NoteKey: "pref.lang.restartNote"),
@@ -107,6 +108,8 @@ public sealed partial class PreferencesWindow : Window
         new("tabs", "pref.tabs.doubleClick", TabDoubleClickCombo),
         // 도구 모음(docs/44) — 그룹/항목 순서 편집기
         new("toolbar", "pref.toolbar.title", ToolbarOrderEditor),
+        // 터미널(BP-T) — 긴 출력 처리(줄바꿈/최대 길이)
+        new("terminal", "pref.term.longOutput", TerminalWrapEditor),
         // 파일 작업
         new("ops", "pref.layout.autoClose", () => CheckRow("pref.layout.autoClose",
             AppSettings.View.AutoCloseTransferWindow, v => AppSettings.View.AutoCloseTransferWindow = v)),
@@ -593,6 +596,45 @@ public sealed partial class PreferencesWindow : Window
         };
         btn.Click += (_, _) => onClick();
         return btn;
+    }
+
+    // ── 터미널(BP-T) — 긴 출력 처리 ──────────────────────────────────
+    /// <summary>줄바꿈(뷰포트 폭) ↔ 최대 길이까지 줄바꿈 없음(가로 스크롤) + 최대 글자 수 입력.</summary>
+    private FrameworkElement TerminalWrapEditor()
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock { Text = Loc.T("pref.term.longOutput"), Opacity = 0.7 });
+
+        var cols = new NumberBox
+        {
+            Value = AppSettings.Terminal.MaxColumns,
+            Minimum = 80,
+            Maximum = 1000,
+            SmallChange = 10,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 140,
+            IsEnabled = AppSettings.Terminal.NoWrap,
+        };
+        var wrap = new RadioButton { Content = Loc.T("pref.term.wrap"), GroupName = "TermWrap", IsChecked = !AppSettings.Terminal.NoWrap, MinHeight = 0 };
+        var noWrap = new RadioButton { Content = Loc.T("pref.term.noWrap"), GroupName = "TermWrap", IsChecked = AppSettings.Terminal.NoWrap, MinHeight = 0 };
+        wrap.Checked += (_, _) => { AppSettings.Terminal.NoWrap = false; cols.IsEnabled = false; Changed(); };
+        noWrap.Checked += (_, _) => { AppSettings.Terminal.NoWrap = true; cols.IsEnabled = true; Changed(); };
+        panel.Children.Add(wrap);
+        panel.Children.Add(noWrap);
+
+        var colsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(24, 0, 0, 0) };
+        cols.ValueChanged += (_, a) =>
+        {
+            if (!double.IsNaN(a.NewValue))
+            {
+                AppSettings.Terminal.MaxColumns = (int)Math.Clamp(a.NewValue, 80, 1000);
+                Changed();
+            }
+        };
+        colsRow.Children.Add(cols);
+        colsRow.Children.Add(new TextBlock { Text = Loc.T("pref.term.maxCols"), Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center });
+        panel.Children.Add(colsRow);
+        return panel;
     }
 
     // ── 컨텍스트 메뉴(커스텀 항목 표시/숨김, docs/38 §7) ──────────────

@@ -194,10 +194,28 @@ public sealed partial class NexaMenuBar : UserControl
 
     private void CloseMenu()
     {
+        CloseSubMenu();
         MenuPopup.IsOpen = false;
         _activeIndex = -1;
         SetActiveHeader(-1);
     }
+
+    // ── 2단(서브) 메뉴 — 부모 항목 오른쪽에 펼침(hover/탭). 항목은 열 때마다 생성 ─────
+    private void OpenSubMenu(NexaMenuEntry parent, FrameworkElement anchor)
+    {
+        SubPopupBorder.RequestedTheme = ActualTheme;   // Popup은 루트 테마 미상속
+        SubItemsHost.Children.Clear();
+        foreach (var child in parent.Children)
+        {
+            SubItemsHost.Children.Add(CreateItem(child));
+        }
+        Point p = anchor.TransformToVisual(this).TransformPoint(new Point(0, 0));
+        SubPopup.HorizontalOffset = p.X + anchor.ActualWidth;
+        SubPopup.VerticalOffset = p.Y;
+        SubPopup.IsOpen = true;
+    }
+
+    private void CloseSubMenu() => SubPopup.IsOpen = false;
 
     /// <summary>활성 헤더만 배경 하이라이트(테마 토큰).</summary>
     private void SetActiveHeader(int index)
@@ -241,16 +259,47 @@ public sealed partial class NexaMenuBar : UserControl
             Foreground = text,
         });
 
+        bool hasChildren = entry.Children.Count > 0;
+        if (hasChildren)
+        {
+            // 서브메뉴 화살표(▸) — 부모 항목 표시.
+            content.Children.Add(new TextBlock
+            {
+                Text = "▸",
+                FontSize = FontSize,
+                Foreground = text,
+                Margin = new Thickness(14, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+
         var item = new Border
         {
             Padding = new Thickness(6, 4, 22, 4),   // 체크 칸 상시 예약 → 전 항목 동일 패딩(텍스트 정렬 통일)
             Background = TransparentBrush,
             Child = content,
         };
-        item.PointerEntered += (_, _) => item.Background = hover;
+        item.PointerEntered += (_, _) =>
+        {
+            item.Background = hover;
+            // 부모 항목 hover = 서브메뉴 펼침 / 1단 일반 항목 hover = 열린 서브메뉴 닫기.
+            if (hasChildren)
+            {
+                OpenSubMenu(entry, item);
+            }
+            else if (ItemsHost.Children.Contains(item))
+            {
+                CloseSubMenu();
+            }
+        };
         item.PointerExited += (_, _) => item.Background = TransparentBrush;
         item.Tapped += (_, _) =>
         {
+            if (hasChildren)
+            {
+                OpenSubMenu(entry, item);   // 부모는 실행 대신 펼침 유지
+                return;
+            }
             if (entry.IsCheckable)
             {
                 entry.IsChecked = !entry.IsChecked;
@@ -317,7 +366,7 @@ public sealed partial class NexaMenuBar : UserControl
             return;
         }
         var src = e.OriginalSource as DependencyObject;
-        if (!IsWithin(src, Host) && !IsWithin(src, PopupBorder))
+        if (!IsWithin(src, Host) && !IsWithin(src, PopupBorder) && !IsWithin(src, SubPopupBorder))
         {
             CloseMenu();
         }

@@ -388,6 +388,12 @@ public sealed partial class TerminalView : UserControl
     // FocusSoon()은 dispatcher enqueue로 그 이후에 다시 포커스 → 클릭 포커스가 안정적으로 유지된다.
     private void OnTermPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // 스크롤바 위 클릭/드래그는 선택을 시작하지 않는다(handledEventsToo 전역 후킹이 스크롤바까지
+        // 받아 가로 스크롤 조작 중 드래그 선택이 동시에 일어나던 버블링 차단).
+        if (IsWithinScrollBar(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
         FocusSoon();
         var pt = e.GetCurrentPoint(Scroll);
         // 우클릭: 드래그 선택이 있으면 그 영역을 복사(Windows Terminal 관례 — 복사 후 선택 해제).
@@ -662,14 +668,27 @@ public sealed partial class TerminalView : UserControl
         MarkDirty();
     }
 
-    /// <summary>PTY 최소 컬럼 — 뷰포트가 좁아도 이 폭까지는 줄바꿈하지 않는다(긴 출력은 가로 스크롤로 열람,
-    /// 사용자 요청). 트레이드오프: 전체 폭 기준으로 그리는 테마(우측 정렬 프롬프트 등)는 오른쪽이 화면 밖.</summary>
-    private const int MinCols = 240;
+    /// <summary>포인터 원본이 ScrollViewer의 스크롤바(ScrollBar) 내부인가 — 선택 시작 제외 판정.</summary>
+    private static bool IsWithinScrollBar(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is Microsoft.UI.Xaml.Controls.Primitives.ScrollBar)
+            {
+                return true;
+            }
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return false;
+    }
 
     private (int cols, int rows) MeasureGrid()
     {
         int visible = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
-        int cols = Math.Max(visible, MinCols);   // 뷰포트보다 넓게 보장 → ConPTY 조기 줄바꿈 방지
+        // 긴 출력 처리(설정): NoWrap이면 최대 길이(MaxColumns)까지 줄바꿈 없이(가로 스크롤),
+        // 아니면 뷰포트 폭에서 ConPTY 줄바꿈. 옵션/글자 수 변경은 ApplyFont→ResizeToView로 라이브 반영.
+        var t = AppSettings.Terminal;
+        int cols = t.NoWrap ? Math.Max(visible, Math.Clamp(t.MaxColumns, 80, 1000)) : visible;
         int rows = Math.Clamp((int)(ActualHeight / _lineH), 5, 200);
         return (cols, rows);
     }

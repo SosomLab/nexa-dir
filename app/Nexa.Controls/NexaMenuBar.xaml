@@ -21,5 +21,13 @@
                 <StackPanel x:Name="ItemsHost" Orientation="Vertical" MinWidth="180" Padding="0,2" />
             </Border>
         </Popup>
+
+        <!-- 2단(서브) 메뉴 — 부모 항목 오른쪽에 펼침(테마 그룹 등). 스타일은 1단과 동일 -->
+        <Popup x:Name="SubPopup" IsLightDismissEnabled="False">
+            <Border x:Name="SubPopupBorder" Background="{ThemeResource NexaMenuPopupBackgroundBrush}"
+                    BorderBrush="{ThemeResource NexaMenuPopupBorderBrush}" BorderThickness="1">
+                <StackPanel x:Name="SubItemsHost" Orientation="Vertical" MinWidth="150" Padding="0,2" />
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>
