@@ -161,6 +161,10 @@ public sealed partial class NexaPathBar : UserControl
     private void EnterEdit()
     {
         PART_Editor.Text = Path;
+        // 브레드크럼 TextBlock은 컨트롤 폰트(FontFamily/FontSize)를 상속하지만 TextBox는 테마 기본(14px)을
+        // 유지 → 편집기에 컨트롤 폰트를 명시 복사(경로 글꼴 설정과 동일 크기·글꼴).
+        PART_Editor.FontFamily = FontFamily;
+        PART_Editor.FontSize = FontSize;
         // 편집기(TextBox)의 자연 높이가 브레드크럼보다 커 진입 시 바 높이가 점프하던 문제 →
         // 브레드크럼 실측 높이로 고정(경로 글꼴 설정에 따라 달라지므로 상수 대신 실측).
         if (PART_Scroll.ActualHeight > 0)
