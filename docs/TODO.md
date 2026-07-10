@@ -13,12 +13,12 @@
 
 | ID | 항목 | 우선 | 규모 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| A-1 | `_cache` 뷰포트 LRU 상한 + 선택/포커스 갱신을 realized 행에만 (O(방문행수) 열화 제거) | P1 | 중 | — | ☐ |
+| A-1 | `_cache` 뷰포트 LRU 상한 + 선택/포커스 갱신을 realized 행에만 (O(방문행수) 열화 제거) | P1 | 중 | — | ✅ (07-10 감사004 `a9c5682` — 행 재활용 이빅션 방식, 실화면 한정) |
 | A-2 | 다중 탭 총량 상한(비활성 탭 핸들 Close/캐시 비움, 스냅샷 보존) | P1 | 중 | A-1 | ☐ |
 | A-3 | 코어 arena 노드 회수(collapse 시 free-list/`loaded=false`) — P5 | P2 | 중 | — | ☐ |
-| A-4 | 유휴/최소화 트림 자니터(`EmptyWorkingSet`·LRU 축소·압박 구독) NFR-M2/3/4 | P2 | 중 | A-1,A-2 | ☐ |
+| A-4 | 유휴/최소화 트림 자니터(`EmptyWorkingSet`·LRU 축소·압박 구독) NFR-M2/3/4 | P2 | 중 | A-1,A-2 | 🚧 힙 적응은 **DATAS ✅**(감사004) · 자니터 잔여 |
 | A-5 | 아이콘 큐 처리율(즉시 착수·완료 즉시 리필) | P2 | 소 | — | ☐ |
-| A-6 | `ScrollIndexIntoView` 익스텐트 선계산으로 `UpdateLayout` 반복 제거 · `Count` 캐시 | P3 | 소 | — | ☐ |
+| A-6 | `ScrollIndexIntoView` 익스텐트 선계산으로 `UpdateLayout` 반복 제거 · `Count` 캐시 | P3 | 소 | — | 🚧 Count 캐시 ✅(감사004 `a9c5682`) · 익스텐트 선계산 잔여 |
 | A-7 | 실측: soak RSS·콜드스타트·60fps·대형 펼침 Add 비용 (측정 하네스) | 측정 | 중 | — | ☐ |
 
 ## §2. 트랙 B — 핵심 기능 (M1 P0 · 제품 정체성: "뷰어→탐색기") ★
@@ -46,8 +46,8 @@
 
 | ID | 항목 | 우선 | 규모 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| D-1 | 설정 영속화(JSON) + 세션/창 복원(docs/28) — 재시작 소실 해소 | P1 | 중~대 | — | ☐ |
-| D-2 | i18n 인프라(.resw/ResourceLoader) — 문자열 쌓이기 전 지금이 최저비용 | P1 | 중 | — | ☐ |
+| D-1 | 설정 영속화(JSON) + 세션/창 복원(docs/28) — 재시작 소실 해소 | P1 | 중~대 | — | 🚧 설정·세션 ✅(PREF-1·SESS) · **창 위치/크기 복원(docs/28) 잔여** |
+| D-2 | i18n 인프라(.resw/ResourceLoader) — 문자열 쌓이기 전 지금이 최저비용 | P1 | 중 | — | ✅ (방식 변경: 외부 `.lang`+Localizer, PREF-8 — 07-08~10) |
 | D-3 | 접근성(AutomationProperties/UIA Peer) — 커스텀 컨트롤 늘기 전 배선 | P1 | 중~대 | — | ☐ |
 | D-4 | NFR-M2/P5 실측 재보정 · 배포 이원화(MSIX+포터블) · 상주 규율 (2차 D 이월) | P2 | 중 | A-7 | ☐ |
 
@@ -63,7 +63,7 @@
 | E-6 | interop 에러코드 `#[repr(i32)] NexaStatus` 통일 (C-1과 연동) | P2 | 중 | C-1 | ☐ |
 | E-7 | `DirItem`/`NexaFileKind` 파일 분리 + `Directory.Build.props` | P3 | 소 | — | ☐ |
 | E-8 | `UpdateNavButtons` 좌/우 분기 소거(바인딩화) | P3 | 소 | — | ☐ |
-| E-9 | (2차 이월) `panic="abort"`(FFI 언와인딩 가드) | P3 | 소 | — | ☐ |
+| E-9 | (2차 이월) `panic="abort"`(FFI 언와인딩 가드) | P3 | 소 | — | 🚧 선택 id 경계 가드 ✅(감사004 `d17cf6c`) · panic=abort/catch_unwind 잔여 |
 | E-10 | (2차 이월) 심링크 `symlink_metadata` + attrs 유닛테스트 | P3 | 소 | — | ☐ |
 | E-11 | (2차 이월) docs/19 커밋해시 백필(플레이스홀더 21개) | P3 | 중 | — | ☐ |
 
@@ -121,9 +121,9 @@
 
 | ID | 항목 | 우선 | 규모 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| PREF-1 | **설정 인프라** — `SettingsStore`(settings.json 로밍·마이그레이션) + 기존 그룹 영속 배선 + `Ctrl+,` 설정 창 뼈대([40](40-preferences-system.md) S1) | **P1** | 중 | — | ☐ |
-| PREF-2 | **모양 페이지** — 테마 모드/팩(토큰 색)/폰트(UI·모노)/밀도([39 §5](39-theme-system.md)) | P1 | 중 | PREF-1 | ☐ |
-| PREF-3 | **레이아웃 페이지** — 패널/런처/하단 표시·헤더·전송창 자동닫기 토글 이관 | P2 | 소 | PREF-1 | ☐ |
+| PREF-1 | **설정 인프라** — `SettingsStore`(settings.json 로밍·마이그레이션) + 기존 그룹 영속 배선 + `Ctrl+,` 설정 창 뼈대([40](40-preferences-system.md) S1) | **P1** | 중 | — | ✅ (07-08 `d99c550` · 창 VS Code식 재구성 07-10 PR#9) |
+| PREF-2 | **모양 페이지** — 테마 모드/팩(토큰 색)/폰트(UI·모노)/밀도([39 §5](39-theme-system.md)) | P1 | 중 | PREF-1 | 🚧 테마 모드·**글꼴 5종+밀도 ✅**(PR#9) · 테마팩(토큰 색) 잔여 |
+| PREF-3 | **레이아웃 페이지** — 패널/런처/하단 표시·헤더·전송창 자동닫기 토글 이관 | P2 | 소 | PREF-1 | ✅ (07-10 PR#9 — 영속 설정 전부 설정 창 수록) |
 | PREF-4 | **컬럼 설정**(COL-4) — 표시/순서/너비/기본 정렬·per-tab([23](23-column-system.md)) | P2 | 중 | PREF-1 | ☐ |
 | PREF-5 | **단축키 지정** — 액션 레지스트리([26 §5](26-command-palette.md))+`keybindings.json`+충돌 검사 | P2 | 중~대 | PREF-1 | ☐ |
 | PREF-6 | **퀵 런처 바 설정** — 등록 도구(경로/인자 템플릿/아이콘)·순서·실행 배선(placeholder→실기능) | P1 | 중 | PREF-1 | 🚧 슬라이스1 ✅(도구 모음 3종+런처 시드 VS Code·exe 아이콘·실행, [docs/44](44-toolbar-and-launcher.md)) · CRUD/영속·단축키(PREF-5) 후속 |
@@ -135,5 +135,18 @@
 | REN-2 | **리네임 표현식/함수 언어 β** — 토큰+문자열 함수(LEFT/SUBSTR/BETWEEN/PAD/PROPER/IF…)+널 처리(IFNULL/COALESCE/ISBLANK, 빈값 정책)+프리셋 저장/재사용([25 §4](25-bulk-rename.md)) | P2 | 중~대 | REN-1 | ☐ 설계 |
 | META-1 | **`nexa-meta` 메타데이터 추출** — EXIF/IPTC/XMP·MP4 atom·ID3/Vorbis·PDF/OOXML → 키-값(순수 Rust: kamadak-exif·mp4·lofty·lopdf·zip+quick-xml). **리네임 `{meta.KEY}` + 정보 패널 공용**([25 §5](25-bulk-rename.md)·[35 §4-1](35-preview-system.md)) | P2 | 대 | — | ☐ 설계 |
 | REN-3 | **리네임 UDF δ** — **엔진 추상화**(`RenameUdfEngine` 트레이트+피처 플래그) + **초기 구현 Starlark**(파이썬 부분집합·설치0·+1~3MB). 후속 RustPython/CPython 교체. 플러그인 파일·핫리로드. 설계 [41](41-rename-udf-python.md), 착수 시 ADR | P3 | 대 | REN-2 | ☐ 설계 |
+
+### §9-4. 2026-07-10 — 4차 감사(refactor/004-audit, PR#13) 후속
+
+> 적용분(캐시 이빅션·Count 캐시·DATAS·무할당화·FFI 가드 등)은 §1 A-1/A-4/A-6·E-9에 반영. 아래는 **미적용 후속**(방안 보고서=journal/2026-07-10).
+
+| ID | 항목 | 우선 | 규모 | 의존 | 상태 |
+|---|---|---|---|---|---|
+| A-8 | **터미널 렌더 요소 풀링** — 매 프레임 시각 트리 전면 재구축(최대 400라인)→라인 슬롯 재사용/부분 갱신. 대량 출력 최대 병목 | P2 | 대 | — | ☐ |
+| A-9 | 터미널 스크롤백 압축 — 행을 마지막 유효 셀까지만 저장(+`TermCell` 16→12B 패킹). NoWrap 1000컬럼 시 ~12.8MB→수 MB | P3 | 중 | — | ☐ |
+| E-12 | MainWindow **장대 메서드 분해** — `OnGridKeyDown` 236줄·`TransferPathsInto` 132줄·생성자 131줄 등 5곳 기계적 추출(E-4 명령 레지스트리의 선행 정리) | P2 | 중 | — | ☐ |
+| E-13 | **ABI v8: `NexaRow`에 경로 동봉** — 행 실체화당 P/Invoke 3회(GetRow/RowPath/IsSelected)→1회 | P2 | 중 | — | ☐ |
+| E-14 | 하단 도크/미리보기 갱신 **디바운스**(60~100ms) — 화살표 연타 시 행마다 정보·미리보기 재계산 제거 | P2 | 소 | — | ☐ |
+| D-5 | Release `PublishReadyToRun` + 콜드 스타트 계측(Stopwatch 5지점·PerfView JIT/XAML 분해) — 측정 먼저 | P2 | 소 | — | ☐ |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->
