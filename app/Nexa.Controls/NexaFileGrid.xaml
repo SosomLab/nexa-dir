@@ -31,13 +31,15 @@
                     <DataTemplate x:DataType="local:HeaderCell">
                         <Grid Width="{x:Bind Column.Width, Mode=OneWay}">
                             <!-- 컬럼 셀(구분선만, 배경은 전폭 헤더 바가 담당). 클릭=3상태 정렬(▲/▼) -->
-                            <Border Padding="6,3" BorderThickness="0,0,1,0" BorderBrush="#33808080"
+                            <Border Padding="6,2" BorderThickness="0,0,1,0" BorderBrush="#33808080"
                                     Background="Transparent" Tag="{x:Bind}" Tapped="OnHeaderTapped">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
                                     <!-- 정렬 화살표(▲/▼) — 컬럼명 앞. 정렬 없으면 접힘 -->
                                     <TextBlock Text="{x:Bind Glyph, Mode=OneWay}" Visibility="{x:Bind GlyphVisibility, Mode=OneWay}"
                                                FontSize="9" Opacity="0.85" VerticalAlignment="Center" />
-                                    <TextBlock Text="{x:Bind Column.Header}" FontWeight="SemiBold" Opacity="0.9"
+                                    <TextBlock Text="{x:Bind Column.Header}" Opacity="0.9"
+                                               FontWeight="{x:Bind TextWeight, Mode=OneWay}"
+                                               FontStyle="{x:Bind TextStyle, Mode=OneWay}"
                                                TextTrimming="CharacterEllipsis" />
                                     <!-- 정렬 순번 원문자(①②③) — 컬럼명 뒤. 정렬 없으면 접힘 -->
                                     <TextBlock Text="{x:Bind OrderText, Mode=OneWay}" Visibility="{x:Bind OrderVisibility, Mode=OneWay}"
@@ -65,9 +67,12 @@
                           HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto"
                           ViewChanged="OnBodyViewChanged"
                           AllowDrop="True" DragOver="OnBodyDragOver" DragLeave="OnBodyDragLeave" Drop="OnBodyDragEnd">
-                <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}">
+                <!-- 행 간 간격 0 + 행 템플릿 상단 -1px 겹침(Margin) — 인접 선택 행의 1px 테두리가 같은
+                     픽셀에 그려져 경계가 1px(박스 4면 유지). Repeater 상단 1px 마진 = 첫 행 -1px 보정.
+                     변경 시 EstimateRowStride(코드)의 겹침 가산도 함께 갱신할 것. -->
+                <ItemsRepeater x:Name="Repeater" ItemTemplate="{x:Bind ItemTemplate, Mode=OneWay}" Margin="0,1,0,0">
                     <ItemsRepeater.Layout>
-                        <StackLayout Orientation="Vertical" Spacing="2" />
+                        <StackLayout Orientation="Vertical" Spacing="0" />
                     </ItemsRepeater.Layout>
                 </ItemsRepeater>
             </ScrollViewer>

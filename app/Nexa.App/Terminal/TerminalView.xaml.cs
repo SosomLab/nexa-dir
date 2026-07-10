@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using Microsoft.UI.Xaml;
@@ -14,13 +14,17 @@ namespace Nexa.App.Terminal;
 /// 터미널 뷰(BP-T2) — <see cref="ConPtySession"/> 출력을 <see cref="VtScreen"/>(VT 파서+화면 버퍼)에 넣고
 /// <b>색 셀 그리드</b>로 렌더한다. 라인마다 같은 스타일 셀을 run으로 묶어 <c>Border</c>(배경)+<c>TextBlock</c>(전경)으로
 /// 그린다(oh-my-posh 배경색·ls 색·커서 지우기 반영). 렌더는 throttle(코얼레싱). 세션은 <see cref="Start"/> 시에만(lazy).
-/// <para>글리프: 파워라인/Nerd Font 아이콘은 고정폭 폰트(Consolas)에 없어 네모로 보일 수 있다(색은 정상) — 폰트 설정 후속.</para>
+/// <para>글리프: 파워라인/Nerd Font 아이콘은 기본 폰트(Consolas)에 없어 네모로 보일 수 있다(색은 정상)
+/// — 설정 "콘솔 글꼴"(PREF-3)에서 Nerd Font 등을 쉼표 폴백으로 지정하면 해결.</para>
 /// </summary>
 public sealed partial class TerminalView : UserControl
 {
-    private const double FontSizePx = 13;
-    private const double CharW = FontSizePx * 0.55;   // Consolas 대략 advance
-    private const double LineH = FontSizePx * 1.35;
+    // 콘솔 글꼴(설정 PREF-3) — ApplyFont()가 AppSettings.Fonts.Console*로 갱신. 쉼표 목록=합성 폰트 폴백.
+    private FontFamily _fontFamily = new("Consolas");
+    private double _fontSize = 13;
+    private double _charW = 13 * 0.55;    // 셀 폭 — ApplyFont()에서 '0' 20자 실측(고정폭 가정)
+    private double _lineH = 13 * 1.35;
+
     private const int RenderCap = 400;                // 렌더할 최근 라인 상한(성능)
 
     private const double BlinkMs = 530;               // 캐럿 깜빡임 주기(포커스 시)
@@ -64,6 +68,25 @@ public sealed partial class TerminalView : UserControl
         _blinkTimer.Tick += (_, _) => { _caretOn = !_caretOn; UpdateCaret(); };
         SizeChanged += (_, _) => ResizeToView();
         Unloaded += (_, _) => Stop();
+        ApplyFont();   // 설정(콘솔 글꼴) 반영 — 세션 시작 전 셀 크기 확정
+    }
+
+    /// <summary>설정(콘솔 글꼴, PREF-3)을 반영 — 셀 폭/줄 높이를 실측으로 재계산 후 격자 리사이즈·재렌더.
+    /// 쉼표 목록("Cascadia Mono, Consolas")은 WinUI 합성 폰트 문자열로 그대로 폴백된다.</summary>
+    public void ApplyFont()
+    {
+        var f = AppSettings.Fonts;
+        _fontFamily = new FontFamily(string.IsNullOrWhiteSpace(f.ConsoleFamily) ? "Consolas" : f.ConsoleFamily);
+        _fontSize = Math.Clamp(double.IsFinite(f.ConsoleSize) ? f.ConsoleSize : 13, 8, 32);
+        // 고정폭 가정 셀 폭 실측('0' 20자 평균) — 폰트별 advance 차이(Consolas 0.55 가정 탈피).
+        var probe = new TextBlock { FontFamily = _fontFamily, FontSize = _fontSize, Text = new string('0', 20) };
+        probe.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        _charW = probe.DesiredSize.Width > 0 ? probe.DesiredSize.Width / 20 : _fontSize * 0.55;
+        _lineH = Math.Max(_fontSize * 1.35, probe.DesiredSize.Height);
+        if (_started)
+        {
+            ResizeToView();   // 격자(cols/rows) 재계산 → ConPTY 리사이즈 + 재렌더(MarkDirty 포함)
+        }
     }
 
     /// <summary>세션 시작(lazy — 터미널 탭 활성 시에만). 이미 시작이면 포커스만.
@@ -122,7 +145,7 @@ public sealed partial class TerminalView : UserControl
         }
         catch (Exception ex)
         {
-            LinesPanel.Children.Add(new TextBlock { Text = $"[터미널 시작 실패] {ex.Message}", Foreground = Brush(0xFFE74856), FontFamily = new FontFamily("Consolas"), FontSize = FontSizePx });
+            LinesPanel.Children.Add(new TextBlock { Text = Loc.T("term.startFail", ex.Message), Foreground = Brush(0xFFE74856), FontFamily = _fontFamily, FontSize = _fontSize });
         }
     }
 
@@ -174,7 +197,7 @@ public sealed partial class TerminalView : UserControl
         var lines = _vt.Lines;
         int start = Math.Max(0, lines.Count - RenderCap);
         LinesPanel.Children.Clear();
-        var fontFamily = new FontFamily("Consolas");
+        var fontFamily = _fontFamily;   // 설정 콘솔 글꼴(ApplyFont)
         double maxLineWidth = 0;   // Canvas는 자식 크기를 반영하지 않음 → 스크롤 익스텐트용 명시 크기
 
         for (int li = start; li < lines.Count; li++)
@@ -187,10 +210,10 @@ public sealed partial class TerminalView : UserControl
                 end--;
             }
 
-            // 고정폭 셀 그리드: run을 Canvas에 열×CharW 절대 위치로 배치 — 폭이 다른 글리프(폴백 폰트·전각)로
+            // 고정폭 셀 그리드: run을 Canvas에 열×_charW 절대 위치로 배치 — 폭이 다른 글리프(폴백 폰트·전각)로
             // 인한 열 드리프트가 다음 run으로 누적되지 않는다(캐럿·열 정렬의 전제).
-            var line = new Canvas { Height = LineH, Width = Math.Max(1, end) * CharW };
-            Canvas.SetTop(line, (li - start) * LineH);   // 절대 배치 — 오버레이(캐럿/선택)와 동일 수식
+            var line = new Canvas { Height = _lineH, Width = Math.Max(1, end) * _charW };
+            Canvas.SetTop(line, (li - start) * _lineH);   // 절대 배치 — 오버레이(캐럿/선택)와 동일 수식
             maxLineWidth = Math.Max(maxLineWidth, (double)line.Width);
             int c = 0;
             while (c < end)
@@ -228,24 +251,24 @@ public sealed partial class TerminalView : UserControl
                 {
                     Text = sb.ToString(),
                     FontFamily = fontFamily,
-                    FontSize = FontSizePx,
+                    FontSize = _fontSize,
                     Foreground = Brush(fg),
                     FontWeight = s.Bold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
-                    LineHeight = LineH,
+                    LineHeight = _lineH,
                     IsTextSelectionEnabled = false,
                     // faint(SGR 2): PSReadLine 인라인 예측(history)을 연한 회색 미리보기로 — VS Code와 동일한 느낌.
                     Opacity = s.Faint ? 0.45 : 1.0,
                 };
                 FrameworkElement el = bg != VtScreen.DefaultBg
-                    ? new Border { Background = Brush(bg), Width = runCols * CharW, Height = LineH, Child = tb }
+                    ? new Border { Background = Brush(bg), Width = runCols * _charW, Height = _lineH, Child = tb }
                     : tb;
-                Canvas.SetLeft(el, runStart * CharW);
+                Canvas.SetLeft(el, runStart * _charW);
                 line.Children.Add(el);
             }
             LinesPanel.Children.Add(line);
         }
-        // Canvas는 자식으로 크기가 잡히지 않음 → 스크롤 익스텐트를 명시(세로=행수×LineH, 가로=최장 줄).
-        LinesPanel.Height = (lines.Count - start) * LineH;
+        // Canvas는 자식으로 크기가 잡히지 않음 → 스크롤 익스텐트를 명시(세로=행수×_lineH, 가로=최장 줄).
+        LinesPanel.Height = (lines.Count - start) * _lineH;
         LinesPanel.Width = maxLineWidth;
 
         // 맨 아래로 스크롤(항상 최신 보이게).
@@ -275,10 +298,10 @@ public sealed partial class TerminalView : UserControl
             return;
         }
 
-        Caret.Width = CharW;
-        Caret.Height = LineH;
-        Canvas.SetLeft(Caret, _vt.CursorCol * CharW);
-        Canvas.SetTop(Caret, rendered * LineH);
+        Caret.Width = _charW;
+        Caret.Height = _lineH;
+        Canvas.SetLeft(Caret, _vt.CursorCol * _charW);
+        Canvas.SetTop(Caret, rendered * _lineH);
 
         if (_focused)
         {
@@ -328,8 +351,8 @@ public sealed partial class TerminalView : UserControl
         }
         int count = _vt.ScrollbackCount + _vt.Rows;
         int start = Math.Max(0, count - RenderCap);
-        int line = Math.Clamp(start + (int)Math.Floor((viewportPos.Y + Scroll.VerticalOffset) / LineH), 0, count - 1);
-        int col = Math.Clamp((int)Math.Round((viewportPos.X + Scroll.HorizontalOffset - 6) / CharW), 0, _vt.Cols);
+        int line = Math.Clamp(start + (int)Math.Floor((viewportPos.Y + Scroll.VerticalOffset) / _lineH), 0, count - 1);
+        int col = Math.Clamp((int)Math.Round((viewportPos.X + Scroll.HorizontalOffset - 6) / _charW), 0, _vt.Cols);
         return (line, col);
     }
 
@@ -409,12 +432,12 @@ public sealed partial class TerminalView : UserControl
             }
             var r = new Microsoft.UI.Xaml.Shapes.Rectangle
             {
-                Width = (c1 - c0) * CharW,
-                Height = LineH,
+                Width = (c1 - c0) * _charW,
+                Height = _lineH,
                 Fill = Brush(0x553D8BFF),
             };
-            Canvas.SetLeft(r, c0 * CharW);
-            Canvas.SetTop(r, (li - start) * LineH);
+            Canvas.SetLeft(r, c0 * _charW);
+            Canvas.SetTop(r, (li - start) * _lineH);
             SelLayer.Children.Add(r);
         }
     }
@@ -557,8 +580,8 @@ public sealed partial class TerminalView : UserControl
 
     private (int cols, int rows) MeasureGrid()
     {
-        int cols = Math.Clamp((int)((ActualWidth - 12) / CharW), 20, 500);   // 좌우 패딩(6×2) 제외
-        int rows = Math.Clamp((int)(ActualHeight / LineH), 5, 200);
+        int cols = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
+        int rows = Math.Clamp((int)(ActualHeight / _lineH), 5, 200);
         return (cols, rows);
     }
 }

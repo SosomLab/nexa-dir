@@ -2,7 +2,8 @@
 <UserControl
     x:Class="Nexa.App.BottomDockView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="using:Nexa.App">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -12,13 +13,13 @@
 
         <!-- 콘텐츠 종류 선택(정보/미리보기/Hex/터미널) — 라디오식 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2" Padding="6,4,6,2">
-            <ToggleButton x:Name="KindInfo" Content="정보" Tag="Info" IsChecked="True" Click="OnKindClick"
+            <ToggleButton x:Name="KindInfo" Content="{loc:Loc Key=dock.info}" Tag="Info" IsChecked="True" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
-            <ToggleButton x:Name="KindPreview" Content="미리보기" Tag="Preview" Click="OnKindClick"
+            <ToggleButton x:Name="KindPreview" Content="{loc:Loc Key=dock.preview}" Tag="Preview" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
             <ToggleButton x:Name="KindHex" Content="Hex" Tag="Hex" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
-            <ToggleButton x:Name="KindTerminal" Content="터미널" Tag="Terminal" Click="OnKindClick"
+            <ToggleButton x:Name="KindTerminal" Content="{loc:Loc Key=dock.terminal}" Tag="Terminal" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
         </StackPanel>
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Nexa.App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -19,11 +19,11 @@
     <Grid x:Name="RootGrid" Background="{ThemeResource NexaWindowBackgroundBrush}">
         <Grid.Resources>
             <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
-            <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="280" />
-            <ctrls:NexaGridColumn x:Key="ColExt" Header="확장자" Key="ext" Width="70" />
-            <ctrls:NexaGridColumn x:Key="ColDate" Header="수정한 날짜/시간" Key="modified" Width="130" />
-            <ctrls:NexaGridColumn x:Key="ColKind" Header="종류" Key="kind" Width="90" />
-            <ctrls:NexaGridColumn x:Key="ColSize" Header="크기" Key="size" Width="90" />
+            <ctrls:NexaGridColumn x:Key="ColName" Header="{loc:Loc Key=col.name}" Key="name" Width="280" />
+            <ctrls:NexaGridColumn x:Key="ColExt" Header="{loc:Loc Key=col.ext}" Key="ext" Width="70" />
+            <ctrls:NexaGridColumn x:Key="ColDate" Header="{loc:Loc Key=col.modified}" Key="modified" Width="130" />
+            <ctrls:NexaGridColumn x:Key="ColKind" Header="{loc:Loc Key=col.kind}" Key="kind" Width="90" />
+            <ctrls:NexaGridColumn x:Key="ColSize" Header="{loc:Loc Key=col.size}" Key="size" Width="90" />
             <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트 -->
             <Style x:Key="NavBtnStyle" TargetType="Button">
                 <Setter Property="Width" Value="22" />
@@ -81,7 +81,7 @@
         </Grid.RowDefinitions>
 
         <!-- 0 · 메뉴 바 (흰색) — 커스텀 NexaMenuBar(초박형 18px/폰트12, 기본 MenuBar 한계 우회). 헤더 텍스트=어두운색 -->
-        <ctrls:NexaMenuBar Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
+        <ctrls:NexaMenuBar x:Name="MainMenuBar" Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
             <ctrls:NexaMenuBar.Menus>
                 <ctrls:NexaMenu Header="{loc:Loc Key=menu.file}">
                     <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.file.newTab}" />
@@ -165,14 +165,17 @@
                     <!-- 탭 바: 멀티라인·고정크기(UniformGridLayout). +버튼 없음 — 빈 영역 더블클릭으로 추가. 활성 탭 상단 하이라이트 줄.
                          탭 드래그(TAB-DND): 바 빈 영역 드롭=맨 끝 이동, 삽입 위치는 오버레이 바(TabInsertL)로 표시. -->
                     <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
-                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="L" x:Name="LeftTabBar"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="L" x:Name="LeftTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <!-- 폰트 상속 루트(기본 글꼴) — 탭 제목 TextBlock이 이 컨트롤의 FontFamily/FontSize를 상속(ApplyFonts) -->
+                        <ContentControl x:Name="LeftTabsFontHost" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                         <Grid>
                         <ItemsRepeater x:Name="LeftTabs">
                             <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
-                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="20"
+                                                   MinRowSpacing="2" MinColumnSpacing="3" ItemsStretch="None" />
                             </ItemsRepeater.Layout>
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
@@ -200,8 +203,9 @@
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
                                                 <!-- 긴 폴더명은 탭 폭 안에서 끝에 …(말줄임)로 축약 -->
+                                                <!-- FontSize 미지정 — 폰트 상속 루트(TabsFontHost, 기본 글꼴)에서 상속 -->
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1"
                                                            VerticalAlignment="Center" />
                                                 <FontIcon Grid.Column="2" Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="4,0,0,0" Opacity="0.85" VerticalAlignment="Center"
@@ -218,6 +222,7 @@
                                        Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
+                        </ContentControl>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
@@ -227,14 +232,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
-                                <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                                <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                                <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                                <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="{loc:Loc Key=nav.back}" />
+                                <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="{loc:Loc Key=nav.forward}" />
+                                <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="{loc:Loc Key=nav.up}" />
                             </StackPanel>
                             <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
                                     BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
+                                <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="{loc:Loc Key=pathbar.tip}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -246,7 +251,7 @@
                                         ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
+                                <StackPanel Orientation="Horizontal" Padding="0,1" Margin="0,-1,0,0" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
@@ -304,14 +309,17 @@
 
                     <!-- 우 패널 탭 바(멀티라인·고정크기, 좌 패널과 동일 규칙 — TAB-DND 삽입 표시 포함) -->
                     <Border Grid.Row="0" Background="{ThemeResource NexaTabBarBackgroundBrush}"
-                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,3" Tag="R" x:Name="RightTabBar"
+                            BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,0,0,1" Padding="4,2" Tag="R" x:Name="RightTabBar"
                             Tapped="OnTabBarTapped" DoubleTapped="OnTabBarDoubleTapped"
                             AllowDrop="True" DragOver="OnTabDragOver" DragLeave="OnTabDragLeave" Drop="OnTabDrop">
+                        <!-- 폰트 상속 루트(기본 글꼴) — 좌 탭 바와 동일(ApplyFonts) -->
+                        <ContentControl x:Name="RightTabsFontHost" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                         <Grid>
                         <ItemsRepeater x:Name="RightTabs">
                             <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="132" MinItemHeight="24"
-                                                   MinRowSpacing="3" MinColumnSpacing="3" ItemsStretch="None" />
+                                <UniformGridLayout MinItemWidth="132" MinItemHeight="20"
+                                                   MinRowSpacing="2" MinColumnSpacing="3" ItemsStretch="None" />
                             </ItemsRepeater.Layout>
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="local:PanelTab">
@@ -339,8 +347,9 @@
                                                           Margin="0,0,4,0" Opacity="0.85" VerticalAlignment="Center"
                                                           Visibility="{x:Bind PinVisibility, Mode=OneWay}" />
                                                 <!-- 긴 폴더명은 탭 폭 안에서 끝에 …(말줄임)로 축약 -->
+                                                <!-- FontSize 미지정 — 폰트 상속 루트(TabsFontHost, 기본 글꼴)에서 상속 -->
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Title, Mode=OneWay}"
-                                                           TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" MaxLines="1"
                                                            VerticalAlignment="Center" />
                                                 <FontIcon Grid.Column="2" Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                           Margin="4,0,0,0" Opacity="0.85" VerticalAlignment="Center"
@@ -357,6 +366,7 @@
                                        Fill="{ThemeResource NexaAccentBrush}" Visibility="Collapsed" />
                         </Canvas>
                         </Grid>
+                        </ContentControl>
                     </Border>
 
                     <Border Grid.Row="1" Padding="6,3">
@@ -366,14 +376,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
-                                <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                                <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                                <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                                <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="{loc:Loc Key=nav.back}" />
+                                <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="{loc:Loc Key=nav.forward}" />
+                                <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="{loc:Loc Key=nav.up}" />
                             </StackPanel>
                             <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
                                     BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
+                                <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="{loc:Loc Key=pathbar.tip}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -385,7 +395,7 @@
                                         ContextRequested="OnPanelContextRequested" PointerPressed="OnGridPressed">
                         <ctrls:NexaFileGrid.ItemTemplate>
                             <DataTemplate x:DataType="local:DirItem">
-                                <StackPanel Orientation="Horizontal" Padding="0,3" HorizontalAlignment="Left"
+                                <StackPanel Orientation="Horizontal" Padding="0,1" Margin="0,-1,0,0" HorizontalAlignment="Left"
                                             Background="{x:Bind RowBackground, Mode=OneWay}"
                                             BorderBrush="{x:Bind RowBorderBrush, Mode=OneWay}"
                                             BorderThickness="{x:Bind RowBorderThickness, Mode=OneWay}"
@@ -462,7 +472,7 @@
         <!-- 6 · 상태바 — 온전히 상태 표시 전용(패널 보기 토글은 표시(S) 메뉴로 이관) -->
         <Border Grid.Row="6" Background="{ThemeResource NexaStatusBarBackgroundBrush}"
                 BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="8,4">
-            <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
+            <TextBlock x:Name="StatusText" Text="{loc:Loc Key=status.ready}" Opacity="0.85" VerticalAlignment="Center" />
         </Border>
     </Grid>
 </Window>

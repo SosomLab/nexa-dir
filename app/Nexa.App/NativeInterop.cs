@@ -133,8 +133,8 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>아이콘 색: 폴더=파랑, 그 외=회색.</summary>
     public Brush IconBrush => IsDir ? FolderBrush : FileBrush;
 
-    /// <summary>폴더명은 굵게.</summary>
-    public FontWeight NameWeight => IsDir ? FontWeights.SemiBold : FontWeights.Normal;
+    /// <summary>폴더명 굵게(설정 FolderBold, 기본 ON). 변경은 패널 재로드 시 반영(x:Bind OneTime).</summary>
+    public FontWeight NameWeight => IsDir && AppSettings.Fonts.FolderBold ? FontWeights.SemiBold : FontWeights.Normal;
 
     /// <summary>수정 로컬 시각(없으면 null). 날짜/시간 컬럼 라벨의 공통 소스(COL-D1).</summary>
     private DateTime? ModifiedLocal => ModifiedUnixMs < 0
@@ -158,12 +158,12 @@ internal sealed class DirItem : INotifyPropertyChanged
         ? string.Empty
         : Path.GetExtension(Name).TrimStart('.').ToLowerInvariant();
 
-    /// <summary>종류 텍스트: 폴더/링크/확장자 파일.</summary>
+    /// <summary>종류 텍스트: 폴더/링크/확장자 파일(i18n).</summary>
     public string KindText => IsDir
-        ? "폴더"
+        ? Loc.T("kind.folder")
         : Kind == NexaFileKind.Symlink
-            ? "링크"
-            : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? $"{ext} 파일" : "파일";
+            ? Loc.T("kind.link")
+            : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? Loc.T("kind.extFile", ext) : Loc.T("kind.file");
 
     // ── 선택/호버/포커스 비주얼(Explorer식) ───────────────────────────
     // 선택(활성 패널)=연한 파랑+파란 테두리, 선택(비활성=포커스아웃)=회색, 호버=옅은 파랑.
@@ -174,6 +174,8 @@ internal sealed class DirItem : INotifyPropertyChanged
     private static readonly SolidColorBrush SelBorderActiveBrush = new(ColorHelper.FromArgb(0xFF, 0x3B, 0x82, 0xC4));
     private static readonly SolidColorBrush SelBorderInactiveBrush = new(ColorHelper.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
     private static readonly SolidColorBrush CaretBorderBrush = new(ColorHelper.FromArgb(0xAA, 0xBB, 0xBB, 0xBB));
+    // 4면 1px 박스 유지. 인접 선택 행의 테두리 2px 겹침은 행 템플릿의 상단 -1px 겹침(Margin)으로
+    // 해소 — 아래 행의 위 테두리가 위 행의 아래 테두리와 같은 픽셀에 그려져 경계가 1px로 보인다.
     private static readonly Thickness SelBorderThickness = new(1);
 
     private bool _isSelected;
@@ -226,8 +228,8 @@ internal sealed class DirItem : INotifyPropertyChanged
         _isSelected ? (_panelFocused ? SelBorderActiveBrush : SelBorderInactiveBrush)
         : _isCaret ? CaretBorderBrush : RowTransparent;
 
-    /// <summary>선택 시 1px 테두리.</summary>
-    public Thickness RowBorderThickness => SelBorderThickness;   // 항상 1px(투명↔색만) → 선택 시 높이 점프 방지
+    /// <summary>선택 시 1px 박스 테두리(4면).</summary>
+    public Thickness RowBorderThickness => SelBorderThickness;   // 항상 동일 두께(투명↔색만) → 선택 시 높이 점프 방지
 
     // ── 실제 셸 아이콘(폴더 커스텀/파일 형식) ────────────────────────
     private ImageSource? _iconImage;

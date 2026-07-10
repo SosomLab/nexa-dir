@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -121,7 +121,7 @@ public sealed class MoveBatchOp : IReversibleOp
         }
         if (failed > 0)
         {
-            throw new IOException($"{failed}개 항목을 처리하지 못했습니다(소실/충돌).");
+            throw new IOException(Localizer.Current.T("history.failedItems", failed));
         }
     }
 }
@@ -160,7 +160,7 @@ public sealed class CopyBatchOp : IReversibleOp
         }
         if (failed > 0)
         {
-            throw new IOException($"{failed}개 사본을 삭제하지 못했습니다.");
+            throw new IOException(Localizer.Current.T("history.copyDeleteFail", failed));
         }
     }
 
@@ -185,7 +185,7 @@ public sealed class CopyBatchOp : IReversibleOp
         }
         if (failed > 0)
         {
-            throw new IOException($"{failed}개 항목을 다시 복사하지 못했습니다(소실/충돌).");
+            throw new IOException(Localizer.Current.T("history.recopyFail", failed));
         }
     }
 }
@@ -213,11 +213,11 @@ public sealed class RenameOp : IReversibleOp
     {
         if (!FileOps.Exists(from))
         {
-            throw new IOException($"원본이 없습니다(외부 변경?): {FileOps.LeafName(from)}");
+            throw new IOException(Localizer.Current.T("history.missingSource", FileOps.LeafName(from)));
         }
         if (FileOps.Exists(to))
         {
-            throw new IOException($"같은 이름이 이미 있습니다: {FileOps.LeafName(to)}");
+            throw new IOException(Localizer.Current.T("history.nameExists", FileOps.LeafName(to)));
         }
         FileOps.MoveOnto(from, to, overwrite: false);
     }

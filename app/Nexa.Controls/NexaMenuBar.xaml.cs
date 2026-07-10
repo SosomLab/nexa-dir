@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.UI;
 using Microsoft.UI.Input;
@@ -77,6 +78,17 @@ public sealed partial class NexaMenuBar : UserControl
         }
     }
 
+    /// <summary>폰트(FontFamily/FontSize) 변경을 이미 생성된 헤더에 반영(설정 라이브 적용, PREF-3).
+    /// 드롭다운 항목은 열 때마다 생성하므로 헤더만 재구성하면 된다.</summary>
+    public void RefreshFonts()
+    {
+        if (IsLoaded)
+        {
+            CloseMenu();
+            BuildHeaders();
+        }
+    }
+
     /// <summary>Menus로부터 최상위 헤더 버튼을 생성한다(드롭다운은 Popup으로 별도 표시).</summary>
     private void BuildHeaders()
     {
@@ -93,7 +105,8 @@ public sealed partial class NexaMenuBar : UserControl
             {
                 Content = menu.Header,
                 FontSize = FontSize,
-                Height = MenuHeight,
+                FontFamily = FontFamily,
+                Height = Math.Max(MenuHeight, FontSize + 6),   // 큰 글꼴 설정 시 클리핑 방지
                 MinHeight = 0,
                 MinWidth = 0,
                 Padding = new Thickness(8, 0, 8, 0),
@@ -206,6 +219,7 @@ public sealed partial class NexaMenuBar : UserControl
         {
             Text = entry.Text,
             FontSize = FontSize,
+            FontFamily = FontFamily,
             Foreground = ItemTextBrush,
         });
 

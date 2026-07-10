@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -290,7 +290,7 @@ internal sealed class DeleteBatchOp : IReversibleOp
         int restored = RecycleBin.RestoreByOriginalPaths(_paths);
         if (restored < _paths.Count)
         {
-            throw new IOException($"{_paths.Count - restored}개 항목을 휴지통에서 복원하지 못했습니다.");
+            throw new IOException(Loc.T("recycle.restoreFail", _paths.Count - restored));
         }
     }
 
@@ -313,7 +313,7 @@ internal sealed class DeleteBatchOp : IReversibleOp
         }
         if (failed > 0)
         {
-            throw new IOException($"{failed}개 항목을 다시 삭제하지 못했습니다.");
+            throw new IOException(Loc.T("recycle.redeleteFail", failed));
         }
     }
 }

@@ -32,8 +32,8 @@ public sealed partial class TransferProgressWindow : Window
     public TransferProgressWindow(string verb)
     {
         InitializeComponent();
-        Title = $"{verb} 진행";
-        TitleText.Text = $"{verb} 중…";
+        Title = Loc.T("transfer.progressTitle", verb);
+        TitleText.Text = Loc.T("transfer.verbing", verb);
         AppWindow.Resize(new SizeInt32(480, 230));   // 작은 고정 크기
         // 완료 전에 창을 닫으면(사용자 X) 전송 취소로 간주. 대기 중 확인이 있으면 취소로 정리(await 해제).
         Closed += (_, _) =>
@@ -65,7 +65,7 @@ public sealed partial class TransferProgressWindow : Window
     public void SetPreparing()
     {
         Bar.IsIndeterminate = true;
-        PercentText.Text = "준비 중…";
+        PercentText.Text = Loc.T("transfer.preparing");
     }
 
     /// <summary>총 바이트 확정 → 확정형(determinate)으로 전환.</summary>
@@ -101,7 +101,7 @@ public sealed partial class TransferProgressWindow : Window
             return;
         }
         _closeCountdown = 2;
-        CloseBtn.Content = $"닫기 ({_closeCountdown})";
+        CloseBtn.Content = Loc.T("transfer.closeIn", _closeCountdown);
         _closeTimer = DispatcherQueue.CreateTimer();
         _closeTimer.Interval = TimeSpan.FromSeconds(1);
         _closeTimer.IsRepeating = true;
@@ -115,7 +115,7 @@ public sealed partial class TransferProgressWindow : Window
             }
             else
             {
-                CloseBtn.Content = $"닫기 ({_closeCountdown})";
+                CloseBtn.Content = Loc.T("transfer.closeIn", _closeCountdown);
             }
         };
         _closeTimer.Start();
@@ -125,7 +125,7 @@ public sealed partial class TransferProgressWindow : Window
     {
         _cts.Cancel();
         CancelBtn.IsEnabled = false;
-        TitleText.Text = "취소 중…";
+        TitleText.Text = Loc.T("transfer.cancelling");
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
@@ -136,7 +136,7 @@ public sealed partial class TransferProgressWindow : Window
     /// <summary>진행 창 <b>안에서</b> 덮어쓰기 확인을 띄우고 선택을 기다린다(ContentDialog XamlRoot 문제 회피).</summary>
     public Task<OverwriteChoice> AskOverwriteAsync(string fileName, bool copy)
     {
-        PromptText.Text = $"'{fileName}'이(가) 대상 폴더에 이미 있습니다.\n{(copy ? "복사" : "이동")}하면서 덮어쓸까요?";
+        PromptText.Text = Loc.T("overwrite.msg", fileName, copy ? Loc.T("dnd.copy") : Loc.T("dnd.move"));
         _promptTcs = new TaskCompletionSource<OverwriteChoice>();
         PromptOverlay.Visibility = Visibility.Visible;
         ActivateForeground();   // 확인이 필요하니 맨 앞으로

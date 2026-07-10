@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 
@@ -44,7 +44,7 @@ public static class FileOps
         bool isDir = Directory.Exists(src);
         if (isDir && IsSameOrSubPath(src, destDir))
         {
-            throw new IOException("폴더를 자기 자신 또는 하위 폴더로 이동할 수 없습니다.");
+            throw new IOException(Localizer.Current.T("fileops.cycleMove"));
         }
         string dest = UniqueDest(destDir, LeafName(src), isDir);
         if (isDir)
@@ -91,7 +91,7 @@ public static class FileOps
         bool isDir = Directory.Exists(src);
         if (isDir && IsSameOrSubPath(src, destPath))
         {
-            throw new IOException("폴더를 자기 자신 또는 하위 폴더로 이동할 수 없습니다.");
+            throw new IOException(Localizer.Current.T("fileops.cycleMove"));
         }
         if (overwrite)
         {
@@ -182,7 +182,7 @@ public static class FileOps
         bool isDir = Directory.Exists(src);
         if (isDir && IsSameOrSubPath(src, destPath))
         {
-            throw new IOException("폴더를 자기 자신 또는 하위 폴더로 이동할 수 없습니다.");
+            throw new IOException(Localizer.Current.T("fileops.cycleMove"));
         }
         if (overwrite)
         {

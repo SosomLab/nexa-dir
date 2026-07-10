@@ -128,6 +128,38 @@ internal sealed class ThemeOptions
 }
 
 /// <summary>
+/// 글꼴 옵션(PREF-3, docs/40) — 영역별 6종 슬롯. Family는 쉼표(,)로 여러 개 지정 시 앞에서부터 폴백
+/// (WinUI 합성 폰트 문자열 그대로 사용). 크기 px. 적용 배선 = <c>MainWindow.ApplyFonts</c>.
+/// </summary>
+internal sealed class FontOptions
+{
+    /// <summary>기본 글꼴 — 특별 지정 없는 곳(메뉴·설명·하단 정보/미리보기 창).</summary>
+    public string BaseFamily { get; set; } = "Segoe UI";
+    public double BaseSize { get; set; } = 12;
+
+    /// <summary>콘솔(터미널) 글꼴 — 쉼표로 2개 이상 지정 가능("Cascadia Mono, Consolas").</summary>
+    public string ConsoleFamily { get; set; } = "Consolas";
+    public double ConsoleSize { get; set; } = 13;
+
+    // 경로(브레드크럼)·탭 제목은 별도 슬롯 없이 기본 글꼴(Base)을 따른다(사용자 결정 2026-07-10).
+
+    /// <summary>상태표시줄 글꼴.</summary>
+    public string StatusFamily { get; set; } = "Segoe UI";
+    public double StatusSize { get; set; } = 12;
+
+    /// <summary>파일 목록 글꼴 — 좌/우 패널 목록 + 컬럼 헤더(글꼴/크기 공유).</summary>
+    public string ListFamily { get; set; } = "Segoe UI";
+    public double ListSize { get; set; } = 12;
+
+    /// <summary>파일 목록에서 폴더 이름을 굵게(기본 true — 기존 표시 유지).</summary>
+    public bool FolderBold { get; set; } = true;
+
+    /// <summary>파일 헤더(컬럼 헤더) 꾸미기 — 글꼴/크기는 파일 목록과 동일, 두껍게/기울임만 지정.</summary>
+    public bool HeaderBold { get; set; } = true;
+    public bool HeaderItalic { get; set; }
+}
+
+/// <summary>
 /// 앱 전역 설정(인메모리 단일 인스턴스). 나중에 JSON 파일 로드/저장으로 확장한다
 /// (설정 시스템 백로그, docs/19). 지금은 코드 기본값이 유일한 원천.
 /// </summary>
@@ -150,6 +182,9 @@ internal static class AppSettings
 
     /// <summary>일반 옵션(언어 등, docs/40).</summary>
     public static GeneralOptions General { get; } = new();
+
+    /// <summary>글꼴 옵션(영역별 6종 슬롯, PREF-3).</summary>
+    public static FontOptions Fonts { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

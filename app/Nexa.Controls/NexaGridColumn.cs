@@ -117,6 +117,38 @@ public sealed class HeaderCell : INotifyPropertyChanged
     public Visibility OrderVisibility =>
         string.IsNullOrEmpty(_orderText) ? Visibility.Collapsed : Visibility.Visible;
 
+    private Windows.UI.Text.FontWeight _textWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+
+    /// <summary>헤더 라벨 굵기(설정 "파일 헤더 글꼴" 꾸미기, PREF-3). 기본 SemiBold.</summary>
+    public Windows.UI.Text.FontWeight TextWeight
+    {
+        get => _textWeight;
+        set
+        {
+            if (!_textWeight.Equals(value))
+            {
+                _textWeight = value;
+                Raise(nameof(TextWeight));
+            }
+        }
+    }
+
+    private Windows.UI.Text.FontStyle _textStyle = Windows.UI.Text.FontStyle.Normal;
+
+    /// <summary>헤더 라벨 기울임(설정 "파일 헤더 글꼴" 꾸미기, PREF-3). 기본 Normal.</summary>
+    public Windows.UI.Text.FontStyle TextStyle
+    {
+        get => _textStyle;
+        set
+        {
+            if (_textStyle != value)
+            {
+                _textStyle = value;
+                Raise(nameof(TextStyle));
+            }
+        }
+    }
+
     private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     public event PropertyChangedEventHandler? PropertyChanged;
