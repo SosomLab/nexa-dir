@@ -85,6 +85,7 @@ public sealed partial class MainWindow : Window
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
         ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
         ApplyTheme();                  // 테마 모드 적용(기본 라이트 — docs/39, 구성 메뉴에서 전환)
+        ApplyFonts();                  // 설정 글꼴 6종 슬롯 적용(메뉴/경로/상태바/목록/헤더/하단, PREF-3)
         InitContextMenuRegistry();     // 커스텀 컨텍스트 메뉴 항목 레지스트리(docs/38 §7)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
         _leftWatcher = new FolderWatcher(DispatcherQueue, () => ReloadPanel(true));
@@ -193,6 +194,7 @@ public sealed partial class MainWindow : Window
     internal void OnPreferencesChanged()
     {
         ApplyTheme();
+        ApplyFonts();         // 글꼴 6종 슬롯 라이브 적용(PREF-3)
         ApplyPathHeaderVisibility();
         SyncViewMenuChecks();
         ReloadBothPanels();   // 숨김/점 파일 등 필터 반영
@@ -559,6 +561,42 @@ public sealed partial class MainWindow : Window
         ThemeSystemEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.System;
         ThemeLightEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.Light;
         ThemeDarkEntry.IsChecked = AppSettings.Theme.Mode == AppThemeMode.Dark;
+    }
+
+    /// <summary>
+    /// 설정 글꼴 6종 슬롯을 각 영역 루트에 적용(PREF-3, docs/40) — 기본(메뉴 바·하단 정보/미리보기),
+    /// 콘솔(터미널), 경로(브레드크럼), 상태표시줄, 파일 목록(목록+컬럼 헤더), 파일 헤더(꾸미기).
+    /// 하위 TextBlock은 영역 루트 컨트롤의 FontFamily/FontSize를 상속한다(App.xaml 암시적 스타일 제거 전제).
+    /// </summary>
+    private void ApplyFonts()
+    {
+        var f = AppSettings.Fonts;
+
+        MainMenuBar.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(f.BaseFamily);
+        MainMenuBar.FontSize = f.BaseSize;
+        MainMenuBar.RefreshFonts();
+        BottomLeftDockView.ApplyFonts();
+        BottomRightDockView.ApplyFonts();
+
+        var pathFam = new Microsoft.UI.Xaml.Media.FontFamily(f.PathFamily);
+        foreach (var bar in new[] { PathBarL, PathBarR })
+        {
+            bar.FontFamily = pathFam;
+            bar.FontSize = f.PathSize;
+        }
+
+        StatusText.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(f.StatusFamily);
+        StatusText.FontSize = f.StatusSize;
+
+        var listFam = new Microsoft.UI.Xaml.Media.FontFamily(f.ListFamily);
+        var headerWeight = f.HeaderBold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+        var headerStyle = f.HeaderItalic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal;
+        foreach (var grid in new[] { DirGrid, DirGrid2 })
+        {
+            grid.FontFamily = listFam;
+            grid.FontSize = f.ListSize;
+            grid.SetHeaderTextStyle(headerWeight, headerStyle);
+        }
     }
 
     private void OnThemeSystem(object sender, EventArgs e) { AppSettings.Theme.Mode = AppThemeMode.System; ApplyTheme(); MarkSettingsDirty(); }

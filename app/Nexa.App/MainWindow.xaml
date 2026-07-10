@@ -81,7 +81,7 @@
         </Grid.RowDefinitions>
 
         <!-- 0 · 메뉴 바 (흰색) — 커스텀 NexaMenuBar(초박형 18px/폰트12, 기본 MenuBar 한계 우회). 헤더 텍스트=어두운색 -->
-        <ctrls:NexaMenuBar Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
+        <ctrls:NexaMenuBar x:Name="MainMenuBar" Grid.Row="0" Background="{ThemeResource NexaChromeBackgroundBrush}" MenuHeight="18" FontSize="12" VerticalAlignment="Top">
             <ctrls:NexaMenuBar.Menus>
                 <ctrls:NexaMenu Header="{loc:Loc Key=menu.file}">
                     <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.file.newTab}" />

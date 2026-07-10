@@ -96,6 +96,20 @@ public sealed partial class BottomDockView : UserControl
     /// <summary>콘텐츠 종류가 바뀌었을 때(세션 저장 등 호스트 반응용).</summary>
     public event EventHandler? KindChanged;
 
+    /// <summary>설정 글꼴 반영(PREF-3) — 기본 글꼴(정보 텍스트·종류 버튼) + 콘솔 글꼴(터미널 전달).</summary>
+    public void ApplyFonts()
+    {
+        var f = AppSettings.Fonts;
+        var fam = new Microsoft.UI.Xaml.Media.FontFamily(f.BaseFamily);
+        ContentText.FontFamily = fam;
+        ContentText.FontSize = f.BaseSize;
+        foreach (Control kind in new Control[] { KindInfo, KindPreview, KindHex, KindTerminal })
+        {
+            kind.FontFamily = fam;
+        }
+        _terminalView?.ApplyFont();
+    }
+
     private void OnKindClick(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton tb && tb.Tag is string tag && Enum.TryParse<BottomPanelKind>(tag, out var k))
@@ -271,7 +285,8 @@ public sealed partial class BottomDockView : UserControl
     private static TextBlock MessageBlock(string text) => new()
     {
         Text = text,
-        FontSize = 12,
+        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(AppSettings.Fonts.BaseFamily),
+        FontSize = AppSettings.Fonts.BaseSize,
         Opacity = 0.6,
         TextWrapping = TextWrapping.Wrap,
         VerticalAlignment = VerticalAlignment.Center,

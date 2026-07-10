@@ -87,6 +87,8 @@ public sealed partial class NexaFileGrid : UserControl
     // 이 패널(그리드)만의 헤더 셀 — 정렬 표시(▲/▼)가 좌/우 독립(공유 컬럼은 너비만 공유).
     private readonly List<HeaderCell> _headerCells = new();
     private bool _headerBuilt;
+    private Windows.UI.Text.FontWeight _headerWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+    private Windows.UI.Text.FontStyle _headerStyle = Windows.UI.Text.FontStyle.Normal;
 
     private void BuildHeaderCells()
     {
@@ -96,10 +98,23 @@ public sealed partial class NexaFileGrid : UserControl
         }
         foreach (var col in Columns)
         {
-            _headerCells.Add(new HeaderCell(col));
+            _headerCells.Add(new HeaderCell(col) { TextWeight = _headerWeight, TextStyle = _headerStyle });
         }
         HeaderRepeater.ItemsSource = _headerCells;
         _headerBuilt = true;
+    }
+
+    /// <summary>헤더 라벨 꾸미기(굵기/기울임) 적용 — 설정 "파일 헤더 글꼴"(PREF-3). 글꼴/크기는
+    /// 컨트롤 FontFamily/FontSize(파일 목록 글꼴)를 그대로 상속하므로 여기선 꾸미기만 바꾼다.</summary>
+    public void SetHeaderTextStyle(Windows.UI.Text.FontWeight weight, Windows.UI.Text.FontStyle style)
+    {
+        _headerWeight = weight;
+        _headerStyle = style;
+        foreach (var hc in _headerCells)
+        {
+            hc.TextWeight = weight;
+            hc.TextStyle = style;
+        }
     }
 
     // ── 드래그 중 가장자리 자동 스크롤 (B-11) ────────────────────────

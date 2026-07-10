@@ -37,7 +37,9 @@
                                     <!-- 정렬 화살표(▲/▼) — 컬럼명 앞. 정렬 없으면 접힘 -->
                                     <TextBlock Text="{x:Bind Glyph, Mode=OneWay}" Visibility="{x:Bind GlyphVisibility, Mode=OneWay}"
                                                FontSize="9" Opacity="0.85" VerticalAlignment="Center" />
-                                    <TextBlock Text="{x:Bind Column.Header}" FontWeight="SemiBold" Opacity="0.9"
+                                    <TextBlock Text="{x:Bind Column.Header}" Opacity="0.9"
+                                               FontWeight="{x:Bind TextWeight, Mode=OneWay}"
+                                               FontStyle="{x:Bind TextStyle, Mode=OneWay}"
                                                TextTrimming="CharacterEllipsis" />
                                     <!-- 정렬 순번 원문자(①②③) — 컬럼명 뒤. 정렬 없으면 접힘 -->
                                     <TextBlock Text="{x:Bind OrderText, Mode=OneWay}" Visibility="{x:Bind OrderVisibility, Mode=OneWay}"

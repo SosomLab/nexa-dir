@@ -22,10 +22,35 @@ internal sealed class SettingsState
 {
     public int Version { get; set; } = 1;
     public AppearanceSettings Appearance { get; set; } = new();
+    public FontSettings Fonts { get; set; } = new();
     public ViewSettings View { get; set; } = new();
+    public SortSettings Sort { get; set; } = new();
     public MenuSettings Menu { get; set; } = new();
     public TabSettings Tab { get; set; } = new();
     public GeneralSettings General { get; set; } = new();
+}
+
+/// <summary>글꼴 — 영역별 6종 슬롯(PREF-3). 스키마는 <see cref="FontOptions"/>와 1:1.</summary>
+internal sealed class FontSettings
+{
+    public string BaseFamily { get; set; } = "Segoe UI";
+    public double BaseSize { get; set; } = 12;
+    public string ConsoleFamily { get; set; } = "Consolas";
+    public double ConsoleSize { get; set; } = 13;
+    public string PathFamily { get; set; } = "Segoe UI";
+    public double PathSize { get; set; } = 12;
+    public string StatusFamily { get; set; } = "Segoe UI";
+    public double StatusSize { get; set; } = 12;
+    public string ListFamily { get; set; } = "Segoe UI";
+    public double ListSize { get; set; } = 12;
+    public bool HeaderBold { get; set; } = true;
+    public bool HeaderItalic { get; set; }
+}
+
+/// <summary>정렬 — 폴더 우선 등.</summary>
+internal sealed class SortSettings
+{
+    public bool FoldersFirst { get; set; } = true;
 }
 
 /// <summary>일반 — 언어(i18n).</summary>
@@ -199,6 +224,22 @@ internal sealed class SettingsStore
         }
         AppSettings.Theme.Mode = s.Appearance.Mode;
 
+        var f = AppSettings.Fonts;
+        f.BaseFamily = s.Fonts.BaseFamily;
+        f.BaseSize = s.Fonts.BaseSize;
+        f.ConsoleFamily = s.Fonts.ConsoleFamily;
+        f.ConsoleSize = s.Fonts.ConsoleSize;
+        f.PathFamily = s.Fonts.PathFamily;
+        f.PathSize = s.Fonts.PathSize;
+        f.StatusFamily = s.Fonts.StatusFamily;
+        f.StatusSize = s.Fonts.StatusSize;
+        f.ListFamily = s.Fonts.ListFamily;
+        f.ListSize = s.Fonts.ListSize;
+        f.HeaderBold = s.Fonts.HeaderBold;
+        f.HeaderItalic = s.Fonts.HeaderItalic;
+
+        AppSettings.Sort.FoldersFirst = s.Sort.FoldersFirst;
+
         var v = AppSettings.View;
         v.ShowHiddenFiles = s.View.ShowHiddenFiles;
         v.ShowDotFiles = s.View.ShowDotFiles;
@@ -227,9 +268,26 @@ internal sealed class SettingsStore
     {
         var v = AppSettings.View;
         var m = AppSettings.Menu;
+        var f = AppSettings.Fonts;
         return new SettingsState
         {
             Appearance = new AppearanceSettings { Mode = AppSettings.Theme.Mode },
+            Fonts = new FontSettings
+            {
+                BaseFamily = f.BaseFamily,
+                BaseSize = f.BaseSize,
+                ConsoleFamily = f.ConsoleFamily,
+                ConsoleSize = f.ConsoleSize,
+                PathFamily = f.PathFamily,
+                PathSize = f.PathSize,
+                StatusFamily = f.StatusFamily,
+                StatusSize = f.StatusSize,
+                ListFamily = f.ListFamily,
+                ListSize = f.ListSize,
+                HeaderBold = f.HeaderBold,
+                HeaderItalic = f.HeaderItalic,
+            },
+            Sort = new SortSettings { FoldersFirst = AppSettings.Sort.FoldersFirst },
             View = new ViewSettings
             {
                 ShowHiddenFiles = v.ShowHiddenFiles,

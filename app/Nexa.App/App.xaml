@@ -9,13 +9,11 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
             <!-- Nexa Dir 기본 폰트 = Segoe UI. 아이콘 폰트(Segoe MDL2 Assets)는 명시 지정이라 영향 없음.
-                 WinUI는 Grid에 FontFamily를 못 주므로(상속형 부착속성 없음) 리소스로 지정:
-                 · ContentControlThemeFontFamily → Button 등 컨트롤 기본 폰트
-                 · 암시적 TextBlock Style → 모든 텍스트 기본 폰트 -->
+                 · ContentControlThemeFontFamily → Button 등 컨트롤 기본 폰트.
+                 · 영역별 텍스트 폰트(메뉴/경로/상태바/파일 목록/터미널/하단 정보)는 설정(PREF-3)에서
+                   MainWindow.ApplyFonts가 영역 루트 컨트롤에 지정 → 하위 TextBlock이 상속.
+                   (암시적 TextBlock Style로 FontFamily를 주면 Style이 상속값을 이겨 설정 폰트가 무시되므로 금지.) -->
             <x:String x:Key="ContentControlThemeFontFamily">Segoe UI</x:String>
-            <Style TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="Segoe UI" />
-            </Style>
 
             <!-- ── Nexa 시맨틱 테마 토큰(docs/39) — 컴포넌트는 {ThemeResource Nexa*Brush}만 참조.
                  라이트/다크는 RequestedTheme(설정 Theme.Mode)로 전환. 값 변경은 여기 한 곳. ── -->
