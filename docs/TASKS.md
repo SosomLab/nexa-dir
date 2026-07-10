@@ -25,7 +25,7 @@
 | TA | 타입어헤드 찾기 **설계 확정**([docs/32](32-typeahead-find.md)) | 📐 | 2026-07-04 | 2026-07-04 14:50 | — | — | 설계 완료 | 📐 |
 | TA-1 | 타입어헤드 **코어 find_prefix + ABI v7 + 관리형**(A/B/C 범위) | ✨ | 2026-07-04 | [docs/32 §8](32-typeahead-find.md) | 2026-07-04 | **맥 테스트 코어3·인터롭1 green** | ✅(코어) | FindScope·Node.parent 승격 |
 | TA-2 | 타입어헤드 **버퍼 TypeAheadBuffer**(누적/타임아웃/반복cycle/Backspace) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | **맥 xUnit 7 green(39)** | ✅ | IsExtend(확장=현재포함/새·반복=다음) |
-| TA-4/5 | 타입어헤드 **설정 + 앱 배선**(CharacterReceived→버퍼→find_prefix→선택 이동) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 | 실기QA 대기 | 🚧 | 패널별 버퍼·범위/타임아웃 설정. 편집/Ctrl·Alt/Space 가드 |
+| TA-4/5 | 타입어헤드 **설정 + 앱 배선**(CharacterReceived→버퍼→find_prefix→선택 이동) | ✨ | 2026-07-05 | [docs/32 §8](32-typeahead-find.md) | 2026-07-05 → **재배선 2026-07-10**(PR#12) | 실기QA ✅(07-10) | 2026-07-10 | ✅ | CharacterReceived 비버블 확정 → **전역 KeyDown 합성** 교체·터미널 포커스 강탈 근본 수정 |
 | BG-N | 빈영역 **새로 만들기 ▶ 폴더/파일/바로가기**(.lnk=IShellLink COM+대상선택)+생성 후 즉시 이름변경 | ✨ | 2026-07-05 | — | 2026-07-05 (`2a2c0ed`) | CI green(app) | 실기QA 대기 | 🚧 | 중복이름 " (2)" 회피·오프스크린 강제실체화 |
 | COL-D1/D2 | 수정 **날짜/시간 컬럼** — 라벨 3종+기본 DateTime(yy/MM/dd HH:mm) | ✨ | 2026-07-05 | — | 2026-07-05 (`1f1f92d`) | CI green(app) | 실기QA 대기 | 🚧 | Date/Time 개별 컬럼·가시성 토글은 COL-D3/D4 후속 |
 | SESS | **탭 세션 저장/복원**(session.json@LocalAppData) — 활성패널·탭·경로·펼침·정렬 | ✨ | 2026-07-05 | [docs/34](34-settings-and-session-persistence.md) | 2026-07-05 (`2a2c0ed`) | 로컬 왕복 검증 · CI green(app) | 실기QA 대기 | 🚧 | 요청/수행 분리·Tick당 1회·유휴·원자적·안전주기·종료flush |
@@ -36,7 +36,19 @@
 | PROG-WIN | **파일 전송 진행 창**(별도 Window·맨앞 포커스·취소·자동닫기 off) + 창 안 확인 프롬프트 | ✨🐞 | 2026-07-05 | — | 2026-07-05 (`9883d69`·`67406a3`·`1bb2b9e`) | 빌드 0/0 | 실기QA 대기 | 🚧 | 1bb2b9e=ContentDialog XamlRoot 오류 해결(창 안 embed) |
 | DND-ENGINE | 복사/이동 **단일 엔진 통일**(DnD+붙여넣기=TransferPathsInto) | ♻️ | 2026-07-05 | [docs/33](33-file-ops-dnd-design.md) | 2026-07-05 (`cb20c98`) | 빌드 0/0 | 실기QA 대기 | 🚧 | 붙여넣기도 진행 창/덮어쓰기/취소 공용 |
 | CLIP-READ | **OS 클립보드 붙여넣기**(탐색기 복사→우리 앱) + CanPaste 활성·최신 우선 | ✨ | 2026-07-05 | [docs/33 CLIP](33-file-ops-dnd-design.md) | 2026-07-05 (`56560fe`) | 빌드 0/0 | 실기QA 대기 | 🚧 | Preferred DropEffect로 cut 판정·ContentChanged로 앱 클립 비움. 쓰기측 후속 |
-| TA-3 | 타입어헤드 **검색어 HUD `EphemeralOverlay`**(휘발성 표시) | 📐 | 2026-07-04 | [docs/32 §7-A](32-typeahead-find.md) | — | — | ⏸ 후속 | 이동 자체엔 불필요 · 시각 표시 |
+| TA-3 | 타입어헤드 **검색어 HUD `EphemeralOverlay`**(휘발성 표시) | 📐→✨ | 2026-07-04 | [docs/32 §7-A](32-typeahead-find.md) | 2026-07-10 (PR#12 `a7c2002`) | 실기QA ✅(07-10) | 2026-07-10 | ✅ | 위치 3×3 피커·입력 옵션 3종(특수문자/Space/Backspace) 설정·영속 |
+
+## 1-b. 2026-07-08~10 세션 (기능 브랜치 PR 단위 · 상세=journal/2026-07-0X)
+
+| ID | 항목 | 유형 | 추가 | 개발 | 테스트(CI/QA) | 완료 | 상태 |
+|---|---|---|---|---|---|---|---|
+| TB-1 | 도구 모음(내장 3종)+퀵 런처 슬라이스1([docs/44](44-toolbar-and-launcher.md)) | ✨ | 2026-07-09 | 2026-07-09 (PR#8 `9882560`) | CI green·실기QA | 2026-07-09 | ✅ |
+| FONT | 글꼴 5종 슬롯+밀도+설정 창 VS Code식+i18n 전면([docs/40 §8](40-preferences-system.md)) | ✨ | 2026-07-10 | 2026-07-10 (PR#9 `42168ec`, 9커밋) | CI green·실기QA 5라운드 | 2026-07-10 | ✅ |
+| TB-2 | 도구 모음 그룹화·순서 설정·플랫 메뉴·터미널 위치 이동·Copy as name([docs/44 §5](44-toolbar-and-launcher.md)) | ✨ | 2026-07-10 | 2026-07-10 (PR#10 `b230212`, 11커밋) | CI green·실기QA | 2026-07-10 | ✅ |
+| PANEL | 하단 도크 대원칙(싱글=활성 패널)·분할 복원·터미널에서 열기·터미널 UX·다크 메뉴+테마 서브메뉴 | ✨ | 2026-07-10 | 2026-07-10 (PR#11 `e81db3b`, 8커밋) | CI green·실기QA | 2026-07-10 | ✅ |
+| TA-마감 | 타입어헤드 완성(KeyDown 합성·HUD·입력 옵션·포커스 강탈 수정)([docs/32](32-typeahead-find.md)) | ✨🐞 | 2026-07-10 | 2026-07-10 (PR#12 `3ff13c1`, 13커밋) | CI green·실기QA | 2026-07-10 | ✅ |
+| ICON-2 | 앱 아이콘 신규 디자인(풀블리드 폴더+`>_`, 다크 기본+라이트 세트) | ✨ | 2026-07-10 | 2026-07-10 (main `9150329`) | CI green·실기 확인 | 2026-07-10 | ✅ |
+| AUDIT-4 | **4차 감사** — bad smell·핫패스·상주 메모리(캐시 이빅션·DATAS·무할당화·FFI 가드) | ♻️ | 2026-07-10 | 2026-07-10 (**PR#13**, 5커밋) | CI green | 실기QA 대기 | 🚧 |
 
 ## 2. 이번 세션 버그 수정 (실사용 리포트)
 

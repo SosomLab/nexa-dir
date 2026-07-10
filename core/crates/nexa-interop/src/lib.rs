@@ -342,10 +342,11 @@ pub unsafe extern "C" fn nexa_tree_row_path(handle: *mut TreeHandle, index: u64)
         return ptr::null();
     }
     let h = &mut *handle;
-    let Some(row) = h.tree.row(index as usize) else {
+    // row() 실체화(이름 String 클론) 없이 id만 조회 — 행별 경로/아이콘 질의 경량화.
+    let Some(id) = h.tree.visible_id(index as usize) else {
         return ptr::null();
     };
-    let Some(p) = h.tree.node_path(row.id) else {
+    let Some(p) = h.tree.node_path(id) else {
         return ptr::null();
     };
     h.row_path = Some(CString::new(p.to_string_lossy().as_ref()).unwrap_or_default());
@@ -591,8 +592,8 @@ pub unsafe extern "C" fn nexa_tree_selected_path(
         return ptr::null();
     }
     let h = &mut *handle;
-    let paths = h.tree.selected_paths();
-    let Some(p) = paths.get(index as usize) else {
+    // 전체 Vec 재구성(selected_paths) 없이 해당 인덱스만 — N개 순회 시 O(N²) → O(N).
+    let Some(p) = h.tree.selected_path(index as usize) else {
         return ptr::null();
     };
     h.sel_path = Some(CString::new(p.to_string_lossy().as_ref()).unwrap_or_default());

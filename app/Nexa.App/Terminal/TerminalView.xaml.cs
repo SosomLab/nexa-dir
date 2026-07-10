@@ -191,7 +191,13 @@ public sealed partial class TerminalView : UserControl
         }
         var old = _session;
         _session = null;
-        try { old?.Dispose(); } catch { }
+        if (old is not null)
+        {
+            old.Output -= OnSessionOutput;
+            old.Exited -= OnSessionExited;
+            try { old.Dispose(); } catch { }
+        }
+        _brushes.Clear();   // 트루컬러(SGR 38/48;2) 세션이 쌓은 브러시 캐시 정리 — 무한 증식 방지
         StartSession(reset: true);   // 새 셸(화면 초기화) — "리셋" 개념
         MarkDirty();
         Focus(FocusState.Programmatic);
@@ -202,7 +208,13 @@ public sealed partial class TerminalView : UserControl
         _stopping = true;
         _renderTimer.Stop();
         _blinkTimer.Stop();
-        _session?.Dispose();
+        _selScrollTimer?.Stop();   // 드래그 선택 중 teardown이면 자동 스크롤 반복 타이머도 정지
+        if (_session is ConPtySession s)
+        {
+            s.Output -= OnSessionOutput;
+            s.Exited -= OnSessionExited;
+            s.Dispose();
+        }
         _session = null;
     }
 
@@ -227,15 +239,16 @@ public sealed partial class TerminalView : UserControl
         {
             return;
         }
-        var lines = _vt.Lines;
-        int start = Math.Max(0, lines.Count - RenderCap);
+        int lineCount = _vt.LineCount;
+        int start = Math.Max(0, lineCount - RenderCap);
         LinesPanel.Children.Clear();
         var fontFamily = _fontFamily;   // 설정 콘솔 글꼴(ApplyFont)
         double maxLineWidth = 0;   // Canvas는 자식 크기를 반영하지 않음 → 스크롤 익스텐트용 명시 크기
+        var sb = new StringBuilder();   // run 텍스트 버퍼 — 프레임당 1개 재사용(run마다 생성 안 함)
 
-        for (int li = start; li < lines.Count; li++)
+        for (int li = start; li < lineCount; li++)
         {
-            TermCell[] cells = lines[li];
+            TermCell[] cells = _vt.LineAt(li);
             // 뒤쪽 기본배경 공백은 잘라 렌더 비용 절감.
             int end = cells.Length;
             while (end > 0 && cells[end - 1].Ch is ' ' or '\0' && cells[end - 1].Bg == VtScreen.DefaultBg)
@@ -257,7 +270,7 @@ public sealed partial class TerminalView : UserControl
                     continue;
                 }
                 int runStart = c;
-                var sb = new StringBuilder();
+                sb.Clear();
                 int runCols;
                 if (IsAsciiPrintable(cells[c].Ch))
                 {
@@ -304,7 +317,7 @@ public sealed partial class TerminalView : UserControl
         // 가로 스크롤바(WinUI 오버레이)가 마지막 줄(입력 줄)을 덮지 않게 — 가로 익스텐트가 뷰포트를
         // 넘을 때만 스크롤바 높이만큼 하단 여백을 예약(최하단 스크롤 시 여백이 바 아래 깔림).
         double hbarPad = maxLineWidth > Scroll.ViewportWidth && Scroll.ViewportWidth > 0 ? 16 : 0;
-        LinesPanel.Height = (lines.Count - start) * _lineH + hbarPad;
+        LinesPanel.Height = (lineCount - start) * _lineH + hbarPad;
         LinesPanel.Width = maxLineWidth;
 
         // 맨 아래로 스크롤(항상 최신 보이게).
