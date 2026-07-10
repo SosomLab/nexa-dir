@@ -10,8 +10,9 @@
 
 | 형태 | 용도 | 우선순위 |
 | --- | --- | --- |
-| **MSIX (설치형)** | 일반 사용자, winget/Store, 자동 업데이트, 셸 등록 | **1차 (DR-3)** |
-| **포터블 폴더 (xcopy)** | 설치 없이 USB/공유폴더 실행, 자기완결 | 2차 (배포 시 판단) |
+| **MSIX (설치형)** | 일반 사용자, winget/Store, 자동 업데이트, 셸 등록 | **1차 (DR-3)** — 서명 전략 선행(§6) |
+| **setup.exe (클래식 설치기, Inno)** | 서명 전 임시/병행 설치 배포(사용자 단위 기본·언인스톨러·시작 메뉴) | **운영 중(PKG-5, §7)** |
+| **포터블 폴더 (xcopy)** | 설치 없이 USB/공유폴더 실행, 자기완결 | **운영 중(PKG-1~3, §7)** |
 | **포터블 단일 exe (self-extract)** | 파일 하나로 휴대 | 2차 (배포 시 판단) |
 
 ## 2. 우리 스택에서의 기술 과제 (Rust cdylib + WinUI 3 + .NET)
@@ -69,6 +70,7 @@ Actions (windows-latest)
 - **PKG-2 산출 스크립트**: `scripts/make-portable.ps1` — self-contained 게시(.NET+**WinAppSDK 런타임 번들**, 머신 설치 불요) + 필수 산출 검증 + `portable.ini` 동봉 + `dist/NexaDir-<ver>-portable-<rid>.zip`(x64 ≈64MB, arm64는 `-Rid`).
 - **PKG-3 CI**: `package` job(windows) — 태그 push·workflow_dispatch 시 zip 아티팩트 업로드.
 - **자체 검증(이 PC)**: zip 추출 → 실행 → 정상 기동 → 종료 시 `data\settings.json`·`session.json` 생성, %APPDATA% 미오염 확인.
+- **PKG-5 클래식 설치기 setup.exe(2026-07-11)**: `scripts/nexa-setup.iss`(Inno Setup 6 — CI windows 러너 기본 포함) + `scripts/make-setup.ps1`(동일 self-contained 게시, 마커 없음=설치형 표준 AppData 경로). **사용자 단위 기본**(`PrivilegesRequired=lowest`, 관리자 전체 설치는 대화상자 선택)·시작 메뉴/바탕화면(선택)·언인스톨러(사용자 데이터 보존)·`AppId` 고정(업그레이드 식별자). CI `package` job이 zip과 함께 빌드·릴리스 첨부. MSIX(PKG-4) 서명 전략 확정 전의 설치형 배포 채널 — 서명 없음(SmartScreen 경고 가능).
 - **§2 과제 실측 2건**(빌드 트릭, csproj 게시 타겟으로 해소):
   1. **NETSDK1152**(중복 게시 파일) — 참조 WinUI 라이브러리들이 각자 WinAppSDK `MsixContent` 사본을 내놓음 → 내용 동일하므로 `ErrorOnDuplicatePublishOutputFiles=false`(게시 한정)로 무해화. 라이브러리 3종에 `RuntimeIdentifiers` 선언 필요(PRI252 대응).
   2. **라이브러리 XAML 미해석 크래시** — x64 Release 생성 코드가 루트 URI(`ms-appx:///NexaMenuBar.xaml`)를 쓰는데 `WindowsAppSDKSelfContained` 게시에선 pri 해석 실패 → **loose `.xaml`을 게시 루트에 사본 배치**(폴백 실측 동작, `PublishLooseXamlAssets` 타겟). FD(런타임 설치 의존) 게시는 이 문제 없음.

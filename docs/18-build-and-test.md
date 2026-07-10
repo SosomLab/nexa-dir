@@ -139,7 +139,7 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 | `license-gate` | ubuntu-latest | `cargo deny check licenses bans advisories` |
 | `viewmodels` | ubuntu-latest | `dotnet test app/Nexa.ViewModels.Tests -c Release` (크로스플랫폼 C# 로직, 감사 B-1) |
 | `app` | windows-latest | Rust 툴체인 설치(인터롭 빌드용) → `dotnet restore` → `dotnet build app/Nexa.App -c Release --no-restore`(cargo로 nexa-interop 자동 빌드 포함) |
-| `package` | windows-latest | `pwsh scripts/make-portable.ps1` → 포터블 zip 아티팩트 업로드 + **태그 트리거면 GitHub Release에 zip 자산 자동 첨부**(없으면 릴리스 생성). **태그 push·workflow_dispatch 시만**([12 §7](12-packaging-portable.md)) |
+| `package` | windows-latest | `make-portable.ps1`(zip) + `make-setup.ps1`(setup.exe, Inno=러너 기본 포함) → `dist/*` 아티팩트 + **태그 트리거면 GitHub Release에 자산 자동 첨부**(없으면 릴리스 생성). **태그 push·workflow_dispatch 시만**([12 §7](12-packaging-portable.md)) |
 
 - 트리거: `main` push · 모든 PR · 태그(`*.*.*`) push · workflow_dispatch. main은 항상 green 유지.
 - 후속: MSIX 패키징 + 서명(secrets) → Releases 업로드([12 §6](12-packaging-portable.md)).
@@ -149,6 +149,7 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 ```powershell
 pwsh scripts/make-portable.ps1              # → dist/NexaDir-<ver>-portable-win-x64.zip (≈64MB)
 pwsh scripts/make-portable.ps1 -Rid win-arm64
+pwsh scripts/make-setup.ps1                 # → dist/NexaDir-<ver>-setup-win-x64.exe (Inno Setup 필요 — CI 러너 기본 포함)
 ```
 
 - self-contained 게시(.NET+WinAppSDK 런타임 번들 — 실행 머신에 런타임 설치 불요) + `portable.ini` 동봉(영속물=압축 해제 폴더의 `data\`, [43 §1](43-external-files-and-config.md)).
