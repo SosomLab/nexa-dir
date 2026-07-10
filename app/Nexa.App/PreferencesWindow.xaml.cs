@@ -104,13 +104,7 @@ public sealed partial class PreferencesWindow : Window
         new("list", "pref.list.typeahead", TypeAheadRadios),
         new("list", "pref.list.typeaheadTimeout", () => NumberRow("pref.list.typeaheadTimeout",
             AppSettings.View.TypeAheadTimeoutMs, 200, 5000, 100, v => AppSettings.View.TypeAheadTimeoutMs = (long)v)),
-        new("list", "pref.list.hudPos", HudPositionPicker),
-        new("list", "pref.list.taSpecial", () => CheckRow("pref.list.taSpecial",
-            AppSettings.View.TypeAheadSpecialChars, v => AppSettings.View.TypeAheadSpecialChars = v)),
-        new("list", "pref.list.taSpace", () => CheckRow("pref.list.taSpace",
-            AppSettings.View.TypeAheadSpace, v => AppSettings.View.TypeAheadSpace = v)),
-        new("list", "pref.list.taBackspace", () => CheckRow("pref.list.taBackspace",
-            AppSettings.View.TypeAheadBackspace, v => AppSettings.View.TypeAheadBackspace = v)),
+        new("list", "pref.list.hudPos", HudPositionPicker),   // 우측에 입력 옵션 3종 동반 배치
         // 탭
         new("tabs", "pref.tabs.doubleClick", TabDoubleClickCombo),
         // 도구 모음(docs/44) — 그룹/항목 순서 편집기
@@ -477,9 +471,11 @@ public sealed partial class PreferencesWindow : Window
         var root = new StackPanel { Spacing = 6 };
         root.Children.Add(new TextBlock { Text = Loc.T("pref.list.hudPos"), Opacity = 0.7 });
 
-        var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3D, 0x8B, 0xFF));      // NexaAccent
+        var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3D, 0x8B, 0xFF));       // 선택 100%(NexaAccent)
         var accentSoft = new SolidColorBrush(Windows.UI.Color.FromArgb(0x2E, 0x3D, 0x8B, 0xFF));
-        var idleBorder = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0x80, 0x80, 0x80));
+        var accentHover = new SolidColorBrush(Windows.UI.Color.FromArgb(0x80, 0x3D, 0x8B, 0xFF));  // hover 50%
+        var accentHoverBg = new SolidColorBrush(Windows.UI.Color.FromArgb(0x17, 0x3D, 0x8B, 0xFF));
+        var idleBorder = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0x80, 0x80, 0x80));   // 미선택 회색
         var idleDot = new SolidColorBrush(Windows.UI.Color.FromArgb(0x99, 0x80, 0x80, 0x80));
 
         string[] tipKeys =
@@ -540,13 +536,37 @@ public sealed partial class PreferencesWindow : Window
                 Refresh();
                 Changed();
             };
+            // hover = 강조색 50%(선택은 100%, 미선택은 회색 — Refresh가 복원).
+            tile.PointerEntered += (_, _) =>
+            {
+                if ((int)AppSettings.View.TypeAheadHudPosition != idx)
+                {
+                    tiles[idx].Tile.BorderBrush = accentHover;
+                    tiles[idx].Tile.Background = accentHoverBg;
+                    tiles[idx].Dot.Background = accentHover;
+                }
+            };
+            tile.PointerExited += (_, _) => Refresh();
             Grid.SetRow(tile, i / 3);
             Grid.SetColumn(tile, i % 3);
             grid.Children.Add(tile);
             tiles[i] = (tile, dot);
         }
         Refresh();
-        root.Children.Add(grid);
+
+        // 매트릭스 우측에 타입어헤드 입력 옵션 3종 배치(사용자 요청) — 세로 중앙 정렬.
+        var options = new StackPanel { Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        options.Children.Add(CheckRow("pref.list.taSpecial",
+            AppSettings.View.TypeAheadSpecialChars, v => AppSettings.View.TypeAheadSpecialChars = v));
+        options.Children.Add(CheckRow("pref.list.taSpace",
+            AppSettings.View.TypeAheadSpace, v => AppSettings.View.TypeAheadSpace = v));
+        options.Children.Add(CheckRow("pref.list.taBackspace",
+            AppSettings.View.TypeAheadBackspace, v => AppSettings.View.TypeAheadBackspace = v));
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20 };
+        row.Children.Add(grid);
+        row.Children.Add(options);
+        root.Children.Add(row);
         return root;
     }
 
