@@ -117,6 +117,10 @@
   "pref.lang.title": "언어",
   "pref.lang.system": "시스템 언어",
   "pref.lang.restartNote": "언어 변경은 재시작 후 완전히 적용됩니다.",
+  "restart.title": "재시작 필요",
+  "restart.msg": "이 변경은 Nexa Dir 재시작 후 완전히 적용됩니다. 지금 다시 시작할까요?",
+  "restart.now": "지금 재시작",
+  "restart.later": "나중에",
 
   "col.name": "이름",
   "col.ext": "확장자",

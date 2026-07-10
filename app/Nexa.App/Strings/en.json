@@ -112,6 +112,10 @@
   "pref.lang.ko": "한국어",
   "pref.lang.en": "English",
   "pref.lang.restartNote": "Language change fully applies after restart.",
+  "restart.title": "Restart required",
+  "restart.msg": "This change fully applies after Nexa Dir restarts. Restart now?",
+  "restart.now": "Restart now",
+  "restart.later": "Later",
 
   "col.name": "Name",
   "col.ext": "Ext",

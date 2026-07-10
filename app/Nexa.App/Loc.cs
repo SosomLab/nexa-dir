@@ -40,6 +40,12 @@ internal static class Loc
     public static string T(string key) => Localizer.Current.T(key);
     public static string T(string key, params object[] args) => Localizer.Current.T(key, args);
 
+    /// <summary>설정값이 가리키는 언어가 <b>현재 적용 중</b> 언어와 다른가 — 재시작 필요 판정(PREF-9).
+    /// ""(시스템)·미지원 코드도 <see cref="Resolve"/>로 실코드화해 비교하므로 원복 시 false.</summary>
+    public static bool IsPendingCultureChange(string cultureSetting) =>
+        !string.Equals(Resolve(cultureSetting, LangCatalog.Discover()), Localizer.Current.Culture,
+            StringComparison.OrdinalIgnoreCase);
+
     /// <summary>설정값("", "ko", "en"…) → 실제 코드. ""=시스템 UI 문화 2글자. 미지원(발견·임베디드 모두 없음)=en.</summary>
     private static string Resolve(string setting, IReadOnlyList<LangInfo> catalog)
     {
