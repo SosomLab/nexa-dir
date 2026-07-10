@@ -154,6 +154,16 @@ public sealed partial class BottomDockView : UserControl
         };
     }
 
+    /// <summary>정보란 터미널 토글 옆 "터미널 위치 이동" 버튼 — 이 도크 패널의 현재 탭 폴더로 cd.</summary>
+    private void OnTerminalCd(object sender, RoutedEventArgs e)
+    {
+        string folder = CurrentFolder;
+        if (!string.IsNullOrEmpty(folder))
+        {
+            TerminalCdTo(folder);
+        }
+    }
+
     /// <summary>터미널 탭으로 전환 후 셸 작업 디렉터리를 <paramref name="folder"/>로 이동(cd) —
     /// 도구 모음 "터미널 위치 이동". 미생성이면 생성·시작 후 전송(TerminalView pending).</summary>
     public void TerminalCdTo(string folder)

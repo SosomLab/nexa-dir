@@ -21,6 +21,12 @@
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
             <ToggleButton x:Name="KindTerminal" Content="{loc:Loc Key=dock.terminal}" Tag="Terminal" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
+            <!-- 터미널 위치 이동(정사각, 터미널 토글에 밀착) — 이 도크 패널의 현재 탭 폴더로 cd -->
+            <Button x:Name="TerminalCdBtn" Click="OnTerminalCd" Margin="-2,0,0,0"
+                    Width="24" Height="24" Padding="0" MinWidth="0" MinHeight="0" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="{loc:Loc Key=toolbar.terminalCd}">
+                <FontIcon Glyph="&#xE72A;" FontSize="12" />
+            </Button>
         </StackPanel>
 
         <!-- 콘텐츠(종류별 스왑) — 텍스트(정보/Hex/터미널 placeholder) + 미리보기 요소 호스트 -->
