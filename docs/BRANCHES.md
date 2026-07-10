@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/packaging-portable` | 2026-07-10 | 2026-07-10 (PR#15 `f44482e`) | 2026-07-10 | 3 | 패키징 1차 — 포터블 폴더 zip(PKG-1~3): `AppPaths` 경로 분기·`make-portable.ps1` self-contained 산출·CI `package` job. 게시 이슈 3건 실측 해소 | [2026-07-10](journal/2026-07-10.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/pref-9-restart` | 2026-07-10 | 2026-07-10 (PR#14 `e87166d`) | 2026-07-10 | 1+docs | PREF-9 — 재시작 필요 설정(언어) 확인창 + 자체 재시작(선-flush→`AppInstance.Restart`+미패키지 폴백) | [2026-07-10](journal/2026-07-10.md)·[docs/40 §9](40-preferences-system.md) |
 | `refactor/004-audit` | 2026-07-10 | 2026-07-10 (PR#13 `c7ec256`) | 2026-07-10 | 4+docs | 4차 감사 — Rust 핫패스 무할당화+FFI 가드·C# 중복/수명 정리·실체화 캐시 이빅션·Count 캐시·DATAS·settings 이중 로드 제거 | [2026-07-10](journal/2026-07-10.md)·[TODO §9-4](TODO.md) |
 | `feat/typeahead-hud` | 2026-07-10 | 2026-07-10 (PR#12 `3ff13c1`) | 2026-07-10 | 13+docs | 타입어헤드 완성(전역 KeyDown 합성·HUD·입력 옵션 3종·위치 3×3 피커)·터미널 포커스 강탈 근본 수정·크기 표기·보조 창 아이콘 | [2026-07-10](journal/2026-07-10.md)·[docs/32](32-typeahead-find.md) |
@@ -32,6 +33,13 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/packaging-portable
+
+- **생성**: 2026-07-10 (분기: main `609a74a`, 릴리스 0.3.0 직후). **커밋 3개**(`9bf85f1` PKG-1 · `be85bb9` PKG-2/3 · `ee9c8e9` docs). 병합(PR#15 `f44482e`)·삭제: 2026-07-10.
+- **작업(PKG-1~3, [docs/12 §7](12-packaging-portable.md))**: `AppPaths` 영속 경로 단일 원천(`portable.ini`/`--portable` → 전부 `exe\data\`) · `make-portable.ps1`(self-contained 게시=런타임 번들·검증·마커·zip ≈64MB, `-Rid win-arm64`) · CI `package` job(태그·workflow_dispatch → zip 아티팩트).
+- **게시 이슈 3건 실측 해소**: 라이브러리 `RuntimeIdentifiers`(PRI252) · NETSDK1152 게시 한정 무해화 · **self-contained 라이브러리 XAML 루트 URI 미해석 크래시**(FD/SC 분리 실험으로 원인 확정 → loose `.xaml` 루트 사본 폴백 `PublishLooseXamlAssets`).
+- **검증**: 로컬 zip 실행·`data\` 영속·%APPDATA% 미오염 · CI green + **workflow_dispatch로 package 잡 실검증(아티팩트 67MB 업로드 확인)**. 잔여: 실기 QA(USB/타 폴더)·시작 플레이키 0xC0000374 관찰 · MSIX=PKG-4(인증서 결정 대기).
 
 ## feat/pref-9-restart
 
