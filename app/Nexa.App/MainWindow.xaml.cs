@@ -3514,6 +3514,9 @@ public sealed partial class MainWindow : Window
         }
         SetActivePanel(left);
         ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
+        // 하단 도킹의 현재 폴더(정보란·터미널 cd 대상) 갱신 — 캐시 탭 전환은 ShowCurrent(네비게이션)를
+        // 거치지 않아 이전 탭 폴더가 남던 버그(터미널 위치 이동이 옛 폴더로 가던 현상) 수정.
+        RefreshBottomDocks();
         _session?.MarkDirty();   // 활성 탭 전환 → 세션 저장 예약
     }
 
