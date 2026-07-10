@@ -125,6 +125,6 @@ Win32 `TreeView`/`ListView` 트리 모드의 타입어헤드는 **가시 노드 
 2. ✅ `Nexa.ViewModels.TypeAheadBuffer`(누적/타임아웃/반복키 cycle/Backspace, 시각 주입) — **맥 단위테스트 7**. `IsExtend`(확장=현재 포함/새·반복=다음). (2026-07-05)
 3. ✅ `Nexa.Controls.EphemeralOverlay`(휘발성 HUD 컨트롤) — 검색 아이콘+텍스트 배지, Show/Clear/Timeout 자동 소거. 각 패널 목록 좌하단 배치, 매치 실패에도 버퍼 유지 표시(§7 결정 5), 소거=버퍼 리셋 타임아웃 동기. (2026-07-10, `feat/typeahead-hud`)
 4. ✅ `ViewOptions.TypeAheadScope`(기본 2=C)/`TypeAheadTimeoutMs`(1000) 추가. (2026-07-05)
-5. ✅ 앱 배선 — ~~그리드 `CharacterReceived`(포커스 의존)~~ → **RootGrid 전역 버블 수신 → 활성 패널 기준**(방향키와 동일 규약, 2026-07-10 재배선 — 포커스가 경로 바 등으로 가면 무반응이던 문제 해소): 가드(터미널/TextBox 소유·Ctrl/Alt·Space·제어문자) → 패널별 `PanelView.TypeAhead` 버퍼 → `Items.FindPrefix(searchCaret, prefix, scope)` → 단일 선택+캐럿+스크롤. `IsExtend`면 캐럿 포함(캐럿-1), 아니면 캐럿 다음.
+5. ✅ 앱 배선 — ~~그리드 `CharacterReceived`(포커스 의존)~~ → **전역 KeyDown(OnGridKeyDown)에서 영숫자 합성 → 활성 패널 기준**(방향키와 동일 경로, 2026-07-10 확정). 실기 검증: `CharacterReceived`는 **포커스 요소에만 발화(비버블)** 라 전역 수신 불가 — KeyDown 합성(A–Z/0–9/NumPad/Backspace, Ctrl/Alt 제외·Shift 허용)으로 교체. 가드(터미널/TextBox 소유) → 패널별 `PanelView.TypeAhead` 버퍼 → `Items.FindPrefix(searchCaret, prefix, scope)` → 단일 선택+캐럿+스크롤. `IsExtend`면 캐럿 포함(캐럿-1), 아니면 캐럿 다음. **IME 한글·특수문자 매칭은 §9 후속**(KeyDown 합성의 한계).
 
 > **1~5 전부 구현 완료(2026-07-10).** 잔여 후속 = 한글 초성·IME 미리보기·매치 없음 소리·UIA 알림(§9).
