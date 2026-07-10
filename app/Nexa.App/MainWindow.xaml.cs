@@ -4029,17 +4029,29 @@ public sealed partial class MainWindow : Window
     private void OnToggleRightPanel(object sender, EventArgs e)
     {
         bool show = ShowRightPanelEntry.IsChecked;
+        // 숨기기 직전 좌:우 실측 비율 저장 → 재표시 때 그 위치로 복원(하단 도크와 동일 규칙, 사용자 요청).
+        bool wasVisible = RightPanel.Visibility == Visibility.Visible;
+        if (wasVisible && !show)
+        {
+            double total = LeftCol.ActualWidth + RightCol.ActualWidth;
+            if (total > 0 && LeftCol.ActualWidth > 0)
+            {
+                _panelSplitRatio = Math.Clamp(LeftCol.ActualWidth / total, 0.1, 0.9);
+            }
+        }
         RightPanel.Visibility = Vis(show);
         PanelSplitter.Visibility = Vis(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
-        // 표시 시 좌/우 동일 크기(50:50) 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
+        // 표시 시 저장된 비율(기본 0.5=50:50)로 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
         RightCol.MinWidth = show ? 160 : 0;
-        RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
         if (show)
         {
-            // 숨기기 전 스플리터 드래그가 LeftCol을 절대/편중 star로 바꿔 두면 재표시가 50:50이 아니게 됨
-            // → 좌 열도 1*로 되써 항상 중앙 분할로 복귀(사용자 요청).
-            LeftCol.Width = new GridLength(1, GridUnitType.Star);
+            LeftCol.Width = new GridLength(_panelSplitRatio, GridUnitType.Star);
+            RightCol.Width = new GridLength(1 - _panelSplitRatio, GridUnitType.Star);
+        }
+        else
+        {
+            RightCol.Width = new GridLength(0);
         }
         // 듀얼→단일(좌 마스터) 전환 시 하단 우 도킹도 연동해서 숨김
         UpdateBottomDock();
@@ -4081,8 +4093,9 @@ public sealed partial class MainWindow : Window
     /// - 하단 우 도킹은 **우 패널이 표시(듀얼)이고** 하단 분리가 켜졌을 때만 보인다.
     /// - 우 패널을 숨기면(단일=좌 마스터) 하단 우 도킹도 숨기고 "분리" 토글은 비활성화.
     /// </summary>
-    // 하단 도크 좌:우 분할 비율(좌 비중, 0~1) — 우 도크를 숨기는 시점에 저장했다가 재표시 때 복원.
-    // 초기 0.5 = 첫 표시/기본은 50:50. (상단 파일 패널은 사용자 결정으로 항상 50:50 복원 — OnToggleRightPanel.)
+    // 분할 비율(좌 비중, 0~1) — 숨기는 시점에 실측 저장했다가 재표시 때 그 위치로 복원(초기 0.5=50:50).
+    // 상단 파일 패널(OnToggleRightPanel)·하단 도크(UpdateBottomDock) 동일 규칙.
+    private double _panelSplitRatio = 0.5;
     private double _bottomSplitRatio = 0.5;
 
     private void UpdateBottomDock()
