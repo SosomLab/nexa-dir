@@ -293,7 +293,10 @@ public sealed partial class TerminalView : UserControl
             LinesPanel.Children.Add(line);
         }
         // Canvas는 자식으로 크기가 잡히지 않음 → 스크롤 익스텐트를 명시(세로=행수×_lineH, 가로=최장 줄).
-        LinesPanel.Height = (lines.Count - start) * _lineH;
+        // 가로 스크롤바(WinUI 오버레이)가 마지막 줄(입력 줄)을 덮지 않게 — 가로 익스텐트가 뷰포트를
+        // 넘을 때만 스크롤바 높이만큼 하단 여백을 예약(최하단 스크롤 시 여백이 바 아래 깔림).
+        double hbarPad = maxLineWidth > Scroll.ViewportWidth && Scroll.ViewportWidth > 0 ? 16 : 0;
+        LinesPanel.Height = (lines.Count - start) * _lineH + hbarPad;
         LinesPanel.Width = maxLineWidth;
 
         // 맨 아래로 스크롤(항상 최신 보이게).
