@@ -186,6 +186,15 @@ public sealed partial class MainWindow : Window
     /// <summary>설정 변경 저장 예약(테마·표시 토글·메뉴·설정 창). 초저비용·다음 Tick 1회 저장.</summary>
     private void MarkSettingsDirty() => _settings?.MarkDirty();
 
+    /// <summary>영속 상태(설정·세션)를 즉시 flush한 뒤 앱을 재시작한다(PREF-9 — 언어 등 재시작 필요 설정).
+    /// AppInstance.Restart는 Closed/ProcessExit 훅 실행을 보장하지 않으므로 여기서 선-flush가 필수.</summary>
+    internal void RestartApp()
+    {
+        _session?.Flush();
+        _settings?.Flush();
+        AppRestart.Restart();
+    }
+
     /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 + 도구 모음 토글에 반영(시작 시·설정 창 변경 후).</summary>
     private void SyncViewMenuChecks()
     {

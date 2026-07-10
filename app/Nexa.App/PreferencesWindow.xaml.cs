@@ -69,6 +69,30 @@ public sealed partial class PreferencesWindow : Window
         }
     }
 
+    /// <summary>재시작 필요 설정(항목별 판정 위임) 변경 후 호출(PREF-9) — <paramref name="restartNeeded"/>가
+    /// "적용 중 값과 달라짐"을 알리면 확인창(지금 재시작/나중에)을 띄우고, 승인 시 flush 후 자체 재시작.
+    /// 원래 값으로 되돌리면 판정이 false라 조용히 지나간다(불필요 재시작 안내 없음).</summary>
+    private async void MaybePromptRestart(Func<bool> restartNeeded)
+    {
+        if (_building || !restartNeeded())
+        {
+            return;
+        }
+        var dialog = new ContentDialog
+        {
+            Title = Loc.T("restart.title"),
+            Content = Loc.T("restart.msg"),
+            PrimaryButtonText = Loc.T("restart.now"),
+            CloseButtonText = Loc.T("restart.later"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = Content.XamlRoot,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _host.RestartApp();
+        }
+    }
+
     // ── 설정 레지스트리 — 영속 대상 전부(테마·글꼴 6종·목록·탭·파일 작업·메뉴·언어) ─────
     private List<Entry> BuildRegistry() => new()
     {
@@ -776,7 +800,13 @@ public sealed partial class PreferencesWindow : Window
         {
             var rb = new RadioButton { Content = label, GroupName = "Culture", IsChecked = AppSettings.General.Culture == culture, MinHeight = 0 };
             string captured = culture;
-            rb.Checked += (_, _) => { AppSettings.General.Culture = captured; Changed(); };
+            // 언어는 재시작 필요 설정(PREF-9) — 저장 후 실적용 언어와 달라졌으면 재시작 확인창.
+            rb.Checked += (_, _) =>
+            {
+                AppSettings.General.Culture = captured;
+                Changed();
+                MaybePromptRestart(() => Loc.IsPendingCultureChange(AppSettings.General.Culture));
+            };
             panel.Children.Add(rb);
         }
         return panel;
