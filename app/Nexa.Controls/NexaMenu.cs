@@ -18,11 +18,15 @@ public sealed class NexaMenu
     public IList<NexaMenuEntry> Items { get; } = new List<NexaMenuEntry>();
 }
 
-/// <summary>드롭다운 항목 하나. 체크형(토글) 지원. 후속: 아이콘·구분선·하위 메뉴.</summary>
+/// <summary>드롭다운 항목 하나. 체크형(토글)·서브메뉴(<see cref="Children"/>) 지원. 후속: 아이콘·구분선.</summary>
+[ContentProperty(Name = nameof(Children))]
 public sealed class NexaMenuEntry
 {
     /// <summary>항목 표시 텍스트.</summary>
     public string Text { get; set; } = string.Empty;
+
+    /// <summary>하위 메뉴 항목(있으면 이 항목은 서브메뉴 부모 — hover/탭으로 오른쪽에 펼침, 자체 Click 없음).</summary>
+    public IList<NexaMenuEntry> Children { get; } = new List<NexaMenuEntry>();
 
     /// <summary>체크형(토글) 항목인지 — <c>true</c>면 체크 표시 칸을 두고 탭할 때마다 <see cref="IsChecked"/>가 토글된다.</summary>
     public bool IsCheckable { get; set; }

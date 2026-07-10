@@ -116,10 +116,12 @@
                     <ctrls:NexaMenuEntry x:Name="BottomSplitEntry" Text="{loc:Loc Key=menu.view.bottomSplit}" IsCheckable="True" IsChecked="True" Click="OnToggleBottomSplit" />
                 </ctrls:NexaMenu>
                 <ctrls:NexaMenu Header="{loc:Loc Key=menu.config}">
-                    <!-- 테마 모드(docs/39) — 라디오식(핸들러가 배타 체크 관리). 세부 설정은 설정 창 모양 페이지 -->
-                    <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="{loc:Loc Key=menu.config.themeSystem}" IsCheckable="True" Click="OnThemeSystem" />
-                    <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="{loc:Loc Key=menu.config.themeLight}" IsCheckable="True" IsChecked="True" Click="OnThemeLight" />
-                    <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="{loc:Loc Key=menu.config.themeDark}" IsCheckable="True" Click="OnThemeDark" />
+                    <!-- 테마 모드(docs/39) — "테마" 서브메뉴로 그룹(라디오식, 핸들러가 배타 체크 관리). 기본 System -->
+                    <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.config.theme}">
+                        <ctrls:NexaMenuEntry x:Name="ThemeSystemEntry" Text="{loc:Loc Key=pref.theme.system}" IsCheckable="True" IsChecked="True" Click="OnThemeSystem" />
+                        <ctrls:NexaMenuEntry x:Name="ThemeLightEntry" Text="{loc:Loc Key=pref.theme.light}" IsCheckable="True" Click="OnThemeLight" />
+                        <ctrls:NexaMenuEntry x:Name="ThemeDarkEntry" Text="{loc:Loc Key=pref.theme.dark}" IsCheckable="True" Click="OnThemeDark" />
+                    </ctrls:NexaMenuEntry>
                     <!-- 통합 설정 창(Ctrl+,) — docs/40 PREF-1 -->
                     <ctrls:NexaMenuEntry Text="{loc:Loc Key=menu.config.preferences}" Click="OnOpenPreferences" />
                 </ctrls:NexaMenu>

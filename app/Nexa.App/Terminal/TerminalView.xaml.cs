@@ -293,7 +293,10 @@ public sealed partial class TerminalView : UserControl
             LinesPanel.Children.Add(line);
         }
         // Canvas는 자식으로 크기가 잡히지 않음 → 스크롤 익스텐트를 명시(세로=행수×_lineH, 가로=최장 줄).
-        LinesPanel.Height = (lines.Count - start) * _lineH;
+        // 가로 스크롤바(WinUI 오버레이)가 마지막 줄(입력 줄)을 덮지 않게 — 가로 익스텐트가 뷰포트를
+        // 넘을 때만 스크롤바 높이만큼 하단 여백을 예약(최하단 스크롤 시 여백이 바 아래 깔림).
+        double hbarPad = maxLineWidth > Scroll.ViewportWidth && Scroll.ViewportWidth > 0 ? 16 : 0;
+        LinesPanel.Height = (lines.Count - start) * _lineH + hbarPad;
         LinesPanel.Width = maxLineWidth;
 
         // 맨 아래로 스크롤(항상 최신 보이게).
@@ -385,8 +388,24 @@ public sealed partial class TerminalView : UserControl
     // FocusSoon()은 dispatcher enqueue로 그 이후에 다시 포커스 → 클릭 포커스가 안정적으로 유지된다.
     private void OnTermPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // 스크롤바 위 클릭/드래그는 선택을 시작하지 않는다(handledEventsToo 전역 후킹이 스크롤바까지
+        // 받아 가로 스크롤 조작 중 드래그 선택이 동시에 일어나던 버블링 차단).
+        if (IsWithinScrollBar(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
         FocusSoon();
         var pt = e.GetCurrentPoint(Scroll);
+        // 우클릭: 드래그 선택이 있으면 그 영역을 복사(Windows Terminal 관례 — 복사 후 선택 해제).
+        if (pt.Properties.IsRightButtonPressed)
+        {
+            if (_hasSelection)
+            {
+                CopySelection();
+                e.Handled = true;
+            }
+            return;
+        }
         if (!pt.Properties.IsLeftButtonPressed)
         {
             return;
@@ -403,9 +422,11 @@ public sealed partial class TerminalView : UserControl
         {
             return;
         }
-        _selEnd = HitCell(e.GetCurrentPoint(Scroll).Position);
+        var pos = e.GetCurrentPoint(Scroll).Position;
+        _selEnd = HitCell(pos);
         _hasSelection = _selEnd != _selAnchor;
         RenderSelection();
+        UpdateSelAutoScroll(pos);   // 뷰포트 가장자리 대기 → 자동 스크롤(오프스크린 선택)
     }
 
     private void OnTermPointerReleased(object sender, PointerRoutedEventArgs e)
@@ -414,11 +435,55 @@ public sealed partial class TerminalView : UserControl
         if (_selecting)
         {
             _selecting = false;
+            _selScrollTimer?.Stop();
             ReleasePointerCaptures();
             if (!_hasSelection)
             {
                 ClearSelection();
             }
+        }
+    }
+
+    // ── 선택 드래그 자동 스크롤 — 뷰포트 밖(위/아래) 내용도 선택 가능하게(파일 목록 B-11과 동일 UX) ──
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _selScrollTimer;
+    private double _selScrollDelta;                    // 틱당 스크롤(px, 부호=방향)
+    private Windows.Foundation.Point _selLastPos;      // Scroll 기준 마지막 포인터 위치(틱마다 재판정)
+
+    /// <summary>선택 드래그 중 포인터가 뷰포트 상/하단 가장자리에 있으면 자동 스크롤 타이머 가동 —
+    /// 틱마다 스크롤을 밀고 같은 포인터 위치로 선택 끝을 재계산해 하이라이트를 늘린다.</summary>
+    private void UpdateSelAutoScroll(Windows.Foundation.Point pos)
+    {
+        const double edge = 24;    // 가장자리 감지 폭(px)
+        const double speed = 40;   // 틱당 스크롤(px)
+        _selLastPos = pos;
+        double h = Scroll.ActualHeight;
+        _selScrollDelta = pos.Y < edge ? -speed : (pos.Y > h - edge ? speed : 0);
+        if (_selScrollDelta == 0)
+        {
+            _selScrollTimer?.Stop();
+            return;
+        }
+        if (_selScrollTimer is null)
+        {
+            _selScrollTimer = _dispatcher.CreateTimer();
+            _selScrollTimer.Interval = TimeSpan.FromMilliseconds(60);
+            _selScrollTimer.IsRepeating = true;
+            _selScrollTimer.Tick += (_, _) =>
+            {
+                if (!_selecting)
+                {
+                    _selScrollTimer!.Stop();
+                    return;
+                }
+                Scroll.ChangeView(null, Scroll.VerticalOffset + _selScrollDelta, null, disableAnimation: true);
+                _selEnd = HitCell(_selLastPos);   // 새 오프셋 기준 같은 화면 위치 = 더 위/아래 라인
+                _hasSelection = _selEnd != _selAnchor;
+                RenderSelection();
+            };
+        }
+        if (!_selScrollTimer.IsRunning)
+        {
+            _selScrollTimer.Start();
         }
     }
 
@@ -603,9 +668,27 @@ public sealed partial class TerminalView : UserControl
         MarkDirty();
     }
 
+    /// <summary>포인터 원본이 ScrollViewer의 스크롤바(ScrollBar) 내부인가 — 선택 시작 제외 판정.</summary>
+    private static bool IsWithinScrollBar(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is Microsoft.UI.Xaml.Controls.Primitives.ScrollBar)
+            {
+                return true;
+            }
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return false;
+    }
+
     private (int cols, int rows) MeasureGrid()
     {
-        int cols = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
+        int visible = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
+        // 긴 출력 처리(설정): NoWrap이면 최대 길이(MaxColumns)까지 줄바꿈 없이(가로 스크롤),
+        // 아니면 뷰포트 폭에서 ConPTY 줄바꿈. 옵션/글자 수 변경은 ApplyFont→ResizeToView로 라이브 반영.
+        var t = AppSettings.Terminal;
+        int cols = t.NoWrap ? Math.Max(visible, Math.Clamp(t.MaxColumns, 80, 1000)) : visible;
         int rows = Math.Clamp((int)(ActualHeight / _lineH), 5, 200);
         return (cols, rows);
     }

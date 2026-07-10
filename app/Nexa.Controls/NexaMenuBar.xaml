@@ -12,10 +12,21 @@
             <StackPanel x:Name="Host" Orientation="Horizontal" VerticalAlignment="Stretch" />
         </Border>
 
-        <!-- 드롭다운(사각 Border, 그림자/둥근 모서리 없음 → 빠름). light-dismiss 미사용(hover 전환 위해) -->
+        <!-- 드롭다운(사각 Border, 그림자/둥근 모서리 없음 → 빠름). light-dismiss 미사용(hover 전환 위해).
+             색은 호스트 앱 테마 토큰(NexaMenu*) — 다크에서 밝은 회색 텍스트/약간 밝은 바탕(VS Code식).
+             Popup 콘텐츠는 루트 RequestedTheme를 상속하지 않으므로 OpenMenu가 ActualTheme를 지정. -->
         <Popup x:Name="MenuPopup" IsLightDismissEnabled="False">
-            <Border x:Name="PopupBorder" Background="#FFF6F6F6" BorderBrush="#FF9A9A9A" BorderThickness="1">
+            <Border x:Name="PopupBorder" Background="{ThemeResource NexaMenuPopupBackgroundBrush}"
+                    BorderBrush="{ThemeResource NexaMenuPopupBorderBrush}" BorderThickness="1">
                 <StackPanel x:Name="ItemsHost" Orientation="Vertical" MinWidth="180" Padding="0,2" />
+            </Border>
+        </Popup>
+
+        <!-- 2단(서브) 메뉴 — 부모 항목 오른쪽에 펼침(테마 그룹 등). 스타일은 1단과 동일 -->
+        <Popup x:Name="SubPopup" IsLightDismissEnabled="False">
+            <Border x:Name="SubPopupBorder" Background="{ThemeResource NexaMenuPopupBackgroundBrush}"
+                    BorderBrush="{ThemeResource NexaMenuPopupBorderBrush}" BorderThickness="1">
+                <StackPanel x:Name="SubItemsHost" Orientation="Vertical" MinWidth="150" Padding="0,2" />
             </Border>
         </Popup>
     </Grid>

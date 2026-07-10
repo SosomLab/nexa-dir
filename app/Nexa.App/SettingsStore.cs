@@ -25,6 +25,7 @@ internal sealed class SettingsState
     public AppearanceSettings Appearance { get; set; } = new();
     public FontSettings Fonts { get; set; } = new();
     public ToolbarSettings Toolbar { get; set; } = new();
+    public TerminalSettings Terminal { get; set; } = new();
     public ViewSettings View { get; set; } = new();
     public SortSettings Sort { get; set; } = new();
     public MenuSettings Menu { get; set; } = new();
@@ -63,16 +64,23 @@ internal sealed class ToolbarSettings
     public Dictionary<string, List<string>> ItemOrder { get; set; } = new();
 }
 
+/// <summary>터미널 — 긴 출력 처리(BP-T). 스키마는 <see cref="TerminalOptions"/>와 1:1.</summary>
+internal sealed class TerminalSettings
+{
+    public bool NoWrap { get; set; } = true;
+    public int MaxColumns { get; set; } = 240;
+}
+
 /// <summary>일반 — 언어(i18n).</summary>
 internal sealed class GeneralSettings
 {
     public string Culture { get; set; } = string.Empty;
 }
 
-/// <summary>모양 — 테마 모드(후속: 팩·폰트·밀도, docs/39 §5).</summary>
+/// <summary>모양 — 테마 모드(기본 System — OS 추종). 후속: 테마팩(docs/39 §5).</summary>
 internal sealed class AppearanceSettings
 {
-    public AppThemeMode Mode { get; set; } = AppThemeMode.Light;
+    public AppThemeMode Mode { get; set; } = AppThemeMode.System;
 }
 
 /// <summary>보기/레이아웃 — 가시성·헤더·전송창·타입어헤드·dwell.</summary>
@@ -257,6 +265,9 @@ internal sealed class SettingsStore
         tb.ItemOrder.Clear();
         foreach (var kv in s.Toolbar.ItemOrder) { tb.ItemOrder[kv.Key] = new List<string>(kv.Value); }
 
+        AppSettings.Terminal.NoWrap = s.Terminal.NoWrap;
+        AppSettings.Terminal.MaxColumns = s.Terminal.MaxColumns;
+
         var v = AppSettings.View;
         v.ShowHiddenFiles = s.View.ShowHiddenFiles;
         v.ShowDotFiles = s.View.ShowDotFiles;
@@ -310,6 +321,11 @@ internal sealed class SettingsStore
             {
                 GroupOrder = new List<string>(AppSettings.Toolbar.GroupOrder),
                 ItemOrder = AppSettings.Toolbar.ItemOrder.ToDictionary(kv => kv.Key, kv => new List<string>(kv.Value)),
+            },
+            Terminal = new TerminalSettings
+            {
+                NoWrap = AppSettings.Terminal.NoWrap,
+                MaxColumns = AppSettings.Terminal.MaxColumns,
             },
             View = new ViewSettings
             {

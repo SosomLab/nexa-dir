@@ -118,13 +118,12 @@ internal enum AppThemeMode
 }
 
 /// <summary>
-/// 테마 옵션(docs/39) — 라이트/다크 모드. 후속: 테마팩(토큰 색 오버라이드)·폰트·크기(밀도) 세부 설정
-/// (설정 UI "모양" 페이지, docs/39 §5). 기본 <c>Light</c> — 라이트 팔레트 검증용(다크 팔레트 정비 후
-/// 기본값 재결정, DR-2 참고).
+/// 테마 옵션(docs/39) — 시스템/라이트/다크 모드. 후속: 테마팩(토큰 색 오버라이드) 세부 설정
+/// (설정 UI "모양" 페이지, docs/39 §5). 기본 <c>System</c>(OS 추종 — 사용자 결정 2026-07-10, DR-2 참고).
 /// </summary>
 internal sealed class ThemeOptions
 {
-    public AppThemeMode Mode { get; set; } = AppThemeMode.Light;
+    public AppThemeMode Mode { get; set; } = AppThemeMode.System;
 }
 
 /// <summary>
@@ -161,6 +160,19 @@ internal sealed class FontOptions
     /// <summary>파일 헤더(컬럼 헤더) 꾸미기 — 글꼴/크기는 파일 목록과 동일, 두껍게/기울임만 지정.</summary>
     public bool HeaderBold { get; set; } = true;
     public bool HeaderItalic { get; set; }
+}
+
+/// <summary>
+/// 터미널 옵션(BP-T) — 긴 출력 처리: <see cref="NoWrap"/>=true면 <see cref="MaxColumns"/>까지 줄바꿈 없이
+/// PTY 폭을 보장(가로 스크롤로 열람), false면 뷰포트 폭에서 줄바꿈(콘솔 표준).
+/// </summary>
+internal sealed class TerminalOptions
+{
+    /// <summary>긴 줄을 최대 길이까지 줄바꿈하지 않음(기본 true — 가로 스크롤 열람).</summary>
+    public bool NoWrap { get; set; } = true;
+
+    /// <summary>줄바꿈 없이 보장할 최대 길이(글자 수/컬럼, 80~1000). NoWrap일 때만 의미.</summary>
+    public int MaxColumns { get; set; } = 240;
 }
 
 /// <summary>
@@ -205,6 +217,9 @@ internal static class AppSettings
 
     /// <summary>도구 모음 옵션(그룹/항목 표시 순서, docs/44).</summary>
     public static ToolbarOptions Toolbar { get; } = new();
+
+    /// <summary>터미널 옵션(긴 출력 처리 등, BP-T).</summary>
+    public static TerminalOptions Terminal { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

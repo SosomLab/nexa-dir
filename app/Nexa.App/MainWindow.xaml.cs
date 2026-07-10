@@ -1445,6 +1445,9 @@ public sealed partial class MainWindow : Window
             // 경로 복사 대체 항목 "바로 위"에 동반 삽입(InsertAboveVerb, docs/38 §7-5).
             new("copy-as-filename", Loc.T("ctx.copyAsName"), 60,
                 _ => true, _ => true, c => CopyFileNamesAsText(c.Targets), InsertAboveVerb: "copyaspath"),
+            // 내장 터미널에서 열기 — 폴더 1개 선택일 때만. 그 패널의 터미널(싱글 도크면 공용)로 cd.
+            new("open-in-terminal", Loc.T("ctx.openInTerminal"), 70,
+                c => c.Item.IsDir && c.Targets.Count == 1, _ => true, c => OpenInEmbeddedTerminal(c.Left, c.Targets[0])),
             new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
             new("rename", Loc.T("ctx.rename"), 200,
@@ -2159,9 +2162,13 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>도구: 내장 하단 터미널의 작업 디렉터리를 활성 탭 폴더로 이동(cd) — 하단 패널·터미널 탭 자동 표시.</summary>
-    private void TerminalCdToCurrentTab()
+    private void TerminalCdToCurrentTab() => OpenInEmbeddedTerminal(_activeLeft, Panel(_activeLeft).Active.Current);
+
+    /// <summary>지정 패널 기준 <b>내장 터미널</b>을 폴더에 연다(cd) — 하단 패널·터미널 탭 자동 표시.
+    /// 도크 선택: 그 패널 측 도킹, 우 도킹이 없으면(싱글 도크) 좌 도킹(=활성 패널 기준, 대원칙) 공용.
+    /// 컨텍스트 메뉴 "터미널에서 열기 (내장)"·도구 모음/도크 "터미널 위치 이동" 공용 경로.</summary>
+    private void OpenInEmbeddedTerminal(bool left, string folder)
     {
-        string folder = Panel(_activeLeft).Active.Current;
         if (string.IsNullOrEmpty(folder))
         {
             return;
@@ -2171,8 +2178,7 @@ public sealed partial class MainWindow : Window
             ShowBottomEntry.IsChecked = true;
             OnToggleTerminal(ShowBottomEntry, EventArgs.Empty);   // 하단 패널 표시
         }
-        // 활성 패널 측 도킹(우 도킹은 듀얼+분리일 때만 존재 — 없으면 좌 도킹 폴백).
-        var dock = !_activeLeft && BottomRightDock.Visibility == Visibility.Visible ? BottomRightDockView : BottomLeftDockView;
+        var dock = !left && BottomRightDock.Visibility == Visibility.Visible ? BottomRightDockView : BottomLeftDockView;
         dock.TerminalCdTo(folder);
         StatusText.Text = Loc.T("tool.terminalCd", folder);
     }
@@ -3483,8 +3489,13 @@ public sealed partial class MainWindow : Window
     /// <summary>활성(포커스) 패널 전환.</summary>
     private void SetActivePanel(bool left)
     {
+        bool changed = _activeLeft != left;
         _activeLeft = left;
         RefreshSelectionFocus();
+        if (changed)
+        {
+            RefreshBottomDocks();   // 싱글 도크는 활성 패널 기준(대원칙, docs/20) → 활성 전환 시 재연결
+        }
         _session?.MarkDirty();   // 활성 패널 변경 → 세션 저장 예약
     }
 
@@ -4018,12 +4029,30 @@ public sealed partial class MainWindow : Window
     private void OnToggleRightPanel(object sender, EventArgs e)
     {
         bool show = ShowRightPanelEntry.IsChecked;
+        // 숨기기 직전 좌:우 실측 비율 저장 → 재표시 때 그 위치로 복원(하단 도크와 동일 규칙, 사용자 요청).
+        bool wasVisible = RightPanel.Visibility == Visibility.Visible;
+        if (wasVisible && !show)
+        {
+            double total = LeftCol.ActualWidth + RightCol.ActualWidth;
+            if (total > 0 && LeftCol.ActualWidth > 0)
+            {
+                _panelSplitRatio = Math.Clamp(LeftCol.ActualWidth / total, 0.1, 0.9);
+            }
+        }
         RightPanel.Visibility = Vis(show);
         PanelSplitter.Visibility = Vis(show);
         SplitterCol.Width = show ? GridLength.Auto : new GridLength(0);
-        // 표시 시 좌/우 동일 크기(star) 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
+        // 표시 시 저장된 비율(기본 0.5=50:50)로 복원 + 최소폭. 숨김 시 MinWidth도 풀어 완전 접힘.
         RightCol.MinWidth = show ? 160 : 0;
-        RightCol.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        if (show)
+        {
+            LeftCol.Width = new GridLength(_panelSplitRatio, GridUnitType.Star);
+            RightCol.Width = new GridLength(1 - _panelSplitRatio, GridUnitType.Star);
+        }
+        else
+        {
+            RightCol.Width = new GridLength(0);
+        }
         // 듀얼→단일(좌 마스터) 전환 시 하단 우 도킹도 연동해서 숨김
         UpdateBottomDock();
         _session?.MarkDirty();
@@ -4064,6 +4093,11 @@ public sealed partial class MainWindow : Window
     /// - 하단 우 도킹은 **우 패널이 표시(듀얼)이고** 하단 분리가 켜졌을 때만 보인다.
     /// - 우 패널을 숨기면(단일=좌 마스터) 하단 우 도킹도 숨기고 "분리" 토글은 비활성화.
     /// </summary>
+    // 분할 비율(좌 비중, 0~1) — 숨기는 시점에 실측 저장했다가 재표시 때 그 위치로 복원(초기 0.5=50:50).
+    // 상단 파일 패널(OnToggleRightPanel)·하단 도크(UpdateBottomDock) 동일 규칙.
+    private double _panelSplitRatio = 0.5;
+    private double _bottomSplitRatio = 0.5;
+
     private void UpdateBottomDock()
     {
         bool dual = ShowRightPanelEntry.IsChecked;    // 우 패널 표시 = 듀얼
@@ -4071,30 +4105,59 @@ public sealed partial class MainWindow : Window
         // 분리는 듀얼일 때만 적용(메뉴 항목은 항상 토글 가능 — 선호는 저장되고 듀얼 복귀 시 반영)
         bool showRightDock = dual && split;
 
+        // 숨기기 직전 현재 분할 비율 저장(스플리터 드래그 반영) → 재표시 때 그 비율로 복원.
+        bool wasVisible = BottomRightDock.Visibility == Visibility.Visible;
+        if (wasVisible && !showRightDock)
+        {
+            double total = BottomLeftCol.ActualWidth + BottomRightCol.ActualWidth;
+            if (total > 0 && BottomLeftCol.ActualWidth > 0)
+            {
+                _bottomSplitRatio = Math.Clamp(BottomLeftCol.ActualWidth / total, 0.1, 0.9);
+            }
+        }
+
         BottomRightDock.Visibility = Vis(showRightDock);
         BottomSplitter.Visibility = Vis(showRightDock);
         BottomSplitterCol.Width = showRightDock ? GridLength.Auto : new GridLength(0);
         // 표시 시 최소폭 유지, 숨김 시 MinWidth도 풀어 완전 접힘.
         BottomRightCol.MinWidth = showRightDock ? 160 : 0;
-        BottomRightCol.Width = showRightDock ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        if (showRightDock)
+        {
+            // 저장된 비율(기본 0.5=50:50)로 좌/우 열 star 복원 — 숨김 중 좌 열에 남은 잔존값 제거.
+            BottomLeftCol.Width = new GridLength(_bottomSplitRatio, GridUnitType.Star);
+            BottomRightCol.Width = new GridLength(1 - _bottomSplitRatio, GridUnitType.Star);
+        }
+        else
+        {
+            BottomRightCol.Width = new GridLength(0);
+        }
+        // 싱글↔듀얼 전환 시 도크 소스 재연결(대원칙) — 듀얼 복원이면 좌=좌 패널·우=우 패널로 복귀.
+        RefreshBottomDocks();
     }
 
     private static Visibility Vis(bool? on)
         => on == true ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>하단 도킹 패널의 정보 콘텐츠를 각 패널의 현재 폴더로 갱신한다(BP-1). 콘텐츠 종류=정보일 때 표시.</summary>
+    /// <summary>하단 도킹 패널의 정보 콘텐츠 갱신(BP-1). <b>대원칙(docs/20)</b>:
+    /// 듀얼 도크 = 좌 도크↔좌 패널·우 도크↔우 패널 / <b>싱글 도크 = 활성 패널의 탭 기준</b>
+    /// (정보·미리보기·터미널 작업 폴더 모두). 듀얼 복원 시 좌=좌·우=우로 복귀.</summary>
     private void RefreshBottomDocks()
     {
         if (BottomLeftDockView is null || BottomRightDockView is null)
         {
             return;   // ctor 초기화 순서 방어
         }
-        BottomLeftDockView.InfoText = DockInfo(_left);
-        BottomRightDockView.InfoText = DockInfo(_right);
-        BottomLeftDockView.PreviewPath = PreviewTarget(_left);
-        BottomRightDockView.PreviewPath = PreviewTarget(_right);
-        BottomLeftDockView.CurrentFolder = _left.Active.Current;    // 터미널 작업 디렉터리 등 (BP-T)
-        BottomRightDockView.CurrentFolder = _right.Active.Current;
+        bool dualDock = BottomRightDock.Visibility == Visibility.Visible;
+        var primary = dualDock ? _left : Panel(_activeLeft);   // 싱글 도크 소스 = 활성 패널
+        BottomLeftDockView.InfoText = DockInfo(primary);
+        BottomLeftDockView.PreviewPath = PreviewTarget(primary);
+        BottomLeftDockView.CurrentFolder = primary.Active.Current;   // 터미널 작업 디렉터리 등 (BP-T)
+        if (dualDock)
+        {
+            BottomRightDockView.InfoText = DockInfo(_right);
+            BottomRightDockView.PreviewPath = PreviewTarget(_right);
+            BottomRightDockView.CurrentFolder = _right.Active.Current;
+        }
     }
 
     /// <summary>미리보기 대상 — 단일 선택된 <b>파일</b>의 경로(폴더/다중/없음은 빈 문자열). (BP-2)</summary>
