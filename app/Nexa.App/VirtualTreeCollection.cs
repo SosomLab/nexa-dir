@@ -19,6 +19,7 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
 {
     private IntPtr _handle = IntPtr.Zero;
     private readonly Dictionary<int, DirItem> _cache = new();
+    private int _count;             // 가시 행 수 캐시 — 변경 경로(채택/정렬/토글/닫기)에서만 갱신
     private int _caretIndex = -1;   // 키보드 캐럿(현재 위치) 가시 인덱스, 없으면 -1
     private bool _panelFocused = true; // 이 패널이 활성인가(선택색 파랑/회색)
 
@@ -76,6 +77,7 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         _handle = handle;
         RootPath = rootPath;
         _caretIndex = -1;
+        RefreshCount();
         RaiseReset();
     }
 
@@ -93,6 +95,7 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         NativeInterop.TreeSetSort(_handle, keys, foldersFirst);
         _cache.Clear();
         _caretIndex = -1;
+        RefreshCount();
         RaiseReset();
     }
 
@@ -151,8 +154,12 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
     public int FindPrefix(int caret, string prefix, uint scope) =>
         _handle == IntPtr.Zero ? -1 : NativeInterop.TreeFindPrefix(_handle, caret, prefix, scope);
 
-    /// <summary>현재 가시 행 수(코어 질의).</summary>
-    public int Count => _handle == IntPtr.Zero ? 0 : NativeInterop.TreeVisibleLen(_handle);
+    /// <summary>현재 가시 행 수. 접근마다 P/Invoke 하지 않도록 캐시(감사 004 속도 3) —
+    /// 변경 경로는 전부 이 클래스 경유(AdoptHandle/SetSort/ToggleExpand/Close)라 그 지점에서만 갱신.</summary>
+    public int Count => _count;
+
+    private void RefreshCount() =>
+        _count = _handle == IntPtr.Zero ? 0 : NativeInterop.TreeVisibleLen(_handle);
 
     /// <summary>가시 인덱스의 행. 캐시에 있으면 재사용(선택/아이콘 상태 유지), 없으면 코어에서 생성.</summary>
     public DirItem this[int index]
@@ -209,6 +216,7 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
         item.IsExpanded = !wasExpanded;
         if (r.Inserted > 0 || r.Removed > 0)
         {
+            _count += r.Inserted - r.Removed;
             ApplyDiff(r.Start, r.Removed, r.Inserted);   // 캐시/캐럿 인덱스 시프트(위쪽 행 DirItem·아이콘 보존)
             RaiseChange(
                 r.Inserted > 0 ? NotifyCollectionChangedAction.Add : NotifyCollectionChangedAction.Remove,
@@ -376,6 +384,24 @@ internal sealed class VirtualTreeCollection : IList, IReadOnlyList<DirItem>, INo
             _handle = IntPtr.Zero;
         }
         _cache.Clear();
+        _count = 0;
+    }
+
+    /// <summary>행 재활용(화면 이탈) 시 실체화 캐시에서 제거 — 스크롤로 방문한 모든 행을 폴더 수명 동안
+    /// 보존(대형 폴더에서 수십 MB 증식 + 선택 동기 P/Invoke가 캐시 크기에 비례)하던 것을 실화면 수준으로
+    /// 한정(감사 004 메모리 1·속도 7). 재진입 시 코어에서 재실체화(선택/캐럿은 코어가 진실원천이라 안전).
+    /// ReferenceEquals 가드: 핸들 교체(Reset) 직후 이전 요소의 지연 재활용이 새 캐시 항목을 지우지 않게.</summary>
+    public void Evict(DirItem item)
+    {
+        if (_handle == IntPtr.Zero)
+        {
+            return;
+        }
+        int idx = NativeInterop.TreeIndexOf(_handle, item.Id);
+        if (idx >= 0 && _cache.TryGetValue(idx, out var cur) && ReferenceEquals(cur, item))
+        {
+            _cache.Remove(idx);
+        }
     }
 
     public void Dispose() => Close();

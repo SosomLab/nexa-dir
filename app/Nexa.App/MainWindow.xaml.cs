@@ -106,7 +106,8 @@ public sealed partial class MainWindow : Window
         foreach (var p in new[] { _left, _right })
         {
             p.Grid.RowRealized += it => { if (it is DirItem d) { _iconCache.Request(d); } };
-            p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); } };
+            // 재활용 시 실체화 캐시에서도 제거 — 방문 행 무한 보존 방지(감사 004, 실화면 수준으로 한정).
+            p.Grid.RowRecycled += it => { if (it is DirItem d) { _iconCache.Cancel(d); p.Items.Evict(d); } };
         }
         // 드래그 빈 영역 드롭 → 그 패널 현재 폴더로 이동(좌우 겸용, B-12).
         DirGrid.BodyDropped += e => OnPanelBackgroundDrop(true, e);

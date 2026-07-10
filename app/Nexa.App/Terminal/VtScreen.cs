@@ -59,17 +59,17 @@ public sealed class VtScreen
     /// 전각 연속 셀('\0')은 건너뛰고, 각 줄 우측 공백은 트림, 줄 구분은 CRLF.</summary>
     public string GetText(int startLine, int startCol, int endLine, int endCol)
     {
-        var lines = Lines;
-        if (lines.Count == 0)
+        int count = LineCount;
+        if (count == 0)
         {
             return string.Empty;
         }
-        startLine = Math.Clamp(startLine, 0, lines.Count - 1);
-        endLine = Math.Clamp(endLine, 0, lines.Count - 1);
+        startLine = Math.Clamp(startLine, 0, count - 1);
+        endLine = Math.Clamp(endLine, 0, count - 1);
         var sb = new System.Text.StringBuilder();
         for (int li = startLine; li <= endLine; li++)
         {
-            TermCell[] row = lines[li];
+            TermCell[] row = LineAt(li);
             int c0 = li == startLine ? Math.Max(0, startCol) : 0;
             int c1 = li == endLine ? Math.Min(row.Length - 1, endCol) : row.Length - 1;
             var line = new System.Text.StringBuilder();
@@ -90,20 +90,13 @@ public sealed class VtScreen
         return sb.ToString();
     }
 
-    /// <summary>렌더용 라인 목록(스크롤백 + 현재 화면). 각 라인은 셀 배열.</summary>
-    public IReadOnlyList<TermCell[]> Lines
-    {
-        get
-        {
-            var list = new List<TermCell[]>(_scrollback.Count + _rows);
-            list.AddRange(_scrollback);
-            for (int r = 0; r < _rows; r++)
-            {
-                list.Add(_screen[r]);
-            }
-            return list;
-        }
-    }
+    /// <summary>총 라인 수(스크롤백 + 현재 화면) — 목록 실체화 없이.</summary>
+    public int LineCount => _scrollback.Count + _rows;
+
+    /// <summary>절대 라인 인덱스의 셀 배열(스크롤백 → 화면 순, 0 ≤ index &lt; <see cref="LineCount"/>).
+    /// 렌더가 매 프레임(~30fps) 라인 목록을 새 List로 실체화하던 것을 대체(감사 004 — gen0 churn 제거).</summary>
+    public TermCell[] LineAt(int index)
+        => index < _scrollback.Count ? _scrollback[index] : _screen[index - _scrollback.Count];
 
     public void Resize(int cols, int rows)
     {
@@ -132,15 +125,17 @@ public sealed class VtScreen
         _bottom = rows - 1;   // 리사이즈 시 스크롤 마진 리셋(DECSTBM 관례)
     }
 
-    private TermCell[] BlankRow(int cols)
+    private static TermCell[] MakeRow(int cols, uint fg, uint bg)
     {
         var row = new TermCell[cols];
         for (int i = 0; i < cols; i++)
         {
-            row[i] = new TermCell { Ch = ' ', Fg = DefaultFg, Bg = DefaultBg };
+            row[i] = new TermCell { Ch = ' ', Fg = fg, Bg = bg };
         }
         return row;
     }
+
+    private TermCell[] BlankRow(int cols) => MakeRow(cols, DefaultFg, DefaultBg);
 
     public void Feed(string data)
     {
@@ -393,15 +388,7 @@ public sealed class VtScreen
         }
     }
 
-    private TermCell[] BlankFilledRow()
-    {
-        var row = new TermCell[_cols];
-        for (int i = 0; i < _cols; i++)
-        {
-            row[i] = new TermCell { Ch = ' ', Fg = _fg, Bg = _bg };
-        }
-        return row;
-    }
+    private TermCell[] BlankFilledRow() => MakeRow(_cols, _fg, _bg);
 
     private void InsertLines(int n)
     {
