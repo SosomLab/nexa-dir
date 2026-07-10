@@ -659,9 +659,14 @@ public sealed partial class TerminalView : UserControl
         MarkDirty();
     }
 
+    /// <summary>PTY 최소 컬럼 — 뷰포트가 좁아도 이 폭까지는 줄바꿈하지 않는다(긴 출력은 가로 스크롤로 열람,
+    /// 사용자 요청). 트레이드오프: 전체 폭 기준으로 그리는 테마(우측 정렬 프롬프트 등)는 오른쪽이 화면 밖.</summary>
+    private const int MinCols = 240;
+
     private (int cols, int rows) MeasureGrid()
     {
-        int cols = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
+        int visible = Math.Clamp((int)((ActualWidth - 12) / _charW), 20, 500);   // 좌우 패딩(6×2) 제외
+        int cols = Math.Max(visible, MinCols);   // 뷰포트보다 넓게 보장 → ConPTY 조기 줄바꿈 방지
         int rows = Math.Clamp((int)(ActualHeight / _lineH), 5, 200);
         return (cols, rows);
     }
