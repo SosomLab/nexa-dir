@@ -131,7 +131,7 @@
   "rename.done": "Renamed: {0} → {1}",
   "rename.selectFirst": "Select an item to rename first",
   "ctx.copyAsPath": "Copy as path",
-  "ctx.copyAsFilename": "Copy as filename",
+  "ctx.copyAsName": "Copy as name",
   "ctx.pasteInto": "Paste into folder",
   "ctx.rename": "Rename (F2)",
   "ctx.deletePermanent": "Delete permanently (Shift+Del)",

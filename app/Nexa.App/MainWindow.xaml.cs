@@ -1443,7 +1443,7 @@ public sealed partial class MainWindow : Window
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
             // 파일명만 복사 — Copy as path와 동일 대상 규칙(교차폴더 전체 선택·한 줄에 하나), 내용만 리프 이름.
             // 경로 복사 대체 항목 "바로 위"에 동반 삽입(InsertAboveVerb, docs/38 §7-5).
-            new("copy-as-filename", Loc.T("ctx.copyAsFilename"), 60,
+            new("copy-as-filename", Loc.T("ctx.copyAsName"), 60,
                 _ => true, _ => true, c => CopyFileNamesAsText(c.Targets), InsertAboveVerb: "copyaspath"),
             new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
@@ -3611,7 +3611,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // 탭 폴더 복사 — 이름(리프)만 / 전체 경로. 파일 컨텍스트 메뉴와 같은 명칭(ctx.copyAs*)·같은 순서.
-        var copyName = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsFilename") };
+        var copyName = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsName") };
         copyName.Click += (_, _) => CopyTextToClipboard(FolderLabel(tab.Current));
         flyout.Items.Add(copyName);
         var copyPath = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsPath") };
