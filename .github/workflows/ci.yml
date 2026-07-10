@@ -75,11 +75,13 @@ jobs:
         run: dotnet build app/Nexa.App -c Release --no-restore
 
   # 포터블 zip(self-contained, docs/12 §4 PKG) — 태그 push·수동 실행 시만(평시 PR은 앱 빌드로 충분).
-  # 후속: MSIX + 서명(secrets, docs/12 §6) → Releases 업로드
+  # 태그 트리거면 GitHub Release에 zip 자산 자동 첨부(없으면 생성). 후속: MSIX + 서명(secrets, docs/12 §6)
   package:
     name: 포터블 패키징 (windows)
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: windows-latest
+    permissions:
+      contents: write   # Release 자산 업로드
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -96,3 +98,12 @@ jobs:
           name: portable-win-x64
           path: dist/*.zip
           if-no-files-found: error
+      - name: attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          gh release view $tag 2>$null; if ($LASTEXITCODE -ne 0) { gh release create $tag --title "Nexa Dir $tag" --generate-notes }
+          $zip = Get-ChildItem dist/*.zip
+          gh release upload $tag $zip.FullName --clobber
