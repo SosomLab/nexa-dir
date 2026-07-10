@@ -324,15 +324,16 @@ impl Tree {
 
     /// 현재 펼침 상태를 따라 roots→DFS로 가시 목록을 다시 만든다(정렬 변경 후 호출).
     fn rebuild_visible(&mut self) {
-        let roots = self.roots.clone();
+        let roots = std::mem::take(&mut self.roots); // 빌림 회피 — clone 대신 이동 후 복귀
         let mut vis = Vec::with_capacity(self.visible.len());
-        for r in roots {
+        for &r in &roots {
             vis.push(r);
             let n = &self.nodes[r as usize];
             if n.is_dir() && n.expanded {
                 self.collect_subtree(r, &mut vis);
             }
         }
+        self.roots = roots;
         self.visible = vis;
     }
 
@@ -354,12 +355,15 @@ impl Tree {
             return None;
         }
         let lower = prefix.to_lowercase();
+        // 노드 이름을 통째로 소문자화(힙 할당)하지 않고 접두사 길이만큼만 문자 단위 비교 —
+        // 키 입력마다 가시 행 전체를 스캔하는 인터랙티브 경로라 할당 제로가 중요.
         let starts = |idx: usize| -> bool {
             let id = self.visible[idx];
-            self.nodes[id as usize]
+            let mut name = self.nodes[id as usize]
                 .name
-                .to_lowercase()
-                .starts_with(&lower)
+                .chars()
+                .flat_map(char::to_lowercase);
+            lower.chars().all(|pc| name.next() == Some(pc))
         };
         let caret = caret.filter(|&c| c < n);
         match scope {
@@ -414,9 +418,10 @@ impl Tree {
         self.visible.iter().position(|&x| x == id)
     }
 
-    /// 내부용 별칭(기존 호출부 유지).
-    fn visible_index(&self, id: NodeId) -> Option<usize> {
-        self.index_of(id)
+    /// 가시 인덱스의 노드 id(범위 밖이면 `None`) — `row()`와 달리 이름 클론 없이 id만.
+    /// 경로/아이콘 조회처럼 id만 필요한 인터롭 경량 경로용.
+    pub fn visible_id(&self, index: usize) -> Option<NodeId> {
+        self.visible.get(index).copied()
     }
 
     /// 가시 목록에서 경로가 일치하는 행 인덱스(끝 구분자·대소문자 무시). 없으면 `None`.
@@ -450,7 +455,7 @@ impl Tree {
             Some(n) if n.is_dir() && !n.expanded => {}
             _ => return Ok(RangeChange::NONE),
         }
-        let Some(vis) = self.visible_index(id) else {
+        let Some(vis) = self.index_of(id) else {
             return Ok(RangeChange::NONE);
         };
         if !self.nodes[id as usize].loaded {
@@ -492,7 +497,7 @@ impl Tree {
             Some(n) if n.expanded => {}
             _ => return RangeChange::NONE,
         }
-        let Some(vis) = self.visible_index(id) else {
+        let Some(vis) = self.index_of(id) else {
             return RangeChange::NONE;
         };
         let base_depth = self.nodes[id as usize].depth;
@@ -546,7 +551,7 @@ impl Tree {
             self.select(id, SelectMode::Single);
             return;
         };
-        let (Some(ia), Some(ib)) = (self.visible_index(anchor), self.visible_index(id)) else {
+        let (Some(ia), Some(ib)) = (self.index_of(anchor), self.index_of(id)) else {
             self.select(id, SelectMode::Single);
             return;
         };
@@ -575,6 +580,11 @@ impl Tree {
     }
 
     fn add_sel(&mut self, id: NodeId) {
+        // FFI 경계 방어: 호스트가 준 범위 밖 id는 무시 — 이후 selected_paths() 등의
+        // nodes[id] 직접 인덱싱이 패닉으로 extern "C" 밖까지 unwind(abort)하는 것을 차단.
+        if (id as usize) >= self.nodes.len() {
+            return;
+        }
         if self.sel_set.insert(id) {
             self.sel_order.push(id);
         }
@@ -611,6 +621,13 @@ impl Tree {
             .collect()
     }
 
+    /// 선택(삽입 순서) `index`번째 경로(범위 밖이면 `None`).
+    /// 호스트가 N개 경로를 인덱스로 순회할 때 `selected_paths()` Vec을 매번 재구성(O(N²))하지 않도록.
+    pub fn selected_path(&self, index: usize) -> Option<&Path> {
+        let id = *self.sel_order.get(index)?;
+        self.nodes.get(id as usize).map(|n| n.path.as_path())
+    }
+
     /// 현재 anchor.
     pub fn anchor(&self) -> Option<NodeId> {
         self.anchor
@@ -629,8 +646,12 @@ fn to_unix_ms(t: Option<SystemTime>) -> i64 {
 }
 
 /// 대소문자 무시 이름 비교(정렬 규약: 표시와 별개, 안정적 순서).
+/// 소문자화 이터레이터를 직접 비교 — `to_lowercase()` 문자열 2개를 비교마다 힙 할당하지 않음
+/// (O(n log n) 정렬 핫패스). UTF-8 바이트 순서=코드포인트 순서라 기존 결과와 동일.
 fn cmp_ci(a: &str, b: &str) -> std::cmp::Ordering {
-    a.to_lowercase().cmp(&b.to_lowercase())
+    a.chars()
+        .flat_map(char::to_lowercase)
+        .cmp(b.chars().flat_map(char::to_lowercase))
 }
 
 /// 파일명의 확장자(마지막 `.` 뒤). 선행 `.`만 있는 dotfile은 확장자 없음("").
@@ -752,16 +773,16 @@ mod tests {
         );
         assert_eq!(vis, dirs + dirs * per_dir);
 
-        // 무작위 위치 10,000회 visible_index 조회(현재 O(n) 선형) — 병목 후보 측정.
+        // 무작위 위치 10,000회 index_of 조회(현재 O(n) 선형) — 병목 후보 측정.
         let lookups = 10_000usize;
         let probe = Instant::now();
         let mut acc = 0usize;
         for k in 0..lookups {
             let target = t.visible[(k * 7919) % vis]; // 흩뿌린 인덱스
-            acc += t.visible_index(target).unwrap();
+            acc += t.index_of(target).unwrap();
         }
         eprintln!(
-            "[bench] {lookups}× visible_index: {:?} (acc={acc})",
+            "[bench] {lookups}× index_of: {:?} (acc={acc})",
             probe.elapsed()
         );
 
@@ -806,7 +827,7 @@ mod tests {
         assert!(t.row(vis).is_none());
         // 위치 조회(끝 근처) + 선택.
         let last = t.visible[vis - 1];
-        assert_eq!(t.visible_index(last), Some(vis - 1));
+        assert_eq!(t.index_of(last), Some(vis - 1));
         t.select(last, SelectMode::Single);
         assert!(t.is_selected(last));
         // 첫 폴더 접기 → 5000 제거.
