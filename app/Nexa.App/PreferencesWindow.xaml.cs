@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml;
@@ -48,6 +48,7 @@ public sealed partial class PreferencesWindow : Window
             new("fonts", "pref.fonts.title", Parent: "appearance", NoteKey: "pref.fonts.note"),
             new("list", "pref.cat.list"),
             new("tabs", "pref.cat.tabs"),
+            new("toolbar", "pref.toolbar.title", NoteKey: "pref.toolbar.note"),
             new("ops", "pref.cat.ops"),
             new("menu", "pref.menu.title", NoteKey: "pref.menu.note"),
             new("lang", "pref.lang.title", NoteKey: "pref.lang.restartNote"),
@@ -77,6 +78,9 @@ public sealed partial class PreferencesWindow : Window
         new("fonts", "pref.fonts.console", () => FontRow("pref.fonts.console", "pref.fonts.consoleDesc",
             () => AppSettings.Fonts.ConsoleFamily, v => AppSettings.Fonts.ConsoleFamily = v,
             () => AppSettings.Fonts.ConsoleSize, v => AppSettings.Fonts.ConsoleSize = v), DescKey: "pref.fonts.consoleDesc"),
+        new("fonts", "pref.fonts.menu", () => FontRow("pref.fonts.menu", "pref.fonts.menuDesc",
+            () => AppSettings.Fonts.MenuFamily, v => AppSettings.Fonts.MenuFamily = v,
+            () => AppSettings.Fonts.MenuSize, v => AppSettings.Fonts.MenuSize = v), DescKey: "pref.fonts.menuDesc"),
         new("fonts", "pref.fonts.status", () => FontRow("pref.fonts.status", "pref.fonts.statusDesc",
             () => AppSettings.Fonts.StatusFamily, v => AppSettings.Fonts.StatusFamily = v,
             () => AppSettings.Fonts.StatusSize, v => AppSettings.Fonts.StatusSize = v), DescKey: "pref.fonts.statusDesc"),
@@ -101,6 +105,8 @@ public sealed partial class PreferencesWindow : Window
             AppSettings.View.TypeAheadTimeoutMs, 200, 5000, 100, v => AppSettings.View.TypeAheadTimeoutMs = (long)v)),
         // 탭
         new("tabs", "pref.tabs.doubleClick", TabDoubleClickCombo),
+        // 도구 모음(docs/44) — 그룹/항목 순서 편집기
+        new("toolbar", "pref.toolbar.title", ToolbarOrderEditor),
         // 파일 작업
         new("ops", "pref.layout.autoClose", () => CheckRow("pref.layout.autoClose",
             AppSettings.View.AutoCloseTransferWindow, v => AppSettings.View.AutoCloseTransferWindow = v)),
@@ -481,6 +487,112 @@ public sealed partial class PreferencesWindow : Window
         panel.Children.Add(combo);
         panel.Children.Add(new TextBlock { Text = Loc.T("pref.tabs.doubleClick"), Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center });
         return panel;
+    }
+
+    // ── 도구 모음(docs/44) — 그룹/그룹 내 항목 순서 ▲▼ 편집 ───────────
+    /// <summary>도구 모음 순서 편집기 — 그룹(굵게)과 그 항목(들여쓰기)을 ▲/▼로 이동.
+    /// 이동 즉시 <see cref="AppSettings.Toolbar"/>에 반영·저장(Changed)하고 페이지를 다시 그린다.</summary>
+    private FrameworkElement ToolbarOrderEditor()
+    {
+        var panel = new StackPanel { Spacing = 2 };
+        var catalog = MainWindow.ToolbarCatalog();
+        var groupIds = OrderedIds(catalog.Select(g => g.Id).ToList(), AppSettings.Toolbar.GroupOrder);
+        for (int gi = 0; gi < groupIds.Count; gi++)
+        {
+            var group = catalog.First(g => g.Id == groupIds[gi]);
+            int captured = gi;
+            panel.Children.Add(OrderRow(Loc.T(group.LabelKey), bold: true, indent: 0,
+                canUp: gi > 0, canDown: gi < groupIds.Count - 1,
+                move: delta => MoveGroup(groupIds, captured, delta)));
+            AppSettings.Toolbar.ItemOrder.TryGetValue(group.Id, out var itemOrder);
+            var itemIds = OrderedIds(group.Items.Select(i => i.Id).ToList(), itemOrder);
+            for (int ii = 0; ii < itemIds.Count; ii++)
+            {
+                var item = group.Items.First(i => i.Id == itemIds[ii]);
+                int gIdx = ii;
+                string groupId = group.Id;
+                var ids = itemIds;
+                panel.Children.Add(OrderRow(Loc.T(item.LabelKey), bold: false, indent: 24,
+                    canUp: ii > 0, canDown: ii < itemIds.Count - 1,
+                    move: delta => MoveItem(groupId, ids, gIdx, delta)));
+            }
+        }
+        return panel;
+    }
+
+    /// <summary>순서 재정의 적용 — 나열 id 먼저(그 순서), 미기재 id는 기본 순서 유지로 뒤에(MainWindow와 동일 규칙).</summary>
+    private static List<string> OrderedIds(List<string> defaults, List<string>? order)
+    {
+        if (order is null || order.Count == 0)
+        {
+            return defaults;
+        }
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < order.Count; i++)
+        {
+            rank[order[i]] = i;
+        }
+        return defaults
+            .Select((d, i) => (d, key: rank.TryGetValue(d, out int k) ? k : order.Count + i))
+            .OrderBy(t => t.key)
+            .Select(t => t.d)
+            .ToList();
+    }
+
+    private void MoveGroup(List<string> ids, int index, int delta)
+    {
+        int to = index + delta;
+        if (to < 0 || to >= ids.Count)
+        {
+            return;
+        }
+        (ids[index], ids[to]) = (ids[to], ids[index]);
+        AppSettings.Toolbar.GroupOrder.Clear();
+        AppSettings.Toolbar.GroupOrder.AddRange(ids);
+        Changed();
+        ShowCategory("toolbar");   // 새 순서로 편집기 다시 그림
+    }
+
+    private void MoveItem(string groupId, List<string> ids, int index, int delta)
+    {
+        int to = index + delta;
+        if (to < 0 || to >= ids.Count)
+        {
+            return;
+        }
+        (ids[index], ids[to]) = (ids[to], ids[index]);
+        AppSettings.Toolbar.ItemOrder[groupId] = new List<string>(ids);
+        Changed();
+        ShowCategory("toolbar");
+    }
+
+    /// <summary>순서 편집 행 — [▲][▼] + 라벨(그룹=굵게, 항목=들여쓰기).</summary>
+    private FrameworkElement OrderRow(string label, bool bold, double indent, bool canUp, bool canDown, Action<int> move)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(indent, 0, 0, 0) };
+        row.Children.Add(MoveButton("", canUp, () => move(-1)));    // ChevronUp
+        row.Children.Add(MoveButton("", canDown, () => move(+1))); // ChevronDown
+        row.Children.Add(new TextBlock
+        {
+            Text = label,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontWeight = bold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+        });
+        return row;
+    }
+
+    private static Button MoveButton(string glyph, bool enabled, Action onClick)
+    {
+        var btn = new Button
+        {
+            Content = new FontIcon { Glyph = glyph, FontSize = 10 },
+            Padding = new Thickness(5, 3, 5, 3),
+            MinWidth = 0,
+            MinHeight = 0,
+            IsEnabled = enabled,
+        };
+        btn.Click += (_, _) => onClick();
+        return btn;
     }
 
     // ── 컨텍스트 메뉴(커스텀 항목 표시/숨김, docs/38 §7) ──────────────

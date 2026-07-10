@@ -147,6 +147,10 @@ internal sealed class FontOptions
     public string StatusFamily { get; set; } = "Segoe UI";
     public double StatusSize { get; set; } = 12;
 
+    /// <summary>컨텍스트 메뉴 글꼴 — 앱이 그리는 플랫 메뉴(탭·빈 영역 우클릭). 셸(HMENU) 메뉴는 OS 글꼴.</summary>
+    public string MenuFamily { get; set; } = "Segoe UI";
+    public double MenuSize { get; set; } = 12;
+
     /// <summary>파일 목록 글꼴 — 좌/우 패널 목록 + 컬럼 헤더(글꼴/크기 공유).</summary>
     public string ListFamily { get; set; } = "Segoe UI";
     public double ListSize { get; set; } = 12;
@@ -157,6 +161,19 @@ internal sealed class FontOptions
     /// <summary>파일 헤더(컬럼 헤더) 꾸미기 — 글꼴/크기는 파일 목록과 동일, 두껍게/기울임만 지정.</summary>
     public bool HeaderBold { get; set; } = true;
     public bool HeaderItalic { get; set; }
+}
+
+/// <summary>
+/// 도구 모음 옵션(docs/44) — 그룹/그룹 내 항목의 표시 순서 재정의. 비면 레지스트리 기본 순서.
+/// 순서 목록에 없는 id는 기본 순서를 유지하며 뒤에 붙는다(새 항목 추가에 안전).
+/// </summary>
+internal sealed class ToolbarOptions
+{
+    /// <summary>그룹 표시 순서(그룹 id 목록). 비면 기본.</summary>
+    public List<string> GroupOrder { get; } = new();
+
+    /// <summary>그룹별 항목 표시 순서(그룹 id → 항목 id 목록). 없으면 기본.</summary>
+    public Dictionary<string, List<string>> ItemOrder { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -183,8 +200,11 @@ internal static class AppSettings
     /// <summary>일반 옵션(언어 등, docs/40).</summary>
     public static GeneralOptions General { get; } = new();
 
-    /// <summary>글꼴 옵션(영역별 6종 슬롯, PREF-3).</summary>
+    /// <summary>글꼴 옵션(영역별 슬롯, PREF-3).</summary>
     public static FontOptions Fonts { get; } = new();
+
+    /// <summary>도구 모음 옵션(그룹/항목 표시 순서, docs/44).</summary>
+    public static ToolbarOptions Toolbar { get; } = new();
 
     // 후속: LoadFromJson(path) / SaveToJson(path) — System.Text.Json. 변경 시 저장·실행 시 로드.
     //  · 설정 시스템/단축키·명령 레지스트리 설계: docs/26 §5.

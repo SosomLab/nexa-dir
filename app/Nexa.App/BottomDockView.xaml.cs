@@ -41,6 +41,7 @@ public sealed partial class BottomDockView : UserControl
         _previewTimer.Tick += (_, _) => { _ = RenderPreviewAsync(); };
         Unloaded += (_, _) => _terminalView?.Stop();   // 창/패널 닫힘 → 터미널 세션 종료
         Render();
+        SyncToggles();   // 초기 상태(정보) 반영 — 위치 이동 버튼 색 포함
     }
 
     /// <summary>현재 폴더(터미널 작업 디렉터리 등). 호스트(MainWindow)가 패널 경로로 설정.</summary>
@@ -119,12 +120,23 @@ public sealed partial class BottomDockView : UserControl
         SyncToggles();   // 라디오식: 항상 선택 하나 유지
     }
 
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush CdGreenBrush =
+        new(Windows.UI.Color.FromArgb(0xFF, 0x3F, 0xA3, 0x4D));
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush CdWhiteBrush =
+        new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+
     private void SyncToggles()
     {
         KindInfo.IsChecked = _kind == BottomPanelKind.Info;
         KindPreview.IsChecked = _kind == BottomPanelKind.Preview;
         KindHex.IsChecked = _kind == BottomPanelKind.Hex;
         KindTerminal.IsChecked = _kind == BottomPanelKind.Terminal;
+        // 위치 이동 버튼 — 터미널 활성일 때만 초록 강조, 그 외엔 일반 버튼 색(테마 리소스).
+        bool term = _kind == BottomPanelKind.Terminal;
+        TerminalCdBtn.Background = term ? CdGreenBrush
+            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ButtonBackground"];
+        TerminalCdBtn.Foreground = term ? CdWhiteBrush
+            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ButtonForeground"];
     }
 
     private void Render()
@@ -152,6 +164,25 @@ public sealed partial class BottomDockView : UserControl
             BottomPanelKind.Hex => Loc.T("dock.hexPending"),
             _ => string.Empty,
         };
+    }
+
+    /// <summary>정보란 터미널 토글 옆 "터미널 위치 이동" 버튼 — 이 도크 패널의 현재 탭 폴더로 cd.</summary>
+    private void OnTerminalCd(object sender, RoutedEventArgs e)
+    {
+        string folder = CurrentFolder;
+        if (!string.IsNullOrEmpty(folder))
+        {
+            TerminalCdTo(folder);
+        }
+    }
+
+    /// <summary>터미널 탭으로 전환 후 셸 작업 디렉터리를 <paramref name="folder"/>로 이동(cd) —
+    /// 도구 모음 "터미널 위치 이동". 미생성이면 생성·시작 후 전송(TerminalView pending).</summary>
+    public void TerminalCdTo(string folder)
+    {
+        Kind = BottomPanelKind.Terminal;   // Render → EnsureTerminal(생성·시작)
+        EnsureTerminal();                  // Kind가 이미 Terminal이어도 보장(멱등)
+        _terminalView?.ChangeDirectory(folder);
     }
 
     // ── 터미널 lazy 로딩(BP-T) ────────────────────────────────────────

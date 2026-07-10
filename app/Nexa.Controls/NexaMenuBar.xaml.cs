@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.UI;
 using Microsoft.UI.Input;
@@ -200,20 +200,18 @@ public sealed partial class NexaMenuBar : UserControl
     {
         var content = new StackPanel { Orientation = Orientation.Horizontal };
 
-        FontIcon? check = null;
-        if (entry.IsCheckable)
+        // 체크 칸(18px)은 체크 가능 여부와 무관하게 모든 항목에 상시 예약(미체크/체크불가=투명) —
+        // 항목 간 텍스트 시작 위치를 통일한다(체크 해제 시 왼쪽으로 붙던 정렬 문제).
+        var check = new FontIcon
         {
-            check = new FontIcon
-            {
-                Glyph = "",   // Segoe MDL2 CheckMark
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = FontSize,
-                Foreground = ItemTextBrush,
-                Width = 18,
-                Visibility = entry.IsChecked ? Visibility.Visible : Visibility.Collapsed,
-            };
-            content.Children.Add(check);
-        }
+            Glyph = "",   // Segoe MDL2 CheckMark
+            FontFamily = new FontFamily("Segoe MDL2 Assets"),
+            FontSize = FontSize,
+            Foreground = ItemTextBrush,
+            Width = 18,
+            Opacity = entry.IsCheckable && entry.IsChecked ? 1 : 0,
+        };
+        content.Children.Add(check);
 
         content.Children.Add(new TextBlock
         {
@@ -225,8 +223,7 @@ public sealed partial class NexaMenuBar : UserControl
 
         var item = new Border
         {
-            // 체크형은 좌측 체크 칸이 들여쓰기를 대신하므로 좌 패딩을 줄인다.
-            Padding = entry.IsCheckable ? new Thickness(6, 4, 22, 4) : new Thickness(22, 4, 22, 4),
+            Padding = new Thickness(6, 4, 22, 4),   // 체크 칸 상시 예약 → 전 항목 동일 패딩(텍스트 정렬 통일)
             Background = TransparentBrush,
             Child = content,
         };
@@ -237,10 +234,7 @@ public sealed partial class NexaMenuBar : UserControl
             if (entry.IsCheckable)
             {
                 entry.IsChecked = !entry.IsChecked;
-                if (check is not null)
-                {
-                    check.Visibility = entry.IsChecked ? Visibility.Visible : Visibility.Collapsed;
-                }
+                check.Opacity = entry.IsChecked ? 1 : 0;
             }
             entry.RaiseClick();
             CloseMenu();

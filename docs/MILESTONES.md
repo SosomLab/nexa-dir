@@ -66,7 +66,8 @@
 - ✅ **설정 창 VS Code식 재구성 + 글꼴 5종 + 밀도**(07-10, PR#9, [docs/40 §8](40-preferences-system.md)): 좌측 검색+카테고리 트리+설정 레지스트리(그룹/항목 이중 필터) — **영속 설정 전부 UI 수록**(+`Sort.FoldersFirst` 영속). **글꼴 슬롯 5종**(기본[메뉴·탭·경로]/콘솔[쉼표 폴백]/상태바/파일 목록/헤더 꾸미기+폴더 굵게) 라이브 적용·입력 검증. **밀도** 행 상하 1px·행간 0(선택 박스 4면 유지)·탭 높이=기본 글꼴 연동.
 - ✅ **탭/레이아웃 세션 영속**([docs/34](34-settings-and-session-persistence.md)): `session.json`에 탭·펼침·정렬·잠금/고정·하단 패널·**레이아웃 토글(런처·우 패널)**.
 - ✅ **i18n**([docs/42](42-i18n-language-files.md)): 순수 `Localizer`(폴백 체인, xUnit)+`LocExtension` 마크업 확장+언어 페이지(재시작 전환) · **외부 `.lang` 파일화**(설치 `lang\`+사용자 `%APPDATA%\NexaDir\lang\`·포맷 심 JSON↔properties·기준 en) · **문자열 전면 이관 ✅**(07-10, PR#9 — 상태바·메뉴·다이얼로그·전송창·캡션·정보창, 키 ~140종). 잔여: 번역 언어 추가.
-- ✅ **도구 모음 + 퀵 런처 슬라이스1**(07-09, [docs/44](44-toolbar-and-launcher.md)): 도구 모음(내장) 3종(현재 폴더 터미널 Ctrl+Shift+T·파일 찾기 M3 스텁·이름 바꾸기 F2) + 퀵 런처(외부) 시드 VS Code(활성 탭 폴더·exe 아이콘 16px). 잔여: CRUD/영속(PREF-6)·단축키 배정(PREF-5)·%selection% 토큰.
+- ✅ **도구 모음 + 퀵 런처 슬라이스1**(07-09, [docs/44](44-toolbar-and-launcher.md)): 도구 모음(내장) 3종(현재 폴더 터미널 Ctrl+Shift+T·파일 찾기 M3 스텁·이름 바꾸기 F2) + 퀵 런처(외부) 시드 VS Code(활성 탭 폴더·exe 아이콘 16px). 잔여: 런처 CRUD/영속(PREF-6)·단축키 배정(PREF-5)·%selection% 토큰.
+- ✅ **도구 모음 슬라이스2**(07-10, PR#10, [docs/44 §5](44-toolbar-and-launcher.md)): **그룹화**(도구·파일 표시, 세로 구분선)+**파일 표시 토글**(숨김·도트파일 — 메뉴/설정과 동기)+**순서 설정**(그룹/항목 ▲▼, 영속)+**터미널 위치 이동**(도구 모음·하단 도크, 활성 탭 폴더 cd) · **플랫 컨텍스트 메뉴**(빈영역·탭, 섹션+토글 체크+단축키 컬럼)+컨텍스트 메뉴 글꼴 슬롯 · Copy as name/path(파일·탭 공용).
 - 📄 **외부 파일 물리 위치 맵** [docs/43](43-external-files-and-config.md)(설정·세션·언어팩·로그·환경변수·부팅 순서).
 
 ### 하단 패널 (feat/bottom-panel → feat/bottom-panel-info, BP-1/2/T ✅)

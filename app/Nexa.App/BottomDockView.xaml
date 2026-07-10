@@ -19,8 +19,19 @@
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
             <ToggleButton x:Name="KindHex" Content="Hex" Tag="Hex" Click="OnKindClick"
                           FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
+            <!-- 터미널 토글 + 위치 이동 버튼 = 한 몸처럼: 토글은 우측 라운딩 제거, 이동 버튼은 좌측 라운딩
+                 제거 + 간격 0(Margin이 StackPanel Spacing 상쇄). 이동 버튼은 초록 배경으로 강조 -->
             <ToggleButton x:Name="KindTerminal" Content="{loc:Loc Key=dock.terminal}" Tag="Terminal" Click="OnKindClick"
-                          FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" />
+                          FontSize="12" Padding="8,2" MinWidth="0" MinHeight="0" CornerRadius="4,0,0,4" />
+            <!-- 터미널 위치 이동(정사각) — 이 도크 패널의 현재 탭 폴더로 cd(터미널 탭 자동 전환 포함).
+                 배경은 코드(SyncToggles): 터미널 활성=초록 강조 / 그 외=일반 버튼 색.
+                 Margin -3 = Spacing(2) 상쇄 + 테두리 1px 겹침 → 시각적 밀착 -->
+            <Button x:Name="TerminalCdBtn" Click="OnTerminalCd" Margin="-3,0,0,0"
+                    Width="24" Height="24" Padding="0" MinWidth="0" MinHeight="0" VerticalAlignment="Center"
+                    CornerRadius="0,4,4,0"
+                    ToolTipService.ToolTip="{loc:Loc Key=toolbar.terminalCd}">
+                <FontIcon Glyph="&#xE72A;" FontSize="12" />
+            </Button>
         </StackPanel>
 
         <!-- 콘텐츠(종류별 스왑) — 텍스트(정보/Hex/터미널 placeholder) + 미리보기 요소 호스트 -->

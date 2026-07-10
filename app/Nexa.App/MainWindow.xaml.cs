@@ -183,12 +183,13 @@ public sealed partial class MainWindow : Window
     /// <summary>설정 변경 저장 예약(테마·표시 토글·메뉴·설정 창). 초저비용·다음 Tick 1회 저장.</summary>
     private void MarkSettingsDirty() => _settings?.MarkDirty();
 
-    /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 상태에 반영(시작 시·설정 창 변경 후).</summary>
+    /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 + 도구 모음 토글에 반영(시작 시·설정 창 변경 후).</summary>
     private void SyncViewMenuChecks()
     {
         ShowHiddenEntry.IsChecked = AppSettings.View.ShowHiddenFiles;
         ShowDotEntry.IsChecked = AppSettings.View.ShowDotFiles;
         ShowPathHeaderEntry.IsChecked = AppSettings.View.ShowPathHeader;
+        SyncToolbarToggles();   // 도구 모음(파일 표시) 토글 비주얼 동기
     }
 
     /// <summary>통합 설정 창 열기(Ctrl+, / 구성 메뉴). 변경은 라이브 적용 + MarkSettingsDirty.</summary>
@@ -202,7 +203,8 @@ public sealed partial class MainWindow : Window
     internal void OnPreferencesChanged()
     {
         ApplyTheme();
-        ApplyFonts();         // 글꼴 6종 슬롯 라이브 적용(PREF-3)
+        ApplyFonts();         // 글꼴 슬롯 라이브 적용(PREF-3)
+        BuildToolbar();       // 도구 모음 그룹/항목 순서 라이브 반영(docs/44)
         ApplyPathHeaderVisibility();
         SyncViewMenuChecks();
         // 생성자에서 1회만 읽던 dwell 시간(B-15h)도 라이브 재반영.
@@ -534,18 +536,29 @@ public sealed partial class MainWindow : Window
 
     // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
-    /// <summary>"숨김 파일 보기" 토글(체크=표시) → 숨김 속성 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
-    private void OnToggleShowHidden(object sender, EventArgs e)
+    /// <summary>"숨김 파일 보기" 메뉴 토글(체크=표시).</summary>
+    private void OnToggleShowHidden(object sender, EventArgs e) =>
+        SetShowHidden((sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles);
+
+    /// <summary>"점(.) 파일 보기" 메뉴 토글(체크=표시).</summary>
+    private void OnToggleShowDotFiles(object sender, EventArgs e) =>
+        SetShowDotFiles((sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles);
+
+    /// <summary>숨김 파일 표시 변경의 <b>단일 경로</b> — 메뉴/도구 모음 토글/배경 메뉴 공용
+    /// (체크·토글 동기 + 양쪽 패널 재로드 + 저장 예약).</summary>
+    private void SetShowHidden(bool show)
     {
-        AppSettings.View.ShowHiddenFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles;
+        AppSettings.View.ShowHiddenFiles = show;
+        SyncViewMenuChecks();
         ReloadBothPanels();
         MarkSettingsDirty();
     }
 
-    /// <summary>"점(.) 파일 보기" 토글(체크=표시) → 리눅스식 점 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
-    private void OnToggleShowDotFiles(object sender, EventArgs e)
+    /// <summary>도트파일(점 파일) 표시 변경의 단일 경로 — <see cref="SetShowHidden"/>과 동일 규약.</summary>
+    private void SetShowDotFiles(bool show)
     {
-        AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
+        AppSettings.View.ShowDotFiles = show;
+        SyncViewMenuChecks();
         ReloadBothPanels();
         MarkSettingsDirty();
     }
@@ -1381,9 +1394,11 @@ public sealed partial class MainWindow : Window
     /// <see cref="Children"/>이 있으면 서브메뉴(부모의 Invoke는 무시, 부모 Visible이 그룹을 게이트).</summary>
     /// <summary><see cref="ReplaceVerb"/>가 있으면 고유 섹션이 아니라 <b>해당 셸 동사 위치에 제자리 대체</b>
     /// (예: "copyaspath") — 셸이 못 하는 교차폴더 동작을 같은 자리에서 제공(docs/38 §7-5).</summary>
+    /// <summary><see cref="InsertAboveVerb"/>: 해당 동사의 <b>대체 항목 바로 위</b>에 동반 삽입(예: 파일명 복사를
+    /// 경로 복사 위에). 대체 항목이 비활성(설정 숨김 등)이면 고유 섹션으로 폴백.</summary>
     private sealed record CmItemDef(string Id, string Label, int DefaultOrder,
         Func<CmCtx, bool> Visible, Func<CmCtx, bool> Enabled, Action<CmCtx> Invoke,
-        IReadOnlyList<CmItemDef>? Children = null, string? ReplaceVerb = null);
+        IReadOnlyList<CmItemDef>? Children = null, string? ReplaceVerb = null, string? InsertAboveVerb = null);
 
     private List<CmItemDef> _cmRegistry = null!;   // ctor에서 초기화
     private static List<CmItemDef>? _cmRegistryShared;   // 설정 창 카탈로그 조회용(정적)
@@ -1424,8 +1439,12 @@ public sealed partial class MainWindow : Window
             // 경로 복사(Copy as path) — 셸의 "copyaspath"를 제자리 대체(ReplaceVerb). 셸 항목은 단일 부모
             // 폴더로 축소되나(교차폴더 미지원, S1), 이 고유 항목은 c.Targets(전체 선택)을 직접 클립보드로.
             // Alt=POSIX(/)·따옴표 없이. 셸이 verb를 안 내면(예: Shift 없이 Win10) 고유 섹션에 폴백.
-            new("copy-as-path", "Copy as path", 50,
+            new("copy-as-path", Loc.T("ctx.copyAsPath"), 50,
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
+            // 파일명만 복사 — Copy as path와 동일 대상 규칙(교차폴더 전체 선택·한 줄에 하나), 내용만 리프 이름.
+            // 경로 복사 대체 항목 "바로 위"에 동반 삽입(InsertAboveVerb, docs/38 §7-5).
+            new("copy-as-filename", Loc.T("ctx.copyAsName"), 60,
+                _ => true, _ => true, c => CopyFileNamesAsText(c.Targets), InsertAboveVerb: "copyaspath"),
             new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
             new("rename", Loc.T("ctx.rename"), 200,
@@ -1462,9 +1481,12 @@ public sealed partial class MainWindow : Window
 
         var section = new List<ShellContextMenu.CustomItem>();
         var replacements = new List<ShellContextMenu.VerbReplacement>();
-        foreach (var def in _cmRegistry
+        var beforeByVerb = new Dictionary<string, List<ShellContextMenu.CustomItem>>(StringComparer.OrdinalIgnoreCase);
+        var visible = _cmRegistry
             .Where(d => !AppSettings.Menu.DisabledItems.Contains(d.Id) && d.Visible(ctx))
-            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder))
+            .OrderBy(d => AppSettings.Menu.OrderOverrides.TryGetValue(d.Id, out int o) ? o : d.DefaultOrder)
+            .ToList();
+        foreach (var def in visible)
         {
             var captured = def;
             var children = def.Children is { Count: > 0 } kids ? Map(kids) : null;
@@ -1474,12 +1496,66 @@ public sealed partial class MainWindow : Window
             {
                 replacements.Add(new ShellContextMenu.VerbReplacement(verb, item));
             }
+            else if (captured.InsertAboveVerb is string above
+                && visible.Any(d => d.ReplaceVerb == above))   // 대상 대체 항목이 살아 있을 때만 동반
+            {
+                if (!beforeByVerb.TryGetValue(above, out var list))
+                {
+                    beforeByVerb[above] = list = new List<ShellContextMenu.CustomItem>();
+                }
+                list.Add(item);
+            }
             else
             {
                 section.Add(item);
             }
         }
+        // 동반(Before) 항목을 해당 대체 항목에 붙인다 — 대체 위치 바로 위에 나열 순서대로.
+        for (int i = 0; i < replacements.Count; i++)
+        {
+            if (beforeByVerb.TryGetValue(replacements[i].Verb, out var before))
+            {
+                replacements[i] = replacements[i] with { Before = before };
+            }
+        }
         return (section, replacements);
+    }
+
+    /// <summary>선택 항목의 <b>파일명(리프)만</b> 클립보드로 — 한 줄에 하나(Copy as path와 동일 대상 규칙).</summary>
+    private void CopyFileNamesAsText(IReadOnlyList<string> targets)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        string text = string.Join("\r\n", targets.Select(p => Path.GetFileName(Path.TrimEndingDirectorySeparator(p))));
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = Loc.T("status.namesCopied", targets.Count);
+        }
+        catch
+        {
+            // 클립보드 미가용 격리 — 앱 동작 방해 금지
+        }
+    }
+
+    /// <summary>임의 텍스트를 클립보드로(탭 메뉴 폴더 이름/경로 복사 등) — 상태바 피드백 포함.</summary>
+    private void CopyTextToClipboard(string text)
+    {
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = Loc.T("tab.copied", text);
+        }
+        catch
+        {
+            // 클립보드 미가용 격리
+        }
     }
 
     /// <summary>선택 경로들(교차폴더 전체)을 클립보드 텍스트로 — 한 줄에 하나.
@@ -1590,6 +1666,30 @@ public sealed partial class MainWindow : Window
     }
 
 
+    /// <summary>플랫(고전) 컨텍스트 메뉴 — 사각·패널 배경 프레젠터 스타일(App.xaml NexaMenuPresenterStyle).
+    /// 표시 직전 <see cref="ApplyMenuFont"/>로 설정 "컨텍스트 메뉴 글꼴"을 항목에 적용할 것.</summary>
+    private static MenuFlyout FlatMenu() => new()
+    {
+        MenuFlyoutPresenterStyle = (Style)Application.Current.Resources["NexaMenuPresenterStyle"],
+    };
+
+    /// <summary>설정 "컨텍스트 메뉴 글꼴"(PREF-3)을 플랫 메뉴 항목 전체(서브메뉴 재귀)에 적용.
+    /// 메뉴는 열 때마다 새로 만들므로 설정 변경은 다음 열림부터 반영. 셸(HMENU) 메뉴는 OS 글꼴이라 대상 아님.</summary>
+    private static void ApplyMenuFont(IList<MenuFlyoutItemBase> items)
+    {
+        var f = AppSettings.Fonts;
+        var family = new Microsoft.UI.Xaml.Media.FontFamily(f.MenuFamily);
+        foreach (var item in items)
+        {
+            item.FontFamily = family;
+            item.FontSize = f.MenuSize;
+            if (item is MenuFlyoutSubItem sub)
+            {
+                ApplyMenuFont(sub.Items);
+            }
+        }
+    }
+
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
     /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
     private void ScheduleShellRefresh()
@@ -1620,10 +1720,11 @@ public sealed partial class MainWindow : Window
         panelItems.SetCaret(-1);
         UpdateSelectionCount(panelItems);
 
-        var flyout = new MenuFlyout();
-        var paste = new MenuFlyoutItem { Text = Loc.T("bg.paste"), IsEnabled = CanPaste() };
+        var flyout = FlatMenu();
+        var paste = new MenuFlyoutItem { Text = Loc.T("bg.paste"), IsEnabled = CanPaste(), KeyboardAcceleratorTextOverride = "Ctrl+V" };
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
 
         // 실행 취소/다시 실행(B-13u) — 탐색기 배경 메뉴 동일. 마지막 작업 설명 표기, 없으면 비활성.
         var undo = new MenuFlyoutItem
@@ -1658,10 +1759,20 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(newSub);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var refresh = new MenuFlyoutItem { Text = Loc.T("bg.refresh") };
+        // 파일 표시 토글(체크 표시) — 표시(S) 메뉴·도구 모음과 같은 설정(단일 경로 SetShow*).
+        var showHidden = new ToggleMenuFlyoutItem { Text = Loc.T("toolbar.showHidden"), IsChecked = AppSettings.View.ShowHiddenFiles };
+        showHidden.Click += (_, _) => SetShowHidden(showHidden.IsChecked);
+        flyout.Items.Add(showHidden);
+        var showDot = new ToggleMenuFlyoutItem { Text = Loc.T("toolbar.showDot"), IsChecked = AppSettings.View.ShowDotFiles };
+        showDot.Click += (_, _) => SetShowDotFiles(showDot.IsChecked);
+        flyout.Items.Add(showDot);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var refresh = new MenuFlyoutItem { Text = Loc.T("bg.refresh"), KeyboardAcceleratorTextOverride = "F5" };
         refresh.Click += (_, _) => ReloadPanel(left);
         flyout.Items.Add(refresh);
 
+        ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
         if (e.TryGetPosition(fe, out var pos))
         {
             flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
@@ -1807,46 +1918,192 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    // ── 도구 모음(내장 액션) · 퀵 런처(외부 프로그램) — 슬라이스 1 (docs/44) ──────────────
-    // 도구 모음 = 개발자 제공 내장 기능(현재 폴더 터미널·파일 찾기·이름 변경) — Segoe MDL2 16px 글리프.
-    // 퀵 런처 = 사용자 등록 외부 프로그램(시드: VS Code) — exe 아이콘(16px 썸네일)·%path%=활성 탭 폴더.
-    // 등록/수정/삭제 UI·settings.json 영속·단축키 배정(PREF-5)은 후속 슬라이스.
+    // ── 도구 모음(내장 액션, 그룹 레지스트리) · 퀵 런처(외부 프로그램) — docs/44 ──────────────
+    // 도구 모음 = 그룹(도구·파일 표시)별 16px 글리프 버튼/토글, 그룹 사이 세로 구분선.
+    // 그룹/항목 순서는 설정(도구 모음 카테고리, AppSettings.Toolbar)에서 조정 — BuildToolbar가 반영.
+    // 퀵 런처 = 사용자 등록 외부 프로그램(시드: VS Code). CRUD/영속·단축키 배정(PREF-5/6)은 후속.
 
     /// <summary>퀵 런처 도구(외부 프로그램) — 라벨·실행 파일·인자 템플릿(<c>%path%</c>=활성 탭 폴더).</summary>
     private readonly record struct LauncherTool(string Label, string Exe, string Args);
 
+    /// <summary>도구 모음 항목 — <see cref="IsOn"/>이 있으면 토글(ToggleButton), 켜짐/꺼짐을
+    /// 강조 배경 + 글리프 교체(<see cref="OffGlyph"/>, 없으면 동일 글리프 흐림)로 표시.
+    /// <see cref="Attached"/>=직전 버튼에 밀착(간격 제거)하는 정사각 보조 버튼.</summary>
+    private sealed record ToolbarItemDef(string Id, string Glyph, string LabelKey, Action Invoke,
+        Func<bool>? IsOn = null, string? OffGlyph = null, bool Attached = false);
+
+    /// <summary>도구 모음 그룹 — 그룹 사이는 세로 구분선.</summary>
+    private sealed record ToolbarGroupDef(string Id, string LabelKey, IReadOnlyList<ToolbarItemDef> Items);
+
+    private List<ToolbarGroupDef> _tbRegistry = null!;
+    private static List<ToolbarGroupDef>? _tbRegistryShared;   // 설정 창 카탈로그 조회용(정적)
+    private readonly Dictionary<string, (ToggleButton Btn, FontIcon Icon, ToolbarItemDef Def)> _tbToggles = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>도구 모음 그룹/항목 정의(기본 순서). 파일 표시 토글은 메뉴(표시 S)와 같은 설정을 공유.</summary>
+    private void InitToolbarRegistry()
+    {
+        _tbRegistry = new List<ToolbarGroupDef>
+        {
+            new("tools", "toolbar.group.tools", new List<ToolbarItemDef>
+            {
+                new("terminal", "", "toolbar.terminal", OpenTerminalHere),   // CommandPrompt
+                // 터미널 위치 이동(정사각, 터미널 버튼에 밀착) — 활성 탭 폴더로 cd
+                new("terminal-cd", "", "toolbar.terminalCd", TerminalCdToCurrentTab, Attached: true),
+                new("find", "", "toolbar.find", FindFilesStub),              // Search
+                new("rename", "", "toolbar.rename", RenameCaret),            // Rename
+            }),
+            new("view", "toolbar.group.view", new List<ToolbarItemDef>
+            {
+                // 켜짐=RedEye(보임)/꺼짐=Hide(가려짐) — 아이콘 교체로 상태 표시.
+                new("show-hidden", "", "toolbar.showHidden",
+                    () => SetShowHidden(!AppSettings.View.ShowHiddenFiles),
+                    () => AppSettings.View.ShowHiddenFiles, OffGlyph: ""),
+                // 도트파일(dotfiles) — More(⋯) 글리프, 꺼짐은 흐림+토글 해제로 표시.
+                new("show-dot", "", "toolbar.showDot",
+                    () => SetShowDotFiles(!AppSettings.View.ShowDotFiles),
+                    () => AppSettings.View.ShowDotFiles),
+            }),
+        };
+        _tbRegistryShared = _tbRegistry;
+    }
+
+    /// <summary>설정 창(도구 모음 카테고리)용 — 그룹/항목 (Id, LabelKey) 카탈로그(기본 순서).</summary>
+    internal static IReadOnlyList<(string Id, string LabelKey, IReadOnlyList<(string Id, string LabelKey)> Items)> ToolbarCatalog() =>
+        (_tbRegistryShared ?? new List<ToolbarGroupDef>())
+            .Select(g => (g.Id, g.LabelKey,
+                (IReadOnlyList<(string, string)>)g.Items.Select(i => (i.Id, i.LabelKey)).ToList()))
+            .ToList();
+
     /// <summary>도구 모음 + 퀵 런처 버튼 구성(생성자에서 1회). 둘 다 16×16 아이콘.</summary>
     private void InitToolbars()
     {
-        AddToolButton("", Loc.T("toolbar.terminal"), OpenTerminalHere);   // CommandPrompt
-        AddToolButton("", Loc.T("toolbar.find"), FindFilesStub);                 // Search
-        AddToolButton("", Loc.T("toolbar.rename"), RenameCaret);                                  // Rename
-
+        InitToolbarRegistry();
+        BuildToolbar();
         foreach (var t in DefaultLauncherTools())
         {
             AddLauncherButton(t);
         }
     }
 
-    /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.</summary>
-    private void AddToolButton(string glyph, string tooltip, Action onClick)
+    /// <summary>도구 모음을 레지스트리 + 설정 순서(<see cref="ToolbarOptions"/>)로 (재)구성.
+    /// 설정 창에서 순서 변경 시에도 호출(라이브 반영).</summary>
+    private void BuildToolbar()
+    {
+        ToolbarToolsHost.Children.Clear();
+        _tbToggles.Clear();
+        bool first = true;
+        foreach (var group in OrderBySetting(_tbRegistry, AppSettings.Toolbar.GroupOrder, g => g.Id))
+        {
+            if (!first)
+            {
+                ToolbarToolsHost.Children.Add(GroupSeparator());   // 그룹 경계 = 세로선
+            }
+            first = false;
+            AppSettings.Toolbar.ItemOrder.TryGetValue(group.Id, out var itemOrder);
+            foreach (var item in OrderBySetting(group.Items, itemOrder, i => i.Id))
+            {
+                if (item.IsOn is null)
+                {
+                    AddToolButton(item);
+                }
+                else
+                {
+                    AddToolToggle(item);
+                }
+            }
+        }
+        SyncToolbarToggles();
+    }
+
+    /// <summary>설정 순서(id 목록)를 기본 목록에 적용 — 나열된 id 먼저(그 순서), 미기재 id는 기본 순서 유지로 뒤에.</summary>
+    private static IEnumerable<T> OrderBySetting<T>(IReadOnlyList<T> defaults, List<string>? order, Func<T, string> id)
+    {
+        if (order is null || order.Count == 0)
+        {
+            return defaults;
+        }
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < order.Count; i++)
+        {
+            rank[order[i]] = i;
+        }
+        return defaults
+            .Select((d, i) => (d, key: rank.TryGetValue(id(d), out int k) ? k : order.Count + i))
+            .OrderBy(t => t.key)
+            .Select(t => t.d);
+    }
+
+    /// <summary>그룹 경계 세로 구분선(테마 중립 회색).</summary>
+    private static Border GroupSeparator() => new()
+    {
+        Width = 1,
+        Height = 16,
+        Margin = new Thickness(4, 0, 4, 0),
+        VerticalAlignment = VerticalAlignment.Center,
+        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0x80, 0x80, 0x80)),
+    };
+
+    private static FontIcon ToolIcon(string glyph) => new()
+    {
+        Glyph = glyph,
+        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
+        FontSize = 16,
+    };
+
+    /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.
+    /// Attached 항목은 직전 버튼에 밀착(호스트 Spacing 상쇄)하는 정사각(높이=너비) 보조 버튼.</summary>
+    private void AddToolButton(ToolbarItemDef def)
     {
         var btn = new Button
         {
-            Content = new FontIcon
-            {
-                Glyph = glyph,
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
-                FontSize = 16,
-            },
+            Content = ToolIcon(def.Glyph),
             Padding = new Thickness(6, 2, 6, 2),
             // 기본 Button MinHeight(32)가 도구 바 높이를 키우므로 해제 — 글리프 16px + 상하 패딩만큼만
             MinHeight = 0,
             MinWidth = 0,
         };
-        ToolTipService.SetToolTip(btn, tooltip);
-        btn.Click += (_, _) => onClick();
+        if (def.Attached)
+        {
+            btn.Margin = new Thickness(-4, 0, 0, 0);   // StackPanel Spacing(4) 상쇄 = 직전 버튼에 밀착
+            btn.Padding = new Thickness(0);
+            btn.Width = 22;    // 정사각(일반 버튼 높이와 동일)
+            btn.Height = 22;
+            ((FontIcon)btn.Content).FontSize = 12;
+        }
+        ToolTipService.SetToolTip(btn, Loc.T(def.LabelKey));
+        btn.Click += (_, _) => def.Invoke();
         ToolbarToolsHost.Children.Add(btn);
+    }
+
+    /// <summary>도구 모음 토글(파일 표시 등) — 켜짐=강조 배경+본 글리프 / 꺼짐=OffGlyph(없으면 흐림).
+    /// 클릭은 Invoke(설정 변경+재로드)로 위임하고 비주얼은 <see cref="SyncToolbarToggles"/>가 맞춘다
+    /// (메뉴·설정 창 어느 쪽에서 바꿔도 일치).</summary>
+    private void AddToolToggle(ToolbarItemDef def)
+    {
+        var icon = ToolIcon(def.Glyph);
+        var btn = new ToggleButton
+        {
+            Content = icon,
+            Padding = new Thickness(6, 2, 6, 2),
+            MinHeight = 0,
+            MinWidth = 0,
+        };
+        ToolTipService.SetToolTip(btn, Loc.T(def.LabelKey));
+        btn.Click += (_, _) => def.Invoke();
+        _tbToggles[def.Id] = (btn, icon, def);
+        ToolbarToolsHost.Children.Add(btn);
+    }
+
+    /// <summary>도구 모음 토글 비주얼(체크·글리프·흐림)을 설정값과 동기.</summary>
+    private void SyncToolbarToggles()
+    {
+        foreach (var (btn, icon, def) in _tbToggles.Values)
+        {
+            bool on = def.IsOn!();
+            btn.IsChecked = on;
+            icon.Glyph = on ? def.Glyph : (def.OffGlyph ?? def.Glyph);
+            icon.Opacity = on ? 1.0 : 0.55;
+        }
     }
 
     /// <summary>퀵 런처 버튼(외부 프로그램) — 16px exe 아이콘(비동기 로드, 실패 시 라벨 폴백) + 클릭 실행.</summary>
@@ -1899,6 +2156,25 @@ public sealed partial class MainWindow : Window
         string folder = Panel(_activeLeft).Active.Current;
         StatusText.Text = ToolLauncher.Launch(tool.Exe, tool.Args, folder)
             ? Loc.T("launcher.ran", tool.Label) : Loc.T("launcher.failed", tool.Label);
+    }
+
+    /// <summary>도구: 내장 하단 터미널의 작업 디렉터리를 활성 탭 폴더로 이동(cd) — 하단 패널·터미널 탭 자동 표시.</summary>
+    private void TerminalCdToCurrentTab()
+    {
+        string folder = Panel(_activeLeft).Active.Current;
+        if (string.IsNullOrEmpty(folder))
+        {
+            return;
+        }
+        if (!ShowBottomEntry.IsChecked)
+        {
+            ShowBottomEntry.IsChecked = true;
+            OnToggleTerminal(ShowBottomEntry, EventArgs.Empty);   // 하단 패널 표시
+        }
+        // 활성 패널 측 도킹(우 도킹은 듀얼+분리일 때만 존재 — 없으면 좌 도킹 폴백).
+        var dock = !_activeLeft && BottomRightDock.Visibility == Visibility.Visible ? BottomRightDockView : BottomLeftDockView;
+        dock.TerminalCdTo(folder);
+        StatusText.Text = Loc.T("tool.terminalCd", folder);
     }
 
     /// <summary>도구: 현재(활성 탭) 폴더에서 외부 터미널 열기.</summary>
@@ -3238,6 +3514,9 @@ public sealed partial class MainWindow : Window
         }
         SetActivePanel(left);
         ShowTab(left, tab);   // 이미 로드된 탭이면 재-Open 없이 ItemsSource 스왑(성능 슬라이스 4-2)
+        // 하단 도킹의 현재 폴더(정보란·터미널 cd 대상) 갱신 — 캐시 탭 전환은 ShowCurrent(네비게이션)를
+        // 거치지 않아 이전 탭 폴더가 남던 버그(터미널 위치 이동이 옛 폴더로 가던 현상) 수정.
+        RefreshBottomDocks();
         _session?.MarkDirty();   // 활성 탭 전환 → 세션 저장 예약
     }
 
@@ -3347,13 +3626,22 @@ public sealed partial class MainWindow : Window
         Panel(left).Grid.Focus(FocusState.Programmatic);
         var tabs = Panel(left).Tabs;
 
-        var flyout = new MenuFlyout();
+        var flyout = FlatMenu();
         var newTab = new MenuFlyoutItem { Text = Loc.T("tabctx.new") };
         newTab.Click += (_, _) => AddTab(left);
         flyout.Items.Add(newTab);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked };
+        // 탭 폴더 복사 — 이름(리프)만 / 전체 경로. 파일 컨텍스트 메뉴와 같은 명칭(ctx.copyAs*)·같은 순서.
+        var copyName = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsName") };
+        copyName.Click += (_, _) => CopyTextToClipboard(FolderLabel(tab.Current));
+        flyout.Items.Add(copyName);
+        var copyPath = new MenuFlyoutItem { Text = Loc.T("ctx.copyAsPath") };
+        copyPath.Click += (_, _) => CopyTextToClipboard(tab.Current);
+        flyout.Items.Add(copyPath);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked, KeyboardAcceleratorTextOverride = "Ctrl+W" };
         close.Click += (_, _) => CloseTab(left, tab);
         flyout.Items.Add(close);
         var closeOthers = new MenuFlyoutItem
@@ -3378,6 +3666,7 @@ public sealed partial class MainWindow : Window
         options.Items.Add(pinItem);
         flyout.Items.Add(options);
 
+        ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
         if (e.TryGetPosition(fe, out var pos))
         {
             flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
