@@ -34,8 +34,10 @@ public partial class App : Application
     {
         try
         {
-            // i18n 초기화(창 생성 전 — 마크업 확장이 XAML 파싱 시점에 조회). 문화는 설정에서.
+            // 설정 로드는 여기 1회(콜드 스타트 파일 I/O+역직렬화 중복 제거, 감사 004) —
+            // 인메모리 적용까지 끝내 MainWindow는 AppSettings만 사용. i18n은 창 생성 전(마크업 확장이 파싱 시점 조회).
             var loaded = SettingsStore.Load(SettingsStore.DefaultPath());
+            SettingsStore.Apply(loaded);
             Loc.Init(loaded?.General.Culture ?? string.Empty);
 
             _window = new MainWindow();

@@ -48,8 +48,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        // 사용자 설정 로드(settings.json) — 인메모리 옵션 그룹에 적용. 다른 옵션 사용 전에 먼저(docs/40 PREF-1).
-        SettingsStore.Apply(SettingsStore.Load(SettingsStore.DefaultPath()));
+        // 사용자 설정(settings.json)은 App.OnLaunched에서 1회 로드·적용 완료(docs/40 PREF-1, 중복 I/O 제거).
         // 좌/우 패널이 같은 컬럼 인스턴스를 공유 → 리사이즈가 헤더·본문·양쪽 패널에 동시 반영(A3/A4).
         // 표시 순서 = 이름 · 수정한 날짜 · 종류 · 크기(Finder 스타일).
         foreach (var key in new[] { "ColName", "ColExt", "ColDate", "ColKind", "ColSize" })
