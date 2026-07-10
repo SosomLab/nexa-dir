@@ -34,6 +34,8 @@ public sealed partial class TransferProgressWindow : Window
         InitializeComponent();
         Title = Loc.T("transfer.progressTitle", verb);
         TitleText.Text = Loc.T("transfer.verbing", verb);
+        // 창/작업표시줄 아이콘 — 미지정 시 .NET 기본 아이콘(메인 창과 동일 경로). 실패 무해.
+        try { AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon", "nexa-dir.ico")); } catch { }
         AppWindow.Resize(new SizeInt32(480, 230));   // 작은 고정 크기
         // 완료 전에 창을 닫으면(사용자 X) 전송 취소로 간주. 대기 중 확인이 있으면 취소로 정리(await 해제).
         Closed += (_, _) =>

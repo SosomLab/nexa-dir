@@ -38,6 +38,8 @@ public sealed partial class PreferencesWindow : Window
         InitializeComponent();
         _host = host;
         Title = Loc.T("pref.title");
+        // 창/작업표시줄 아이콘 — 미지정 시 .NET 기본 아이콘이 떠서 앱 아이콘으로(메인 창과 동일 경로). 실패 무해.
+        try { AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon", "nexa-dir.ico")); } catch { }
         AppWindow.Resize(new SizeInt32(880, 640));
         SearchBox.PlaceholderText = Loc.T("pref.search.placeholder");
 
