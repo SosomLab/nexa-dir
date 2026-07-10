@@ -810,12 +810,22 @@ public sealed partial class MainWindow : Window
         {
             Panel(_activeLeft).Grid.Focus(FocusState.Programmatic);   // → OnRenameLostFocus → CommitRename
         }
-        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4).
+        // 좌/우클릭 등 일반 press → 포인터가 놓인 패널을 활성화(행이든 빈 영역이든, #4)
+        // + 그 패널 그리드로 **키보드 포커스 회수**. 터미널이 한 번 포커스를 가지면(위치 이동 등)
+        // 파일 영역을 클릭해도 포커스가 남아 방향키/타입어헤드가 전부 터미널 소유로 차단되던 문제
+        // (사용자 QA: "위/아래 누르면 터미널이 포커스됨·키 입력 안 됨") — 클릭 시 명시 회수로 해소.
         if ((props.IsLeftButtonPressed || props.IsRightButtonPressed)
-            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft
-            && _activeLeft != paneLeft)
+            && PanelUnderPointer(e.OriginalSource as DependencyObject) is bool paneLeft)
         {
-            SetActivePanel(paneLeft);
+            if (_activeLeft != paneLeft)
+            {
+                SetActivePanel(paneLeft);
+            }
+            // 이름변경 편집기(TextBox) 안 클릭은 편집이 포커스를 가져야 하므로 제외.
+            if (e.OriginalSource is not TextBox && !IsWithinRenameEditor(e.OriginalSource as DependencyObject))
+            {
+                Panel(paneLeft).Grid.Focus(FocusState.Programmatic);
+            }
         }
         if (e.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
         {
