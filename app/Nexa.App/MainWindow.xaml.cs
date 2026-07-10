@@ -4081,6 +4081,10 @@ public sealed partial class MainWindow : Window
     /// - 하단 우 도킹은 **우 패널이 표시(듀얼)이고** 하단 분리가 켜졌을 때만 보인다.
     /// - 우 패널을 숨기면(단일=좌 마스터) 하단 우 도킹도 숨기고 "분리" 토글은 비활성화.
     /// </summary>
+    // 하단 도크 좌:우 분할 비율(좌 비중, 0~1) — 우 도크를 숨기는 시점에 저장했다가 재표시 때 복원.
+    // 초기 0.5 = 첫 표시/기본은 50:50. (상단 파일 패널은 사용자 결정으로 항상 50:50 복원 — OnToggleRightPanel.)
+    private double _bottomSplitRatio = 0.5;
+
     private void UpdateBottomDock()
     {
         bool dual = ShowRightPanelEntry.IsChecked;    // 우 패널 표시 = 듀얼
@@ -4088,12 +4092,32 @@ public sealed partial class MainWindow : Window
         // 분리는 듀얼일 때만 적용(메뉴 항목은 항상 토글 가능 — 선호는 저장되고 듀얼 복귀 시 반영)
         bool showRightDock = dual && split;
 
+        // 숨기기 직전 현재 분할 비율 저장(스플리터 드래그 반영) → 재표시 때 그 비율로 복원.
+        bool wasVisible = BottomRightDock.Visibility == Visibility.Visible;
+        if (wasVisible && !showRightDock)
+        {
+            double total = BottomLeftCol.ActualWidth + BottomRightCol.ActualWidth;
+            if (total > 0 && BottomLeftCol.ActualWidth > 0)
+            {
+                _bottomSplitRatio = Math.Clamp(BottomLeftCol.ActualWidth / total, 0.1, 0.9);
+            }
+        }
+
         BottomRightDock.Visibility = Vis(showRightDock);
         BottomSplitter.Visibility = Vis(showRightDock);
         BottomSplitterCol.Width = showRightDock ? GridLength.Auto : new GridLength(0);
         // 표시 시 최소폭 유지, 숨김 시 MinWidth도 풀어 완전 접힘.
         BottomRightCol.MinWidth = showRightDock ? 160 : 0;
-        BottomRightCol.Width = showRightDock ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        if (showRightDock)
+        {
+            // 저장된 비율(기본 0.5=50:50)로 좌/우 열 star 복원 — 숨김 중 좌 열에 남은 잔존값 제거.
+            BottomLeftCol.Width = new GridLength(_bottomSplitRatio, GridUnitType.Star);
+            BottomRightCol.Width = new GridLength(1 - _bottomSplitRatio, GridUnitType.Star);
+        }
+        else
+        {
+            BottomRightCol.Width = new GridLength(0);
+        }
         // 싱글↔듀얼 전환 시 도크 소스 재연결(대원칙) — 듀얼 복원이면 좌=좌 패널·우=우 패널로 복귀.
         RefreshBottomDocks();
     }
