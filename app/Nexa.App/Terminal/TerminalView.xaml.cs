@@ -191,7 +191,12 @@ public sealed partial class TerminalView : UserControl
         }
         var old = _session;
         _session = null;
-        try { old?.Dispose(); } catch { }
+        if (old is not null)
+        {
+            old.Output -= OnSessionOutput;
+            old.Exited -= OnSessionExited;
+            try { old.Dispose(); } catch { }
+        }
         StartSession(reset: true);   // 새 셸(화면 초기화) — "리셋" 개념
         MarkDirty();
         Focus(FocusState.Programmatic);
@@ -202,7 +207,13 @@ public sealed partial class TerminalView : UserControl
         _stopping = true;
         _renderTimer.Stop();
         _blinkTimer.Stop();
-        _session?.Dispose();
+        _selScrollTimer?.Stop();   // 드래그 선택 중 teardown이면 자동 스크롤 반복 타이머도 정지
+        if (_session is ConPtySession s)
+        {
+            s.Output -= OnSessionOutput;
+            s.Exited -= OnSessionExited;
+            s.Dispose();
+        }
         _session = null;
     }
 

@@ -86,6 +86,8 @@ public sealed partial class MainWindow : Window
         {
             _oleDropFallback?.Dispose();
             _oleDropFallback = null;
+            _leftWatcher?.Dispose();    // FileSystemWatcher 명시 해제(프로세스 종료 의존 제거)
+            _rightWatcher?.Dispose();
         };
         ShowInteropRoundTrip();
         // 좌/우 PanelView 구성(XAML 요소 참조 묶기). 이후 모든 패널 접근은 Panel(left) 경유.
@@ -1599,6 +1601,26 @@ public sealed partial class MainWindow : Window
         return (section, replacements);
     }
 
+    /// <summary>텍스트를 클립보드에 넣고 상태바 피드백 — 실패(클립보드 미가용)는 격리(앱 동작 방해 금지).
+    /// 4곳(파일명/경로/탭 복사·체크섬)의 동일 보일러플레이트 단일화(감사 004).</summary>
+    private void TrySetClipboardText(string text, string? status = null)
+    {
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            if (status is not null)
+            {
+                StatusText.Text = status;
+            }
+        }
+        catch
+        {
+            // 클립보드 미가용 격리 — 앱 동작 방해 금지
+        }
+    }
+
     /// <summary>선택 항목의 <b>파일명(리프)만</b> 클립보드로 — 한 줄에 하나(Copy as path와 동일 대상 규칙).</summary>
     private void CopyFileNamesAsText(IReadOnlyList<string> targets)
     {
@@ -1607,34 +1629,12 @@ public sealed partial class MainWindow : Window
             return;
         }
         string text = string.Join("\r\n", targets.Select(p => Path.GetFileName(Path.TrimEndingDirectorySeparator(p))));
-        try
-        {
-            var dp = new DataPackage();
-            dp.SetText(text);
-            Clipboard.SetContent(dp);
-            StatusText.Text = Loc.T("status.namesCopied", targets.Count);
-        }
-        catch
-        {
-            // 클립보드 미가용 격리 — 앱 동작 방해 금지
-        }
+        TrySetClipboardText(text, Loc.T("status.namesCopied", targets.Count));
     }
 
     /// <summary>임의 텍스트를 클립보드로(탭 메뉴 폴더 이름/경로 복사 등) — 상태바 피드백 포함.</summary>
     private void CopyTextToClipboard(string text)
-    {
-        try
-        {
-            var dp = new DataPackage();
-            dp.SetText(text);
-            Clipboard.SetContent(dp);
-            StatusText.Text = Loc.T("tab.copied", text);
-        }
-        catch
-        {
-            // 클립보드 미가용 격리
-        }
-    }
+        => TrySetClipboardText(text, Loc.T("tab.copied", text));
 
     /// <summary>선택 경로들(교차폴더 전체)을 클립보드 텍스트로 — 한 줄에 하나.
     /// 기본=따옴표+역슬래시(탐색기 "Copy as path" 동일), <paramref name="posix"/>(Alt)=따옴표 없이 슬래시(/).
@@ -1647,17 +1647,7 @@ public sealed partial class MainWindow : Window
         }
         var lines = targets.Select(p => posix ? p.Replace('\\', '/') : $"\"{p}\"");
         string text = string.Join("\r\n", lines);
-        try
-        {
-            var dp = new DataPackage();
-            dp.SetText(text);
-            Clipboard.SetContent(dp);
-            StatusText.Text = Loc.T("status.pathsCopied", targets.Count, posix ? " (POSIX)" : "");
-        }
-        catch
-        {
-            // 클립보드 미가용 격리 — 앱 동작 방해 금지
-        }
+        TrySetClipboardText(text, Loc.T("status.pathsCopied", targets.Count, posix ? " (POSIX)" : ""));
     }
 
     /// <summary>파일 하나의 해시 계산 — 알고리즘 라벨(MD5/SHA-1/SHA-256/SHA-384/SHA-512/CRC32)별 분기.
@@ -1734,12 +1724,16 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = RootGrid.XamlRoot,
         };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        try
         {
-            var dp = new DataPackage();
-            dp.SetText(text);
-            Clipboard.SetContent(dp);
-            StatusText.Text = Loc.T("checksum.copied");
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                TrySetClipboardText(text, Loc.T("checksum.copied"));
+            }
+        }
+        catch
+        {
+            // ContentDialog 동시 표시 등 — fire-and-forget 경로라 UI 스레드 unhandled 방지
         }
     }
 
@@ -1768,15 +1762,22 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _shellRefreshTimer;
+
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
-    /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
+    /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.) 타이머는 재사용(호출마다 생성 안 함) —
+    /// 연속 호출이면 마지막 시점 기준으로 리셋.</summary>
     private void ScheduleShellRefresh()
     {
-        var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromMilliseconds(800);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) => ReloadBothPanels();
-        timer.Start();
+        if (_shellRefreshTimer is null)
+        {
+            _shellRefreshTimer = DispatcherQueue.CreateTimer();
+            _shellRefreshTimer.Interval = TimeSpan.FromMilliseconds(800);
+            _shellRefreshTimer.IsRepeating = false;
+            _shellRefreshTimer.Tick += (_, _) => ReloadBothPanels();
+        }
+        _shellRefreshTimer.Stop();
+        _shellRefreshTimer.Start();
     }
 
     /// <summary>패널 빈 영역 우클릭(행이 소비 안 한 곳) → <b>기존 선택 해제</b>(탐색기 동일 — 빈 영역 우클릭=
@@ -1851,14 +1852,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(refresh);
 
         ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
-        if (e.TryGetPosition(fe, out var pos))
-        {
-            flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
-        }
-        else
-        {
-            flyout.ShowAt(fe);
-        }
+        ShowFlyoutAt(flyout, fe, e);
         e.Handled = true;
     }
 
@@ -2659,19 +2653,26 @@ public sealed partial class MainWindow : Window
         if (extOp != DataPackageOperation.None)
         {
             e.Handled = true;
-            var deferral = e.GetDeferral();
-            try
+            await ReceiveExternalDropAsync(e, _activeLeft, item.FullPath, extOp);
+        }
+    }
+
+    /// <summary>외부(탐색기/다른 인스턴스) 드롭 공통 처리 — deferral 걸고 StorageItems 경로 추출 후
+    /// 동일 전송 엔진으로. 행/빈영역/탭 드롭 3곳의 동일 보일러플레이트 단일화(감사 004).</summary>
+    private async Task ReceiveExternalDropAsync(DragEventArgs e, bool destLeft, string destDir, DataPackageOperation op)
+    {
+        var deferral = e.GetDeferral();
+        try
+        {
+            var paths = await GetExternalPathsAsync(e.DataView);
+            if (paths.Count > 0)
             {
-                var paths = await GetExternalPathsAsync(e.DataView);
-                if (paths.Count > 0)
-                {
-                    TransferPathsInto(_activeLeft, paths, item.FullPath, extOp);
-                }
+                TransferPathsInto(destLeft, paths, destDir, op);
             }
-            finally
-            {
-                deferral.Complete();
-            }
+        }
+        finally
+        {
+            deferral.Complete();
         }
     }
 
@@ -2696,19 +2697,7 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var deferral = e.GetDeferral();
-        try
-        {
-            var paths = await GetExternalPathsAsync(e.DataView);
-            if (paths.Count > 0)
-            {
-                TransferPathsInto(destLeft, paths, destDir, extOp);
-            }
-        }
-        finally
-        {
-            deferral.Complete();
-        }
+        await ReceiveExternalDropAsync(e, destLeft, destDir, extOp);
     }
 
     /// <summary>
@@ -3034,19 +3023,7 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        var deferral = e.GetDeferral();
-        try
-        {
-            var paths = await GetExternalPathsAsync(e.DataView);
-            if (paths.Count > 0)
-            {
-                TransferPathsInto(_activeLeft, paths, tab.Current, extOp);
-            }
-        }
-        finally
-        {
-            deferral.Complete();
-        }
+        await ReceiveExternalDropAsync(e, _activeLeft, tab.Current, extOp);
     }
 
     /// <summary>
@@ -3753,6 +3730,12 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(options);
 
         ApplyMenuFont(flyout.Items);   // 설정 "컨텍스트 메뉴 글꼴"
+        ShowFlyoutAt(flyout, fe, e);
+    }
+
+    /// <summary>컨텍스트 요청 지점(가능하면 포인터 위치)에 플라이아웃 표시 — 2곳 공통(감사 004).</summary>
+    private static void ShowFlyoutAt(MenuFlyout flyout, FrameworkElement fe, ContextRequestedEventArgs e)
+    {
         if (e.TryGetPosition(fe, out var pos))
         {
             flyout.ShowAt(fe, new FlyoutShowOptions { Position = pos });
