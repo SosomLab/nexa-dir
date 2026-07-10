@@ -158,12 +158,12 @@ internal sealed class DirItem : INotifyPropertyChanged
         ? string.Empty
         : Path.GetExtension(Name).TrimStart('.').ToLowerInvariant();
 
-    /// <summary>종류 텍스트: 폴더/링크/확장자 파일.</summary>
+    /// <summary>종류 텍스트: 폴더/링크/확장자 파일(i18n).</summary>
     public string KindText => IsDir
-        ? "폴더"
+        ? Loc.T("kind.folder")
         : Kind == NexaFileKind.Symlink
-            ? "링크"
-            : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? $"{ext} 파일" : "파일";
+            ? Loc.T("kind.link")
+            : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? Loc.T("kind.extFile", ext) : Loc.T("kind.file");
 
     // ── 선택/호버/포커스 비주얼(Explorer식) ───────────────────────────
     // 선택(활성 패널)=연한 파랑+파란 테두리, 선택(비활성=포커스아웃)=회색, 호버=옅은 파랑.

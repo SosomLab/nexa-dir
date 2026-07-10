@@ -148,8 +148,8 @@ public sealed partial class BottomDockView : UserControl
 
         ContentText.Text = _kind switch
         {
-            BottomPanelKind.Info => string.IsNullOrEmpty(InfoText) ? "(정보 없음)" : InfoText,
-            BottomPanelKind.Hex => "Hex 뷰 — 준비 중 (후속 구현)",
+            BottomPanelKind.Info => string.IsNullOrEmpty(InfoText) ? Loc.T("dock.noInfo") : InfoText,
+            BottomPanelKind.Hex => Loc.T("dock.hexPending"),
             _ => string.Empty,
         };
     }
@@ -227,7 +227,7 @@ public sealed partial class BottomDockView : UserControl
         {
             _previewCts?.Cancel();
             _lastRenderedPath = string.Empty;
-            SetPreviewMessage("미리볼 항목이 없습니다 (파일을 선택하세요).");
+            SetPreviewMessage(Loc.T("preview.noItem"));
             return;
         }
 
@@ -249,11 +249,11 @@ public sealed partial class BottomDockView : UserControl
         if (provider is null)
         {
             _lastRenderedPath = path;
-            SetPreviewMessage($"미리보기 지원 형식이 아닙니다.\n{System.IO.Path.GetFileName(path)}");
+            SetPreviewMessage(Loc.T("preview.unsupported", System.IO.Path.GetFileName(path)));
             return;
         }
 
-        SetPreviewMessage("불러오는 중…");
+        SetPreviewMessage(Loc.T("preview.loading"));
         _lastRenderW = PreviewHost.ActualWidth;
         _lastRenderH = PreviewHost.ActualHeight;
         try
@@ -265,7 +265,7 @@ public sealed partial class BottomDockView : UserControl
                 return;   // 다른 선택으로 대체됨
             }
             _lastRenderedPath = path;
-            PreviewHost.Child = element ?? MessageBlock("미리보기를 만들 수 없습니다.");
+            PreviewHost.Child = element ?? MessageBlock(Loc.T("preview.cantCreate"));
         }
         catch (OperationCanceledException)
         {
@@ -275,7 +275,7 @@ public sealed partial class BottomDockView : UserControl
         {
             if (!ct.IsCancellationRequested)
             {
-                SetPreviewMessage($"미리보기 실패: {ex.Message}");
+                SetPreviewMessage(Loc.T("preview.fail", ex.Message));
             }
         }
     }

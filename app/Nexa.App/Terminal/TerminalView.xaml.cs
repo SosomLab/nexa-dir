@@ -145,7 +145,7 @@ public sealed partial class TerminalView : UserControl
         }
         catch (Exception ex)
         {
-            LinesPanel.Children.Add(new TextBlock { Text = $"[터미널 시작 실패] {ex.Message}", Foreground = Brush(0xFFE74856), FontFamily = _fontFamily, FontSize = _fontSize });
+            LinesPanel.Children.Add(new TextBlock { Text = Loc.T("term.startFail", ex.Message), Foreground = Brush(0xFFE74856), FontFamily = _fontFamily, FontSize = _fontSize });
         }
     }
 

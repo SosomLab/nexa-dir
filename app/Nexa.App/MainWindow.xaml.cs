@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -57,6 +57,14 @@ public sealed partial class MainWindow : Window
             var col = (NexaGridColumn)RootGrid.Resources[key];
             DirGrid.Columns.Add(col);
             DirGrid2.Columns.Add(col);
+        }
+        // 빈 영역 드롭 캡션 문구 주입(i18n) — 컨트롤(Nexa.Controls)은 Loc를 모름.
+        foreach (var g in new[] { DirGrid, DirGrid2 })
+        {
+            g.DropCopyCaption = Loc.T("dnd.copy");
+            g.DropMoveCaption = Loc.T("dnd.move");
+            g.DropCopyToFormat = Loc.T("dnd.copyTo");
+            g.DropMoveToFormat = Loc.T("dnd.moveTo");
         }
         // 헤더 클릭 정렬(COL-2c) — 좌/우 독립. 각 그리드는 자기 패널에만 적용(표시도 패널별 HeaderCell).
         DirGrid.SortRequested += d => OnSortRequested(true, d);
@@ -368,11 +376,11 @@ public sealed partial class MainWindow : Window
             NativeInterop.VerifyAbi();   // ABI 버전 + 구조체 레이아웃 검사(불일치 시 예외)
             uint abi = NativeInterop.nexa_abi_version();
             int sum = NativeInterop.nexa_poc_add(2, 3);
-            StatusText.Text = $"인터롭 OK — abi={abi}, nexa_poc_add(2, 3)={sum}";
+            StatusText.Text = Loc.T("status.interopOk", abi, sum);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"인터롭 실패: {ex.Message}";
+            StatusText.Text = Loc.T("status.interopFail", ex.Message);
         }
     }
 
@@ -469,7 +477,7 @@ public sealed partial class MainWindow : Window
         var v = AppSettings.View;
         string path = tab.Current;
         var expanded = new List<string>(tab.Expanded);   // 백그라운드용 스냅샷(UI 스레드 컬렉션 보호)
-        header.Text = $"{path} — 여는 중…";
+        header.Text = Loc.T("header.opening", path);
         (IntPtr Handle, int DirectCount) result;
         try
         {
@@ -483,7 +491,7 @@ public sealed partial class MainWindow : Window
             if (gen == Panel(left).LoadGen)
             {
                 tab.Loaded = false;
-                header.Text = $"디렉터리 열거 실패: {ex.Message}";
+                header.Text = Loc.T("header.enumFail", ex.Message);
             }
             return;
         }
@@ -501,8 +509,8 @@ public sealed partial class MainWindow : Window
         tab.DirectChildCount = result.DirectCount;
         grid.ScrollToTop();   // 진입 시 첫 항목이 맨 위(이전 폴더 스크롤 오프셋 잔존 방지). GoUp은 onLoaded의 SelectByPath가 대상 정렬로 덮어씀.
         header.Text = ok
-            ? $"{path} — {result.DirectCount}개 항목"
-            : $"디렉터리 열기 실패: {path}";
+            ? Loc.T("header.items", path, result.DirectCount)
+            : Loc.T("header.openFail", path);
         if (ok)
         {
             if (ReferenceEquals(Panel(left).Active, tab))
@@ -830,7 +838,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
         }
-        StatusText.Text = $"경로 없음: {p}";
+        StatusText.Text = Loc.T("status.noPath", p);
         Panel(left).PathBar.Path = Panel(left).Active.Current;   // 현재 경로로 복귀
     }
 
@@ -1169,7 +1177,7 @@ public sealed partial class MainWindow : Window
         }
         if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
-            StatusText.Text = $"이름에 사용할 수 없는 문자가 있습니다: {newName}";
+            StatusText.Text = Loc.T("rename.invalidChars", newName);
             return;
         }
         string? dir = Path.GetDirectoryName(item.FullPath);
@@ -1182,7 +1190,7 @@ public sealed partial class MainWindow : Window
         if ((File.Exists(newPath) || Directory.Exists(newPath))
             && !string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase))
         {
-            StatusText.Text = $"같은 이름이 이미 있습니다: {newName}";
+            StatusText.Text = Loc.T("rename.exists", newName);
             return;
         }
         try
@@ -1198,11 +1206,11 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"이름 변경 실패: {ex.Message}";
+            StatusText.Text = Loc.T("rename.fail", ex.Message);
             return;
         }
-        _history.Push(new RenameOp(item.FullPath, newPath, $"이름 변경: {item.Name} → {newName}"));   // undo 기록(B-13u)
-        StatusText.Text = $"이름 변경: {item.Name} → {newName}";
+        _history.Push(new RenameOp(item.FullPath, newPath, Loc.T("rename.done", item.Name, newName)));   // undo 기록(B-13u)
+        StatusText.Text = Loc.T("rename.done", item.Name, newName);
         var tab = Panel(left).Active;
         UpdateExpandedPaths(tab, item.FullPath, newPath);   // 펼침 경로(폴더/자식) 갱신
         tab.Loaded = false;
@@ -1287,7 +1295,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"실행 실패: {ex.Message}";
+            StatusText.Text = Loc.T("status.execFail", ex.Message);
         }
     }
 
@@ -1403,11 +1411,11 @@ public sealed partial class MainWindow : Window
             // Alt=POSIX(/)·따옴표 없이. 셸이 verb를 안 내면(예: Shift 없이 Win10) 고유 섹션에 폴백.
             new("copy-as-path", "Copy as path", 50,
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
-            new("paste-into", "폴더에 붙여넣기", 100,
+            new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
-            new("rename", "이름 바꾸기(F2)", 200,
+            new("rename", Loc.T("ctx.rename"), 200,
                 _ => true, _ => true, c => BeginRename(c.Row, c.Item, c.Left)),
-            new("delete-permanent", "완전 삭제(Shift+Del)", 300,
+            new("delete-permanent", Loc.T("ctx.deletePermanent"), 300,
                 _ => true, _ => true, c => DeletePaths(c.Left, c.Targets, permanent: true)),
             new("checksum", "Checksum", 400,
                 c => c.Targets.Any(File.Exists), _ => true, Noop(), checksumKids),
@@ -1475,7 +1483,7 @@ public sealed partial class MainWindow : Window
             var dp = new DataPackage();
             dp.SetText(text);
             Clipboard.SetContent(dp);
-            StatusText.Text = $"경로 {targets.Count}개 복사됨{(posix ? " (POSIX)" : "")}";
+            StatusText.Text = Loc.T("status.pathsCopied", targets.Count, posix ? " (POSIX)" : "");
         }
         catch
         {
@@ -1512,10 +1520,10 @@ public sealed partial class MainWindow : Window
         var files = targets.Where(File.Exists).ToList();   // 폴더는 제외
         if (files.Count == 0)
         {
-            StatusText.Text = "체크섬 대상 파일이 없습니다(폴더 제외)";
+            StatusText.Text = Loc.T("checksum.noFiles");
             return;
         }
-        StatusText.Text = $"{algo} 계산 중… ({files.Count}개)";
+        StatusText.Text = Loc.T("checksum.computing", algo, files.Count);
         var sb = new System.Text.StringBuilder();
         foreach (string f in files)
         {
@@ -1527,11 +1535,11 @@ public sealed partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                line = $"{Path.GetFileName(f)}: 오류 — {ex.Message}";
+                line = Loc.T("checksum.errLine", Path.GetFileName(f), ex.Message);
             }
             sb.AppendLine(line);
         }
-        StatusText.Text = $"{algo} 완료 — {files.Count}개";
+        StatusText.Text = Loc.T("checksum.done", algo, files.Count);
 
         string text = sb.ToString().TrimEnd();
         var box = new TextBox
@@ -1552,8 +1560,8 @@ public sealed partial class MainWindow : Window
         {
             Title = $"Checksum ({algo})",
             Content = box,
-            PrimaryButtonText = "복사",
-            CloseButtonText = "닫기",
+            PrimaryButtonText = Loc.T("checksum.copy"),
+            CloseButtonText = Loc.T("checksum.close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = RootGrid.XamlRoot,
         };
@@ -1562,7 +1570,7 @@ public sealed partial class MainWindow : Window
             var dp = new DataPackage();
             dp.SetText(text);
             Clipboard.SetContent(dp);
-            StatusText.Text = "체크섬이 클립보드에 복사됨";
+            StatusText.Text = Loc.T("checksum.copied");
         }
     }
 
@@ -1598,14 +1606,14 @@ public sealed partial class MainWindow : Window
         UpdateSelectionCount(panelItems);
 
         var flyout = new MenuFlyout();
-        var paste = new MenuFlyoutItem { Text = "붙여넣기", IsEnabled = CanPaste() };
+        var paste = new MenuFlyoutItem { Text = Loc.T("bg.paste"), IsEnabled = CanPaste() };
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
 
         // 실행 취소/다시 실행(B-13u) — 탐색기 배경 메뉴 동일. 마지막 작업 설명 표기, 없으면 비활성.
         var undo = new MenuFlyoutItem
         {
-            Text = _history.CanUndo ? $"실행 취소: {_history.UndoDescription}" : "실행 취소",
+            Text = _history.CanUndo ? Loc.T("undo.desc", _history.UndoDescription ?? string.Empty) : Loc.T("bg.undo"),
             IsEnabled = _history.CanUndo,
             KeyboardAcceleratorTextOverride = "Ctrl+Z",
         };
@@ -1613,7 +1621,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(undo);
         var redo = new MenuFlyoutItem
         {
-            Text = _history.CanRedo ? $"다시 실행: {_history.RedoDescription}" : "다시 실행",
+            Text = _history.CanRedo ? Loc.T("redo.desc", _history.RedoDescription ?? string.Empty) : Loc.T("bg.redo"),
             IsEnabled = _history.CanRedo,
             KeyboardAcceleratorTextOverride = "Ctrl+Y",
         };
@@ -1622,20 +1630,20 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // 새로 만들기 ▶ 폴더 / 파일 / 바로 가기 (BG-N1/N2/N3) — 생성 후 즉시 인라인 이름변경.
-        var newSub = new MenuFlyoutSubItem { Text = "새로 만들기" };
-        var newFolder = new MenuFlyoutItem { Text = "폴더" };
+        var newSub = new MenuFlyoutSubItem { Text = Loc.T("bg.new") };
+        var newFolder = new MenuFlyoutItem { Text = Loc.T("bg.newFolder") };
         newFolder.Click += (_, _) => CreateNewFolder(left);
         newSub.Items.Add(newFolder);
-        var newFile = new MenuFlyoutItem { Text = "파일" };
+        var newFile = new MenuFlyoutItem { Text = Loc.T("bg.newFile") };
         newFile.Click += (_, _) => CreateNewFile(left);
         newSub.Items.Add(newFile);
-        var newLink = new MenuFlyoutItem { Text = "바로 가기" };
+        var newLink = new MenuFlyoutItem { Text = Loc.T("bg.newShortcut") };
         newLink.Click += (_, _) => CreateNewShortcut(left);
         newSub.Items.Add(newLink);
         flyout.Items.Add(newSub);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var refresh = new MenuFlyoutItem { Text = "새로고침(F5)" };
+        var refresh = new MenuFlyoutItem { Text = Loc.T("bg.refresh") };
         refresh.Click += (_, _) => ReloadPanel(left);
         flyout.Items.Add(refresh);
 
@@ -1660,17 +1668,17 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        string path = UniqueChildPath(dir, "새 폴더", "");
+        string path = UniqueChildPath(dir, Loc.T("new.folderBase"), "");
         try
         {
             Directory.CreateDirectory(path);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"폴더 만들기 실패: {ex.Message}";
+            StatusText.Text = Loc.T("new.folderFail", ex.Message);
             return;
         }
-        _history.Push(new CreateOp(path, "새 폴더 만들기", FileOps.DeleteToRecycleBin, () => Directory.CreateDirectory(path)));
+        _history.Push(new CreateOp(path, Loc.T("new.folderOp"), FileOps.DeleteToRecycleBin, () => Directory.CreateDirectory(path)));
         RevealAndRename(left, path);
     }
 
@@ -1682,17 +1690,17 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
-        string path = UniqueChildPath(dir, "새 파일", ".txt");
+        string path = UniqueChildPath(dir, Loc.T("new.fileBase"), ".txt");
         try
         {
             using (File.Create(path)) { }   // 빈 파일 생성 후 즉시 닫기
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"파일 만들기 실패: {ex.Message}";
+            StatusText.Text = Loc.T("new.fileFail", ex.Message);
             return;
         }
-        _history.Push(new CreateOp(path, "새 파일 만들기", FileOps.DeleteToRecycleBin, () => { using (File.Create(path)) { } }));
+        _history.Push(new CreateOp(path, Loc.T("new.fileOp"), FileOps.DeleteToRecycleBin, () => { using (File.Create(path)) { } }));
         RevealAndRename(left, path);
     }
 
@@ -1713,19 +1721,19 @@ public sealed partial class MainWindow : Window
         string baseName = Path.GetFileNameWithoutExtension(target.TrimEnd('\\', '/'));
         if (string.IsNullOrEmpty(baseName))
         {
-            baseName = "새 바로 가기";
+            baseName = Loc.T("new.shortcutBase");
         }
-        string path = UniqueChildPath(dir, $"{baseName} - 바로 가기", ".lnk");
+        string path = UniqueChildPath(dir, Loc.T("new.shortcutSuffix", baseName), ".lnk");
         try
         {
             ShellLink.Create(path, target);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"바로 가기 만들기 실패: {ex.Message}";
+            StatusText.Text = Loc.T("new.shortcutFail", ex.Message);
             return;
         }
-        _history.Push(new CreateOp(path, "바로 가기 만들기", FileOps.DeleteToRecycleBin, () => ShellLink.Create(path, target)));
+        _history.Push(new CreateOp(path, Loc.T("new.shortcutOp"), FileOps.DeleteToRecycleBin, () => ShellLink.Create(path, target)));
         RevealAndRename(left, path);
     }
 
@@ -1795,9 +1803,9 @@ public sealed partial class MainWindow : Window
     /// <summary>도구 모음 + 퀵 런처 버튼 구성(생성자에서 1회). 둘 다 16×16 아이콘.</summary>
     private void InitToolbars()
     {
-        AddToolButton("", "현재 폴더에서 터미널 열기 (Ctrl+Shift+T)", OpenTerminalHere);   // CommandPrompt
-        AddToolButton("", "파일 찾기 (전면 검색은 M3 예정)", FindFilesStub);                 // Search
-        AddToolButton("", "이름 바꾸기 (F2)", RenameCaret);                                  // Rename
+        AddToolButton("", Loc.T("toolbar.terminal"), OpenTerminalHere);   // CommandPrompt
+        AddToolButton("", Loc.T("toolbar.find"), FindFilesStub);                 // Search
+        AddToolButton("", Loc.T("toolbar.rename"), RenameCaret);                                  // Rename
 
         foreach (var t in DefaultLauncherTools())
         {
@@ -1865,7 +1873,7 @@ public sealed partial class MainWindow : Window
         var list = new List<LauncherTool>();
         if (ToolLauncher.ResolveVsCode() is string code)
         {
-            list.Add(new LauncherTool("Visual Studio Code — 활성 탭 폴더 열기", code, "\"%path%\""));
+            list.Add(new LauncherTool(Loc.T("launcher.vscode"), code, "\"%path%\""));
         }
         return list;
     }
@@ -1875,20 +1883,20 @@ public sealed partial class MainWindow : Window
     {
         string folder = Panel(_activeLeft).Active.Current;
         StatusText.Text = ToolLauncher.Launch(tool.Exe, tool.Args, folder)
-            ? $"{tool.Label} 실행" : $"{tool.Label} 실행 실패";
+            ? Loc.T("launcher.ran", tool.Label) : Loc.T("launcher.failed", tool.Label);
     }
 
     /// <summary>도구: 현재(활성 탭) 폴더에서 외부 터미널 열기.</summary>
     private void OpenTerminalHere()
     {
         string folder = Panel(_activeLeft).Active.Current;
-        StatusText.Text = ToolLauncher.OpenTerminal(folder) ? "터미널 열기" : "터미널 실행 실패(설치 확인)";
+        StatusText.Text = ToolLauncher.OpenTerminal(folder) ? Loc.T("tool.terminalOpened") : Loc.T("tool.terminalFail");
     }
 
     /// <summary>도구: 파일 찾기 — 전면 검색(Everything식)은 M3([24](24-search.md)) 예정. 현재는 안내 스텁.</summary>
     private void FindFilesStub()
     {
-        StatusText.Text = "파일 찾기(전면 검색)는 M3에서 제공됩니다";
+        StatusText.Text = Loc.T("tool.findStub");
     }
 
     /// <summary>도구: 활성 패널 캐럿 항목 인라인 이름 변경(F2와 동일 경로). 캐럿 행이 실체화돼 있을 때.</summary>
@@ -1902,7 +1910,7 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            StatusText.Text = "이름을 바꿀 항목을 먼저 선택하세요";
+            StatusText.Text = Loc.T("rename.selectFirst");
         }
     }
 
@@ -1951,7 +1959,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         FileClipboard.SetCopy(targets);
-        StatusText.Text = $"복사 {targets.Count}개";
+        StatusText.Text = Loc.T("op.copyCount", targets.Count);
     }
 
     /// <summary>대상 경로를 앱 클립보드에 잘라내기 표시(붙여넣기 = 이동).</summary>
@@ -1962,7 +1970,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         FileClipboard.SetCut(targets);
-        StatusText.Text = $"잘라내기 {targets.Count}개";
+        StatusText.Text = Loc.T("clip.cut", targets.Count);
     }
 
     /// <summary>클립보드 내용을 지정 패널의 <b>현재 폴더</b>에 붙여넣는다(cut=이동·copy=복사).</summary>
@@ -2026,7 +2034,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"붙여넣기 실패: {ex.Message}";
+            StatusText.Text = Loc.T("clip.pasteFail", ex.Message);
         }
     }
 
@@ -2066,10 +2074,10 @@ public sealed partial class MainWindow : Window
         {
             var dialog = new ContentDialog
             {
-                Title = "완전 삭제",
-                Content = $"{targets.Count}개 항목을 완전히 삭제합니다.\n휴지통으로 가지 않으며 되돌릴 수 없습니다.",
-                PrimaryButtonText = "삭제",
-                CloseButtonText = "취소",
+                Title = Loc.T("del.title"),
+                Content = Loc.T("del.confirm", targets.Count),
+                PrimaryButtonText = Loc.T("del.ok"),
+                CloseButtonText = Loc.T("del.cancel"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = RootGrid.XamlRoot,
             };
@@ -2097,10 +2105,10 @@ public sealed partial class MainWindow : Window
         // 휴지통 삭제만 undo 가능(완전 삭제는 설계상 제외 — 확인창으로 방어, docs/33).
         if (deleted.Count > 0)
         {
-            _history.Push(new DeleteBatchOp(deleted, $"삭제(휴지통) {deleted.Count}개"));
+            _history.Push(new DeleteBatchOp(deleted, Loc.T("del.recycleOp", deleted.Count)));
         }
-        string kind = permanent ? "완전 삭제" : "휴지통";
-        StatusText.Text = err is null ? $"{kind} {ok}개 완료" : $"{kind} 일부 실패: {err}";
+        string kind = permanent ? Loc.T("del.kindPermanent") : Loc.T("del.kindRecycle");
+        StatusText.Text = err is null ? Loc.T("del.done", kind, ok) : Loc.T("del.partialFail", kind, err);
         ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
     }
 
@@ -2204,7 +2212,7 @@ public sealed partial class MainWindow : Window
         DirGrid2.StopDragAutoScroll();
         if (args.DropResult == DataPackageOperation.None && _dragPaths.Count > 0)
         {
-            StatusText.Text = "드래그 취소 — 변경 없음";   // ESC 취소 또는 대상이 연산 미보고 → 파일 변화 없음
+            StatusText.Text = Loc.T("status.dragCancelled");   // ESC 취소 또는 대상이 연산 미보고 → 파일 변화 없음
         }
         else if (args.DropResult.HasFlag(DataPackageOperation.Move) && _dragPaths.Count > 0)
         {
@@ -2693,8 +2701,8 @@ public sealed partial class MainWindow : Window
         bool copy = op.HasFlag(DataPackageOperation.Copy) && !op.HasFlag(DataPackageOperation.Move);
         string label = string.IsNullOrEmpty(destName) ? "" : destName;
         string caption = copy
-            ? (label.Length == 0 ? "복사" : $"{label}에 복사")
-            : (label.Length == 0 ? "이동" : $"{label}(으)로 이동");
+            ? (label.Length == 0 ? Loc.T("dnd.copy") : Loc.T("dnd.copyTo", label))
+            : (label.Length == 0 ? Loc.T("dnd.move") : Loc.T("dnd.moveTo", label));
         if (ui.Caption != caption)
         {
             ui.Caption = caption;   // 변경 시만 설정 — DragOver는 마우스 이동마다 오므로 동일 값 재설정(비주얼 갱신) 회피
@@ -2997,18 +3005,18 @@ public sealed partial class MainWindow : Window
     {
         if (!_history.CanUndo)
         {
-            StatusText.Text = "되돌릴 작업이 없습니다";
+            StatusText.Text = Loc.T("undo.none");
             return;
         }
         string desc = _history.UndoDescription!;
         try
         {
             _history.Undo();
-            StatusText.Text = $"실행 취소: {desc}";
+            StatusText.Text = Loc.T("undo.desc", desc);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"실행 취소 실패({desc}): {ex.Message}";
+            StatusText.Text = Loc.T("undo.fail", desc, ex.Message);
         }
         ReloadBothPanels();
     }
@@ -3018,18 +3026,18 @@ public sealed partial class MainWindow : Window
     {
         if (!_history.CanRedo)
         {
-            StatusText.Text = "다시 실행할 작업이 없습니다";
+            StatusText.Text = Loc.T("redo.none");
             return;
         }
         string desc = _history.RedoDescription!;
         try
         {
             _history.Redo();
-            StatusText.Text = $"다시 실행: {desc}";
+            StatusText.Text = Loc.T("redo.desc", desc);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"다시 실행 실패({desc}): {ex.Message}";
+            StatusText.Text = Loc.T("redo.fail", desc, ex.Message);
         }
         ReloadBothPanels();
     }
@@ -3038,7 +3046,7 @@ public sealed partial class MainWindow : Window
     {
         bool copy = op == DataPackageOperation.Copy;
         var items = new List<string>(paths);   // 스냅샷(비동기 중 원본 clear 방지)
-        string verb = copy ? "복사" : "이동";
+        string verb = copy ? Loc.T("dnd.copy") : Loc.T("dnd.move");
         var performed = new List<(string Src, string Dest)>();   // 실제 수행 (원본, 실제 대상) — undo 기록(B-13u)
         int done = 0, skipped = 0;
         string? err = null;
@@ -3149,10 +3157,10 @@ public sealed partial class MainWindow : Window
         finally
         {
             string summary = cancelled
-                ? $"{verb} 취소됨 — {done}개 완료"
+                ? Loc.T("transfer.cancelled", verb, done)
                 : err is null
-                    ? $"{verb} 완료 — {done}개{(skipped > 0 ? $" · 건너뜀 {skipped}개" : string.Empty)}"
-                    : $"{verb} 일부 실패: {err}";
+                    ? Loc.T("transfer.done", verb, done, skipped > 0 ? Loc.T("transfer.skipped", skipped) : string.Empty)
+                    : Loc.T("transfer.partialFail", verb, err);
             // 성공(무취소·무오류)만 2초 카운트다운 자동 닫기 — 실패/취소는 결과 확인 위해 유지.
             win.Complete(summary, AppSettings.View.AutoCloseTransferWindow && !cancelled && err is null);
             StatusText.Text = summary;
@@ -3161,8 +3169,8 @@ public sealed partial class MainWindow : Window
         if (performed.Count > 0)
         {
             _history.Push(copy
-                ? new CopyBatchOp(performed, $"복사 {performed.Count}개", FileOps.DeleteToRecycleBin)
-                : new MoveBatchOp(performed, $"이동 {performed.Count}개"));
+                ? new CopyBatchOp(performed, Loc.T("op.copyCount", performed.Count), FileOps.DeleteToRecycleBin)
+                : new MoveBatchOp(performed, Loc.T("op.moveCount", performed.Count)));
         }
         _ = sourceLeft;   // 향후 정밀 갱신용(현재는 양쪽 재로드)
         ReloadBothPanels();   // 양쪽 갱신(BUG-006 임시 — watcher 전까지)
@@ -3235,7 +3243,7 @@ public sealed partial class MainWindow : Window
             grid.ItemsSource = tab.Items;   // 열린 핸들 재사용 — 재열거·재펼침 없음
             grid.ScrollToTop();             // ItemsSource 교체 후 뷰포트 확정(잔존 오프셋으로 빈 화면 방지)
             pathBar.Path = tab.Current;
-            header.Text = $"{tab.Current} — {tab.DirectChildCount}개 항목";
+            header.Text = Loc.T("header.items", tab.Current, tab.DirectChildCount);
             UpdateSelectionCount(tab.Items);
             ArmWatcher(left);   // 캐시된 탭으로 전환 → 그 폴더 감시로 갱신(B-12w)
         }
@@ -3288,7 +3296,7 @@ public sealed partial class MainWindow : Window
     {
         if (tab.IsLocked)
         {
-            StatusText.Text = "잠긴 탭입니다 — 탭 옵션에서 잠금을 해제하세요";
+            StatusText.Text = Loc.T("tab.locked");
             return;
         }
         var tabs = Panel(left).Tabs;
@@ -3325,32 +3333,32 @@ public sealed partial class MainWindow : Window
         var tabs = Panel(left).Tabs;
 
         var flyout = new MenuFlyout();
-        var newTab = new MenuFlyoutItem { Text = "새 탭" };
+        var newTab = new MenuFlyoutItem { Text = Loc.T("tabctx.new") };
         newTab.Click += (_, _) => AddTab(left);
         flyout.Items.Add(newTab);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var close = new MenuFlyoutItem { Text = "탭 닫기", IsEnabled = tabs.Count > 1 && !tab.IsLocked };
+        var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked };
         close.Click += (_, _) => CloseTab(left, tab);
         flyout.Items.Add(close);
         var closeOthers = new MenuFlyoutItem
         {
-            Text = "모든 탭 닫기(현재 탭 제외)",
+            Text = Loc.T("tabctx.closeOthers"),
             IsEnabled = tabs.Any(t => !ReferenceEquals(t, tab) && !t.IsLocked),
         };
         closeOthers.Click += (_, _) => CloseOtherTabs(left, tab);
         flyout.Items.Add(closeOthers);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var options = new MenuFlyoutSubItem { Text = "탭 옵션" };
-        var lockItem = new ToggleMenuFlyoutItem { Text = "탭 잠금", IsChecked = tab.IsLocked };
+        var options = new MenuFlyoutSubItem { Text = Loc.T("tabctx.options") };
+        var lockItem = new ToggleMenuFlyoutItem { Text = Loc.T("tabctx.lock"), IsChecked = tab.IsLocked };
         lockItem.Click += (_, _) =>
         {
             tab.IsLocked = !tab.IsLocked;
             _session?.MarkDirty();
         };
         options.Items.Add(lockItem);
-        var pinItem = new ToggleMenuFlyoutItem { Text = "탭 고정", IsChecked = tab.IsPinned };
+        var pinItem = new ToggleMenuFlyoutItem { Text = Loc.T("tabctx.pin"), IsChecked = tab.IsPinned };
         pinItem.Click += (_, _) => TogglePinTab(left, tab);
         options.Items.Add(pinItem);
         flyout.Items.Add(options);
@@ -3415,7 +3423,7 @@ public sealed partial class MainWindow : Window
             case TabDoubleClickAction.None:
                 break;
             default:   // Favorite/PopupMenu — 후속
-                StatusText.Text = "탭 동작(즐겨찾기/팝업 메뉴)은 후속 구현";
+                StatusText.Text = Loc.T("tab.actionLater");
                 break;
         }
     }
@@ -3437,7 +3445,7 @@ public sealed partial class MainWindow : Window
     private void UpdateSelectionCount(VirtualTreeCollection items)
     {
         int count = items.SelectionCount;
-        StatusText.Text = count > 0 ? $"{count}개 선택됨" : "준비됨";
+        StatusText.Text = count > 0 ? Loc.T("status.selectedCount", count) : Loc.T("status.ready");
         RefreshBottomDocks();   // 선택 변경 → 하단 정보 뷰 갱신 (BP-2)
     }
 
@@ -3804,22 +3812,22 @@ public sealed partial class MainWindow : Window
         int selCount = items.SelectionCount;
         if (selCount >= 2)
         {
-            return $"선택: {selCount}개 항목";
+            return Loc.T("info.selected", selCount);
         }
         if (selCount == 1 && items.CaretItem is DirItem it)
         {
             var lines = new List<string?>
             {
                 it.Name,
-                $"종류: {it.KindText}",
-                it.IsDir ? null : $"크기: {it.SizeLabel}",
-                string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : $"수정: {it.ModifiedDateTimeLabel}",
-                $"경로: {it.FullPath}",
+                Loc.T("info.kind", it.KindText),
+                it.IsDir ? null : Loc.T("info.size", it.SizeLabel),
+                string.IsNullOrEmpty(it.ModifiedDateTimeLabel) ? null : Loc.T("info.modified", it.ModifiedDateTimeLabel),
+                Loc.T("info.path", it.FullPath),
             };
             return string.Join("\n", lines.Where(s => !string.IsNullOrEmpty(s)));
         }
         string cur = p.Active.Current;
-        return string.IsNullOrEmpty(cur) ? "(폴더 없음)" : $"현재 폴더:\n{cur}";
+        return string.IsNullOrEmpty(cur) ? Loc.T("info.noFolder") : Loc.T("info.currentFolder", cur);
     }
 
     // ── 스플리터 스냅 (자석식) ─────────────────────────────────────

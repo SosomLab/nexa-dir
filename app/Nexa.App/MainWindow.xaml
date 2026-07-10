@@ -19,11 +19,11 @@
     <Grid x:Name="RootGrid" Background="{ThemeResource NexaWindowBackgroundBrush}">
         <Grid.Resources>
             <!-- 좌/우 패널이 공유하는 컬럼 인스턴스 → 리사이즈 시 헤더·본문·양쪽 패널 동시 반영(A3/A4·요구4) -->
-            <ctrls:NexaGridColumn x:Key="ColName" Header="이름" Key="name" Width="280" />
-            <ctrls:NexaGridColumn x:Key="ColExt" Header="확장자" Key="ext" Width="70" />
-            <ctrls:NexaGridColumn x:Key="ColDate" Header="수정한 날짜/시간" Key="modified" Width="130" />
-            <ctrls:NexaGridColumn x:Key="ColKind" Header="종류" Key="kind" Width="90" />
-            <ctrls:NexaGridColumn x:Key="ColSize" Header="크기" Key="size" Width="90" />
+            <ctrls:NexaGridColumn x:Key="ColName" Header="{loc:Loc Key=col.name}" Key="name" Width="280" />
+            <ctrls:NexaGridColumn x:Key="ColExt" Header="{loc:Loc Key=col.ext}" Key="ext" Width="70" />
+            <ctrls:NexaGridColumn x:Key="ColDate" Header="{loc:Loc Key=col.modified}" Key="modified" Width="130" />
+            <ctrls:NexaGridColumn x:Key="ColKind" Header="{loc:Loc Key=col.kind}" Key="kind" Width="90" />
+            <ctrls:NexaGridColumn x:Key="ColSize" Header="{loc:Loc Key=col.size}" Key="size" Width="90" />
             <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트 -->
             <Style x:Key="NavBtnStyle" TargetType="Button">
                 <Setter Property="Width" Value="22" />
@@ -227,14 +227,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
-                                <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                                <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                                <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                                <Button x:Name="BackBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="L" Click="OnNavBack" ToolTipService.ToolTip="{loc:Loc Key=nav.back}" />
+                                <Button x:Name="FwdBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="L" Click="OnNavForward" ToolTipService.ToolTip="{loc:Loc Key=nav.forward}" />
+                                <Button x:Name="UpBtnL" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="L" Click="OnNavUp" ToolTipService.ToolTip="{loc:Loc Key=nav.up}" />
                             </StackPanel>
                             <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
                                     BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
+                                <ctrls:NexaPathBar x:Name="PathBarL" ToolTipService.ToolTip="{loc:Loc Key=pathbar.tip}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -366,14 +366,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="3">
-                                <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="뒤로" />
-                                <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="앞으로" />
-                                <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="위로(상위 폴더)" />
+                                <Button x:Name="BackBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72B;" Tag="R" Click="OnNavBack" ToolTipService.ToolTip="{loc:Loc Key=nav.back}" />
+                                <Button x:Name="FwdBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE72A;" Tag="R" Click="OnNavForward" ToolTipService.ToolTip="{loc:Loc Key=nav.forward}" />
+                                <Button x:Name="UpBtnR" Style="{StaticResource NavBtnStyle}" Content="&#xE74A;" Tag="R" Click="OnNavUp" ToolTipService.ToolTip="{loc:Loc Key=nav.up}" />
                             </StackPanel>
                             <Border Grid.Column="1" Background="{ThemeResource NexaFieldBackgroundBrush}"
                                     BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="세그먼트 클릭=이동 · 우클릭=경로 편집" />
+                                <ctrls:NexaPathBar x:Name="PathBarR" ToolTipService.ToolTip="{loc:Loc Key=pathbar.tip}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -462,7 +462,7 @@
         <!-- 6 · 상태바 — 온전히 상태 표시 전용(패널 보기 토글은 표시(S) 메뉴로 이관) -->
         <Border Grid.Row="6" Background="{ThemeResource NexaStatusBarBackgroundBrush}"
                 BorderBrush="{ThemeResource NexaBorderBrush}" BorderThickness="0,1,0,0" Padding="8,4">
-            <TextBlock x:Name="StatusText" Text="준비됨" Opacity="0.85" VerticalAlignment="Center" />
+            <TextBlock x:Name="StatusText" Text="{loc:Loc Key=status.ready}" Opacity="0.85" VerticalAlignment="Center" />
         </Border>
     </Grid>
 </Window>

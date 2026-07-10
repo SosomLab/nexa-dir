@@ -128,6 +128,12 @@ public sealed partial class NexaFileGrid : UserControl
     /// <summary>빈 영역 드롭 캡션에 쓸 대상 폴더 표시명(호스트가 현재 폴더 변경 시 갱신). 비면 일반 "복사/이동" 캡션.</summary>
     public string? DropTargetName { get; set; }
 
+    // 드롭 캡션 문구(i18n) — 컨트롤은 로컬라이저를 모름 → 호스트가 주입(기본값=한국어 폴백). {0}=대상 폴더명.
+    public string DropCopyCaption { get; set; } = "복사";
+    public string DropMoveCaption { get; set; } = "이동";
+    public string DropCopyToFormat { get; set; } = "{0}에 복사";
+    public string DropMoveToFormat { get; set; } = "{0}(으)로 이동";
+
     /// <summary>빈 영역 드래그의 연산 결정(호스트가 자기폴더 Move 금지·외부 드래그 등 판단). 미설정 시 금지(None).</summary>
     public Func<DragEventArgs, DataPackageOperation>? BodyDragOperation { get; set; }
 
@@ -152,8 +158,8 @@ public sealed partial class NexaFileGrid : UserControl
                 e.DragUIOverride.IsCaptionVisible = true;
                 bool copy = op == DataPackageOperation.Copy;
                 string caption = string.IsNullOrEmpty(DropTargetName)
-                    ? (copy ? "복사" : "이동")
-                    : (copy ? $"{DropTargetName}에 복사" : $"{DropTargetName}(으)로 이동");
+                    ? (copy ? DropCopyCaption : DropMoveCaption)
+                    : string.Format(copy ? DropCopyToFormat : DropMoveToFormat, DropTargetName);
                 if (e.DragUIOverride.Caption != caption)
                 {
                     e.DragUIOverride.Caption = caption;   // 변경 시만 설정(마우스 이동마다 재설정 회피)
