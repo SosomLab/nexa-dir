@@ -9,6 +9,7 @@
 > **④ 타입어헤드 마감**(PR#12, [docs/32](32-typeahead-find.md) 1~5 완) — 전역 KeyDown 합성(CharacterReceived 비버블 확정)·검색어 HUD(`EphemeralOverlay`, 위치 3×3 피커·입력 옵션 3종)·**터미널 포커스 강탈 근본 수정**·크기 표기(KB/MB/GB+Bytes). 잔여: 한글 IME(§9).
 > **⑤ 앱 아이콘 신규 디자인**(main) — 풀블리드 폴더+대형 초록 `>_`(마테리얼), accent 테두리(흰/검 배경 대비), `nexa-dir`(다크판 기본)+`nexa-dir-light` 2세트, 산출=1024 마스터+ICO만.
 > **⑥ 4차 감사**(`refactor/004-audit` **PR#13, CI green·QA 대기**) — 병렬 분석 4종(C# 스멜·Rust·메모리·속도) → Rust 정렬/타입어헤드 무할당화+FFI 가드, C# 중복 추출·수명 정리, `VtScreen.Lines` 실체화 제거, `Count` P/Invoke 캐시, **실체화 캐시 이빅션**(대형 폴더 수십 MB 증식 해소), **DATAS 활성**(상주 NFR 1차), settings 이중 로드 제거. 후속 방안(터미널 렌더 풀링·유휴 트림·ABI v8 등)은 [TODO §9-4](TODO.md)·journal.
+> **⑦ 재시작 필요 설정 확인창+자체 재시작**(PREF-9, **PR#14, CI green·QA 대기**, [docs/40 §9](40-preferences-system.md)) — 언어 변경 시 실효 언어 변화 판정(원복은 안 물음)→확인창(지금/나중에)→선-flush 후 `AppInstance.Restart`(미패키지 폴백=exe 재기동).
 >
 > **이전(2026-07-08) · M1 핵심 요구 2건 대진전 + 터미널/DnD 마감 + 탭·선택 UX 일괄** (실기 QA 통과·CI green):
 > **① 셸 컨텍스트 메뉴(B-2 S1, [ADR-0005](38-adr-0005-shell-context-menu.md))** — 행 우클릭 = **클래식 `IContextMenu` 셸 메뉴 + 고유 항목 병합**(ID 대역 분리·Send to/열기 방법 포워딩·Shift 확장 동사·delete 동사 가로채기·탐색기식 선택 판정). 잔여 S2(빈영역 배경 셸 메뉴)·S3.

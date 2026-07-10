@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/pref-9-restart` | 2026-07-10 | 2026-07-10 (PR#14 `e87166d`) | 2026-07-10 | 1+docs | PREF-9 — 재시작 필요 설정(언어) 확인창 + 자체 재시작(선-flush→`AppInstance.Restart`+미패키지 폴백) | [2026-07-10](journal/2026-07-10.md)·[docs/40 §9](40-preferences-system.md) |
 | `refactor/004-audit` | 2026-07-10 | 2026-07-10 (PR#13 `c7ec256`) | 2026-07-10 | 4+docs | 4차 감사 — Rust 핫패스 무할당화+FFI 가드·C# 중복/수명 정리·실체화 캐시 이빅션·Count 캐시·DATAS·settings 이중 로드 제거 | [2026-07-10](journal/2026-07-10.md)·[TODO §9-4](TODO.md) |
 | `feat/typeahead-hud` | 2026-07-10 | 2026-07-10 (PR#12 `3ff13c1`) | 2026-07-10 | 13+docs | 타입어헤드 완성(전역 KeyDown 합성·HUD·입력 옵션 3종·위치 3×3 피커)·터미널 포커스 강탈 근본 수정·크기 표기·보조 창 아이콘 | [2026-07-10](journal/2026-07-10.md)·[docs/32](32-typeahead-find.md) |
 | `feat/panel-terminal-ux` | 2026-07-10 | 2026-07-10 (PR#11 `e81db3b`) | 2026-07-10 | 8+docs | 하단 도크 대원칙(싱글=활성 패널)·분할 위치 복원·터미널에서 열기·터미널(선택 스크롤·우클릭 복사·줄바꿈 옵션)·다크 메뉴+테마 서브메뉴(기본 System) | [2026-07-10](journal/2026-07-10.md) |
@@ -31,6 +32,12 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/pref-9-restart
+
+- **생성**: 2026-07-10 (분기: main `4a6a1fd`). **기능 1커밋(`8d7d4e4`) + docs 1커밋(`06526a1`)**. 병합(PR#14 `e87166d`)·삭제: 2026-07-10.
+- **작업(PREF-9)**: 언어 변경 시 **실효 언어 변화 판정**(`Loc.IsPendingCultureChange` — 원복·등가 전환은 안 물음) → 확인창(지금 재시작/나중에) → 승인 시 `MainWindow.RestartApp` = settings/session **선-flush**(Restart는 종료 훅 미보장) → `AppRestart.Restart` = 1차 `AppInstance.Restart`(패키지/미패키지 공용) → 폴백 exe 재기동+Exit(포터블 안전망). 항목별 `MaybePromptRestart(판정 위임)`으로 일반화(후속: 테마팩). i18n `restart.*` 4키.
+- **문서**: 메커니즘(시퀀스·판정 규칙·설계 근거) = [docs/40 §9](40-preferences-system.md). 검증: 로컬 빌드 0w/0e · CI 전 job green. 실기 QA 대기.
 
 ## refactor/004-audit
 

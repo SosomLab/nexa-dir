@@ -92,7 +92,7 @@
 | B-20p | **경로바 편집 박스 높이** — 편집 시 커져 화면 늘어남 | 🐞 | P1 | 2026-07-04 | — | 2026-07-04 | **QA 통과(사용자)** | ✅ | PathEditor 컴팩트 스타일 |
 | COL-1a | 확장자 컬럼 값 **소문자** 표시 | 🐞 | P2 | 2026-07-04 | — | 2026-07-04 | **QA 통과(사용자)** | ✅ | ToUpper→ToLower |
 | SHELL | **셸 컨텍스트 메뉴 통합**(`IContextMenu`/`IExplorerCommand`) | 📐 | P0 | 2026-07-04 | — | — | — | 📐 | TODO §2 B-2 · COM ADR 후보 |
-| PREF-9 | **재시작 필요 설정 변경 시 확인창 + 자동 재시작**(언어 변경 등 · `AppInstance.Restart()`+미패키지 폴백 · 항목별 판정 위임) | ✨ | P2 | 2026-07-10 | [docs/40 §9](40-preferences-system.md) | 2026-07-10 (`8d7d4e4`) | 실기QA 대기 | 🚧 | TODO §9-5 · PREF-1/PREF-8 연계 |
+| PREF-9 | **재시작 필요 설정 변경 시 확인창 + 자동 재시작**(언어 변경 등 · `AppInstance.Restart()`+미패키지 폴백 · 항목별 판정 위임) | ✨ | P2 | 2026-07-10 | [docs/40 §9](40-preferences-system.md) | 2026-07-10 (`8d7d4e4`) | 2026-07-10 (PR#14 병합·CI green — 실기QA 대기) | ✅ | TODO §9-5 · PREF-1/PREF-8 연계 |
 
 ## 4. 착수 권장 순서(이 배치)
 

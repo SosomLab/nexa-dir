@@ -13,7 +13,7 @@
 
 ## 2026-07-10
 
-- **재시작 필요 설정 확인창+자체 재시작(PREF-9, `feat/pref-9-restart` `8d7d4e4`)**: 언어 변경 시 **실효 언어 변화 판정**(원복·등가 전환은 안 물음) → 확인창(지금 재시작/나중에) → 승인 시 **선-flush 후 `AppInstance.Restart`**(미패키지 폴백=exe 재기동+Exit). 항목별 판정 위임으로 일반화(후속: 테마팩 등). 메커니즘 문서 [docs/40 §9](40-preferences-system.md). 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
+- **재시작 필요 설정 확인창+자체 재시작(PREF-9, `feat/pref-9-restart`→main PR#14, CI green)**: 언어 변경 시 **실효 언어 변화 판정**(원복·등가 전환은 안 물음) → 확인창(지금 재시작/나중에) → 승인 시 **선-flush 후 `AppInstance.Restart`**(미패키지 폴백=exe 재기동+Exit). 항목별 판정 위임으로 일반화(후속: 테마팩 등). 메커니즘 문서 [docs/40 §9](40-preferences-system.md). 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 - **4차 감사(`refactor/004-audit`, 4커밋)**: 병렬 분석 4종(C# 스멜·Rust·메모리·속도) → Rust 정렬/타입어헤드 핫패스 무할당화+FFI 선택 id 가드, C# 중복 3종 추출·타이머/구독 수명 정리, `VtScreen.Lines` 실체화 제거·`Count` P/Invoke 캐시·**실체화 캐시 이빅션**(대형 폴더 수십 MB 증식 해소)·**DATAS 활성**(상주 NFR 1차)·settings.json 이중 로드 제거. 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 - **앱 아이콘 신규 디자인(main `9150329`)**: 기존 트리/행 컨셉 → **풀블리드 폴더 + 대형 초록 `>_`**(마테리얼 플랫, 앞판=터미널 화면처럼 다크, accent 파랑 실루엣 테두리 — 흰/검정 배경 모두 대비 검증). `nexa-dir`(다크판, 기본)+`nexa-dir-light`(예비) 2세트, 산출은 1024 마스터+ICO만(실사용 없는 16~512 PNG 제거). 생성기 팔레트 주입식 개편.
 - **타입어헤드 마감 + UX 버그 일괄(`feat/typeahead-hud`→main PR#12, 18커밋)**: **타입어헤드 완성**(docs/32 1~5 전부 ✅) — 문자 트리거를 검증된 **전역 KeyDown 합성**으로(CharacterReceived는 포커스 전용·비버블로 확정), 파일명 허용 문자 전체+Space 조건부(접두사 진행 중), **검색어 HUD**(`EphemeralOverlay` 신규 — 위치 3×3 매트릭스 피커[hover 50%·선택 100%]·입력 옵션 3종[특수문자/Space/Backspace] 설정·영속) · **터미널 포커스 강탈 근본 수정**(선택 변경→도크 재렌더→Start가 매번 포커스 훔침 → 재렌더 무포커스, 파일 클릭 시 그리드 포커스 회수) · **크기 표기**(컬럼=KB/MB/GB 적응, 정보 패널=Bytes 단복수) · 보조 창(설정·전송) 앱 아이콘. 상세 [journal/2026-07-10.md](journal/2026-07-10.md)·[docs/32](32-typeahead-find.md).
