@@ -183,12 +183,13 @@ public sealed partial class MainWindow : Window
     /// <summary>설정 변경 저장 예약(테마·표시 토글·메뉴·설정 창). 초저비용·다음 Tick 1회 저장.</summary>
     private void MarkSettingsDirty() => _settings?.MarkDirty();
 
-    /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 상태에 반영(시작 시·설정 창 변경 후).</summary>
+    /// <summary>로드된 View 설정을 표시(S) 메뉴 체크 + 도구 모음 토글에 반영(시작 시·설정 창 변경 후).</summary>
     private void SyncViewMenuChecks()
     {
         ShowHiddenEntry.IsChecked = AppSettings.View.ShowHiddenFiles;
         ShowDotEntry.IsChecked = AppSettings.View.ShowDotFiles;
         ShowPathHeaderEntry.IsChecked = AppSettings.View.ShowPathHeader;
+        SyncToolbarToggles();   // 도구 모음(파일 표시) 토글 비주얼 동기
     }
 
     /// <summary>통합 설정 창 열기(Ctrl+, / 구성 메뉴). 변경은 라이브 적용 + MarkSettingsDirty.</summary>
@@ -202,7 +203,8 @@ public sealed partial class MainWindow : Window
     internal void OnPreferencesChanged()
     {
         ApplyTheme();
-        ApplyFonts();         // 글꼴 6종 슬롯 라이브 적용(PREF-3)
+        ApplyFonts();         // 글꼴 슬롯 라이브 적용(PREF-3)
+        BuildToolbar();       // 도구 모음 그룹/항목 순서 라이브 반영(docs/44)
         ApplyPathHeaderVisibility();
         SyncViewMenuChecks();
         // 생성자에서 1회만 읽던 dwell 시간(B-15h)도 라이브 재반영.
@@ -534,18 +536,29 @@ public sealed partial class MainWindow : Window
 
     // ── 표시(가시성) 토글: 숨김 파일 · 점(.) 파일 (독립·동시 설정, 체크 ON=표시) ─────
 
-    /// <summary>"숨김 파일 보기" 토글(체크=표시) → 숨김 속성 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
-    private void OnToggleShowHidden(object sender, EventArgs e)
+    /// <summary>"숨김 파일 보기" 메뉴 토글(체크=표시).</summary>
+    private void OnToggleShowHidden(object sender, EventArgs e) =>
+        SetShowHidden((sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles);
+
+    /// <summary>"점(.) 파일 보기" 메뉴 토글(체크=표시).</summary>
+    private void OnToggleShowDotFiles(object sender, EventArgs e) =>
+        SetShowDotFiles((sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles);
+
+    /// <summary>숨김 파일 표시 변경의 <b>단일 경로</b> — 메뉴/도구 모음 토글/배경 메뉴 공용
+    /// (체크·토글 동기 + 양쪽 패널 재로드 + 저장 예약).</summary>
+    private void SetShowHidden(bool show)
     {
-        AppSettings.View.ShowHiddenFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowHiddenFiles;
+        AppSettings.View.ShowHiddenFiles = show;
+        SyncViewMenuChecks();
         ReloadBothPanels();
         MarkSettingsDirty();
     }
 
-    /// <summary>"점(.) 파일 보기" 토글(체크=표시) → 리눅스식 점 파일 표시 여부 갱신 후 양쪽 패널 재로드.</summary>
-    private void OnToggleShowDotFiles(object sender, EventArgs e)
+    /// <summary>도트파일(점 파일) 표시 변경의 단일 경로 — <see cref="SetShowHidden"/>과 동일 규약.</summary>
+    private void SetShowDotFiles(bool show)
     {
-        AppSettings.View.ShowDotFiles = (sender as NexaMenuEntry)?.IsChecked ?? !AppSettings.View.ShowDotFiles;
+        AppSettings.View.ShowDotFiles = show;
+        SyncViewMenuChecks();
         ReloadBothPanels();
         MarkSettingsDirty();
     }
@@ -1807,46 +1820,180 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    // ── 도구 모음(내장 액션) · 퀵 런처(외부 프로그램) — 슬라이스 1 (docs/44) ──────────────
-    // 도구 모음 = 개발자 제공 내장 기능(현재 폴더 터미널·파일 찾기·이름 변경) — Segoe MDL2 16px 글리프.
-    // 퀵 런처 = 사용자 등록 외부 프로그램(시드: VS Code) — exe 아이콘(16px 썸네일)·%path%=활성 탭 폴더.
-    // 등록/수정/삭제 UI·settings.json 영속·단축키 배정(PREF-5)은 후속 슬라이스.
+    // ── 도구 모음(내장 액션, 그룹 레지스트리) · 퀵 런처(외부 프로그램) — docs/44 ──────────────
+    // 도구 모음 = 그룹(도구·파일 표시)별 16px 글리프 버튼/토글, 그룹 사이 세로 구분선.
+    // 그룹/항목 순서는 설정(도구 모음 카테고리, AppSettings.Toolbar)에서 조정 — BuildToolbar가 반영.
+    // 퀵 런처 = 사용자 등록 외부 프로그램(시드: VS Code). CRUD/영속·단축키 배정(PREF-5/6)은 후속.
 
     /// <summary>퀵 런처 도구(외부 프로그램) — 라벨·실행 파일·인자 템플릿(<c>%path%</c>=활성 탭 폴더).</summary>
     private readonly record struct LauncherTool(string Label, string Exe, string Args);
 
+    /// <summary>도구 모음 항목 — <see cref="IsOn"/>이 있으면 토글(ToggleButton), 켜짐/꺼짐을
+    /// 강조 배경 + 글리프 교체(<see cref="OffGlyph"/>, 없으면 동일 글리프 흐림)로 표시.</summary>
+    private sealed record ToolbarItemDef(string Id, string Glyph, string LabelKey, Action Invoke,
+        Func<bool>? IsOn = null, string? OffGlyph = null);
+
+    /// <summary>도구 모음 그룹 — 그룹 사이는 세로 구분선.</summary>
+    private sealed record ToolbarGroupDef(string Id, string LabelKey, IReadOnlyList<ToolbarItemDef> Items);
+
+    private List<ToolbarGroupDef> _tbRegistry = null!;
+    private static List<ToolbarGroupDef>? _tbRegistryShared;   // 설정 창 카탈로그 조회용(정적)
+    private readonly Dictionary<string, (ToggleButton Btn, FontIcon Icon, ToolbarItemDef Def)> _tbToggles = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>도구 모음 그룹/항목 정의(기본 순서). 파일 표시 토글은 메뉴(표시 S)와 같은 설정을 공유.</summary>
+    private void InitToolbarRegistry()
+    {
+        _tbRegistry = new List<ToolbarGroupDef>
+        {
+            new("tools", "toolbar.group.tools", new List<ToolbarItemDef>
+            {
+                new("terminal", "", "toolbar.terminal", OpenTerminalHere),   // CommandPrompt
+                new("find", "", "toolbar.find", FindFilesStub),              // Search
+                new("rename", "", "toolbar.rename", RenameCaret),            // Rename
+            }),
+            new("view", "toolbar.group.view", new List<ToolbarItemDef>
+            {
+                // 켜짐=RedEye(보임)/꺼짐=Hide(가려짐) — 아이콘 교체로 상태 표시.
+                new("show-hidden", "", "toolbar.showHidden",
+                    () => SetShowHidden(!AppSettings.View.ShowHiddenFiles),
+                    () => AppSettings.View.ShowHiddenFiles, OffGlyph: ""),
+                // 도트파일(dotfiles) — More(⋯) 글리프, 꺼짐은 흐림+토글 해제로 표시.
+                new("show-dot", "", "toolbar.showDot",
+                    () => SetShowDotFiles(!AppSettings.View.ShowDotFiles),
+                    () => AppSettings.View.ShowDotFiles),
+            }),
+        };
+        _tbRegistryShared = _tbRegistry;
+    }
+
+    /// <summary>설정 창(도구 모음 카테고리)용 — 그룹/항목 (Id, LabelKey) 카탈로그(기본 순서).</summary>
+    internal static IReadOnlyList<(string Id, string LabelKey, IReadOnlyList<(string Id, string LabelKey)> Items)> ToolbarCatalog() =>
+        (_tbRegistryShared ?? new List<ToolbarGroupDef>())
+            .Select(g => (g.Id, g.LabelKey,
+                (IReadOnlyList<(string, string)>)g.Items.Select(i => (i.Id, i.LabelKey)).ToList()))
+            .ToList();
+
     /// <summary>도구 모음 + 퀵 런처 버튼 구성(생성자에서 1회). 둘 다 16×16 아이콘.</summary>
     private void InitToolbars()
     {
-        AddToolButton("", Loc.T("toolbar.terminal"), OpenTerminalHere);   // CommandPrompt
-        AddToolButton("", Loc.T("toolbar.find"), FindFilesStub);                 // Search
-        AddToolButton("", Loc.T("toolbar.rename"), RenameCaret);                                  // Rename
-
+        InitToolbarRegistry();
+        BuildToolbar();
         foreach (var t in DefaultLauncherTools())
         {
             AddLauncherButton(t);
         }
     }
 
+    /// <summary>도구 모음을 레지스트리 + 설정 순서(<see cref="ToolbarOptions"/>)로 (재)구성.
+    /// 설정 창에서 순서 변경 시에도 호출(라이브 반영).</summary>
+    private void BuildToolbar()
+    {
+        ToolbarToolsHost.Children.Clear();
+        _tbToggles.Clear();
+        bool first = true;
+        foreach (var group in OrderBySetting(_tbRegistry, AppSettings.Toolbar.GroupOrder, g => g.Id))
+        {
+            if (!first)
+            {
+                ToolbarToolsHost.Children.Add(GroupSeparator());   // 그룹 경계 = 세로선
+            }
+            first = false;
+            AppSettings.Toolbar.ItemOrder.TryGetValue(group.Id, out var itemOrder);
+            foreach (var item in OrderBySetting(group.Items, itemOrder, i => i.Id))
+            {
+                if (item.IsOn is null)
+                {
+                    AddToolButton(item);
+                }
+                else
+                {
+                    AddToolToggle(item);
+                }
+            }
+        }
+        SyncToolbarToggles();
+    }
+
+    /// <summary>설정 순서(id 목록)를 기본 목록에 적용 — 나열된 id 먼저(그 순서), 미기재 id는 기본 순서 유지로 뒤에.</summary>
+    private static IEnumerable<T> OrderBySetting<T>(IReadOnlyList<T> defaults, List<string>? order, Func<T, string> id)
+    {
+        if (order is null || order.Count == 0)
+        {
+            return defaults;
+        }
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < order.Count; i++)
+        {
+            rank[order[i]] = i;
+        }
+        return defaults
+            .Select((d, i) => (d, key: rank.TryGetValue(id(d), out int k) ? k : order.Count + i))
+            .OrderBy(t => t.key)
+            .Select(t => t.d);
+    }
+
+    /// <summary>그룹 경계 세로 구분선(테마 중립 회색).</summary>
+    private static Border GroupSeparator() => new()
+    {
+        Width = 1,
+        Height = 16,
+        Margin = new Thickness(4, 0, 4, 0),
+        VerticalAlignment = VerticalAlignment.Center,
+        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0x80, 0x80, 0x80)),
+    };
+
+    private static FontIcon ToolIcon(string glyph) => new()
+    {
+        Glyph = glyph,
+        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
+        FontSize = 16,
+    };
+
     /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.</summary>
-    private void AddToolButton(string glyph, string tooltip, Action onClick)
+    private void AddToolButton(ToolbarItemDef def)
     {
         var btn = new Button
         {
-            Content = new FontIcon
-            {
-                Glyph = glyph,
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
-                FontSize = 16,
-            },
+            Content = ToolIcon(def.Glyph),
             Padding = new Thickness(6, 2, 6, 2),
             // 기본 Button MinHeight(32)가 도구 바 높이를 키우므로 해제 — 글리프 16px + 상하 패딩만큼만
             MinHeight = 0,
             MinWidth = 0,
         };
-        ToolTipService.SetToolTip(btn, tooltip);
-        btn.Click += (_, _) => onClick();
+        ToolTipService.SetToolTip(btn, Loc.T(def.LabelKey));
+        btn.Click += (_, _) => def.Invoke();
         ToolbarToolsHost.Children.Add(btn);
+    }
+
+    /// <summary>도구 모음 토글(파일 표시 등) — 켜짐=강조 배경+본 글리프 / 꺼짐=OffGlyph(없으면 흐림).
+    /// 클릭은 Invoke(설정 변경+재로드)로 위임하고 비주얼은 <see cref="SyncToolbarToggles"/>가 맞춘다
+    /// (메뉴·설정 창 어느 쪽에서 바꿔도 일치).</summary>
+    private void AddToolToggle(ToolbarItemDef def)
+    {
+        var icon = ToolIcon(def.Glyph);
+        var btn = new ToggleButton
+        {
+            Content = icon,
+            Padding = new Thickness(6, 2, 6, 2),
+            MinHeight = 0,
+            MinWidth = 0,
+        };
+        ToolTipService.SetToolTip(btn, Loc.T(def.LabelKey));
+        btn.Click += (_, _) => def.Invoke();
+        _tbToggles[def.Id] = (btn, icon, def);
+        ToolbarToolsHost.Children.Add(btn);
+    }
+
+    /// <summary>도구 모음 토글 비주얼(체크·글리프·흐림)을 설정값과 동기.</summary>
+    private void SyncToolbarToggles()
+    {
+        foreach (var (btn, icon, def) in _tbToggles.Values)
+        {
+            bool on = def.IsOn!();
+            btn.IsChecked = on;
+            icon.Glyph = on ? def.Glyph : (def.OffGlyph ?? def.Glyph);
+            icon.Opacity = on ? 1.0 : 0.55;
+        }
     }
 
     /// <summary>퀵 런처 버튼(외부 프로그램) — 16px exe 아이콘(비동기 로드, 실패 시 라벨 폴백) + 클릭 실행.</summary>

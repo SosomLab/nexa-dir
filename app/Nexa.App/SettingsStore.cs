@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -23,6 +24,7 @@ internal sealed class SettingsState
     public int Version { get; set; } = 1;
     public AppearanceSettings Appearance { get; set; } = new();
     public FontSettings Fonts { get; set; } = new();
+    public ToolbarSettings Toolbar { get; set; } = new();
     public ViewSettings View { get; set; } = new();
     public SortSettings Sort { get; set; } = new();
     public MenuSettings Menu { get; set; } = new();
@@ -50,6 +52,13 @@ internal sealed class FontSettings
 internal sealed class SortSettings
 {
     public bool FoldersFirst { get; set; } = true;
+}
+
+/// <summary>도구 모음 — 그룹/항목 표시 순서(docs/44). 스키마는 <see cref="ToolbarOptions"/>와 1:1.</summary>
+internal sealed class ToolbarSettings
+{
+    public List<string> GroupOrder { get; set; } = new();
+    public Dictionary<string, List<string>> ItemOrder { get; set; } = new();
 }
 
 /// <summary>일반 — 언어(i18n).</summary>
@@ -238,6 +247,12 @@ internal sealed class SettingsStore
 
         AppSettings.Sort.FoldersFirst = s.Sort.FoldersFirst;
 
+        var tb = AppSettings.Toolbar;
+        tb.GroupOrder.Clear();
+        tb.GroupOrder.AddRange(s.Toolbar.GroupOrder);
+        tb.ItemOrder.Clear();
+        foreach (var kv in s.Toolbar.ItemOrder) { tb.ItemOrder[kv.Key] = new List<string>(kv.Value); }
+
         var v = AppSettings.View;
         v.ShowHiddenFiles = s.View.ShowHiddenFiles;
         v.ShowDotFiles = s.View.ShowDotFiles;
@@ -285,6 +300,11 @@ internal sealed class SettingsStore
                 HeaderItalic = f.HeaderItalic,
             },
             Sort = new SortSettings { FoldersFirst = AppSettings.Sort.FoldersFirst },
+            Toolbar = new ToolbarSettings
+            {
+                GroupOrder = new List<string>(AppSettings.Toolbar.GroupOrder),
+                ItemOrder = AppSettings.Toolbar.ItemOrder.ToDictionary(kv => kv.Key, kv => new List<string>(kv.Value)),
+            },
             View = new ViewSettings
             {
                 ShowHiddenFiles = v.ShowHiddenFiles,
