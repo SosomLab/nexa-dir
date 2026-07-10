@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `refactor/004-audit` | 2026-07-10 | 2026-07-10 (PR#13 `c7ec256`) | 2026-07-10 | 4+docs | 4차 감사 — Rust 핫패스 무할당화+FFI 가드·C# 중복/수명 정리·실체화 캐시 이빅션·Count 캐시·DATAS·settings 이중 로드 제거 | [2026-07-10](journal/2026-07-10.md)·[TODO §9-4](TODO.md) |
 | `feat/typeahead-hud` | 2026-07-10 | 2026-07-10 (PR#12 `3ff13c1`) | 2026-07-10 | 13+docs | 타입어헤드 완성(전역 KeyDown 합성·HUD·입력 옵션 3종·위치 3×3 피커)·터미널 포커스 강탈 근본 수정·크기 표기·보조 창 아이콘 | [2026-07-10](journal/2026-07-10.md)·[docs/32](32-typeahead-find.md) |
 | `feat/panel-terminal-ux` | 2026-07-10 | 2026-07-10 (PR#11 `e81db3b`) | 2026-07-10 | 8+docs | 하단 도크 대원칙(싱글=활성 패널)·분할 위치 복원·터미널에서 열기·터미널(선택 스크롤·우클릭 복사·줄바꿈 옵션)·다크 메뉴+테마 서브메뉴(기본 System) | [2026-07-10](journal/2026-07-10.md) |
 | `feat/toolbar-groups` | 2026-07-10 | 2026-07-10 (PR#10 `b230212`) | 2026-07-10 | 11+docs | 도구모음 그룹화(파일 표시 토글)·순서 설정·플랫 메뉴·터미널 위치 이동·Copy as name·메뉴 글꼴 슬롯 | [2026-07-10](journal/2026-07-10.md)·[docs/44 §5](44-toolbar-and-launcher.md) |
@@ -30,6 +31,17 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## refactor/004-audit
+
+- **생성**: 2026-07-10 (분기: main `9251db9`+아이콘 2커밋 이후). **기능 4커밋 + docs 2커밋**. 병합(PR#13 `c7ec256`)·삭제: 2026-07-10.
+- **방식**: 병렬 분석 4종(C# bad smell 24건·Rust 12건·메모리 11건·속도 13건) 후 SAFE~저위험만 수직 슬라이스 적용. 상세: [journal/2026-07-10.md](journal/2026-07-10.md) 4차 감사 절.
+  - **core(`d17cf6c`)**: `cmp_ci`/`find_prefix` 무할당화 · `add_sel` FFI 범위 가드 · `rebuild_visible` mem::take · `visible_index` 별칭 제거 · 인터롭 `visible_id`/`selected_path`(O(N²)→O(N)). cargo test 33 green.
+  - **app 중복/수명(`bcd2fc8`)**: 클립보드 4곳·외부 드롭 3곳·플라이아웃 2곳 추출 · 터미널 selScroll 타이머/세션 구독 정리 · FolderWatcher Dispose · ScheduleShellRefresh 타이머 재사용 · 체크섬 다이얼로그 가드.
+  - **app 핫패스/메모리(`a9c5682`)**: VtScreen `LineAt`/`LineCount` · 렌더 StringBuilder 재사용 · 브러시 캐시 리셋 · `Count` 캐시 · **실체화 캐시 이빅션** · **DATAS**(runtimeconfig).
+  - **시작(`4d05298`)**: settings.json 이중 로드 제거(OnLaunched 1회).
+- **후속**(미적용, [TODO §9-4](TODO.md)): A-8 터미널 렌더 풀링 · A-9 스크롤백 압축 · E-12 장대 메서드 분해 · E-13 ABI v8 경로 동봉 · E-14 도크 디바운스 · D-5 ReadyToRun+계측.
+- 검증: cargo 33 · xUnit 81 · 앱 빌드 0w/0e·스모크 · CI 전 job green. 진행 문서 일괄 현행화(`f6549a0`) 포함.
 
 ## feat/typeahead-hud
 
