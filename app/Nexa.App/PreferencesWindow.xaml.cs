@@ -104,7 +104,7 @@ public sealed partial class PreferencesWindow : Window
         new("list", "pref.list.typeahead", TypeAheadRadios),
         new("list", "pref.list.typeaheadTimeout", () => NumberRow("pref.list.typeaheadTimeout",
             AppSettings.View.TypeAheadTimeoutMs, 200, 5000, 100, v => AppSettings.View.TypeAheadTimeoutMs = (long)v)),
-        new("list", "pref.list.hudPos", HudPositionCombo),
+        new("list", "pref.list.hudPos", HudPositionPicker),
         new("list", "pref.list.taSpecial", () => CheckRow("pref.list.taSpecial",
             AppSettings.View.TypeAheadSpecialChars, v => AppSettings.View.TypeAheadSpecialChars = v)),
         new("list", "pref.list.taSpace", () => CheckRow("pref.list.taSpace",
@@ -470,32 +470,84 @@ public sealed partial class PreferencesWindow : Window
         ("pref.list.typeahead.visible", AppSettings.View.TypeAheadScope == 2, () => AppSettings.View.TypeAheadScope = 2),
     });
 
-    /// <summary>타입어헤드 검색어 HUD 위치(3×3) — 콤보(enum HudPosition 순서와 1:1).</summary>
-    private FrameworkElement HudPositionCombo()
+    /// <summary>타입어헤드 검색어 HUD 위치(3×3) — <b>매트릭스 타일 피커</b>: 각 타일은 미니 패널 안의
+    /// 배지 점 위치를 그대로 보여주고(머티리얼풍 라운드·강조색 선택), 클릭으로 선택·즉시 반영.</summary>
+    private FrameworkElement HudPositionPicker()
     {
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var combo = new ComboBox
+        var root = new StackPanel { Spacing = 6 };
+        root.Children.Add(new TextBlock { Text = Loc.T("pref.list.hudPos"), Opacity = 0.7 });
+
+        var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3D, 0x8B, 0xFF));      // NexaAccent
+        var accentSoft = new SolidColorBrush(Windows.UI.Color.FromArgb(0x2E, 0x3D, 0x8B, 0xFF));
+        var idleBorder = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0x80, 0x80, 0x80));
+        var idleDot = new SolidColorBrush(Windows.UI.Color.FromArgb(0x99, 0x80, 0x80, 0x80));
+
+        string[] tipKeys =
         {
-            ItemsSource = new[]
-            {
-                Loc.T("pos.topLeft"), Loc.T("pos.top"), Loc.T("pos.topRight"),
-                Loc.T("pos.left"), Loc.T("pos.center"), Loc.T("pos.right"),
-                Loc.T("pos.bottomLeft"), Loc.T("pos.bottom"), Loc.T("pos.bottomRight"),
-            },
-            SelectedIndex = (int)AppSettings.View.TypeAheadHudPosition,
-            Width = 180,
+            "pos.topLeft", "pos.top", "pos.topRight",
+            "pos.left", "pos.center", "pos.right",
+            "pos.bottomLeft", "pos.bottom", "pos.bottomRight",
         };
-        combo.SelectionChanged += (_, _) =>
+        var grid = new Grid { ColumnSpacing = 6, RowSpacing = 6, HorizontalAlignment = HorizontalAlignment.Left };
+        for (int i = 0; i < 3; i++)
         {
-            if (combo.SelectedIndex >= 0)
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        }
+
+        var tiles = new (Button Tile, Border Dot)[9];
+        void Refresh()
+        {
+            int sel = (int)AppSettings.View.TypeAheadHudPosition;
+            for (int i = 0; i < 9; i++)
             {
-                AppSettings.View.TypeAheadHudPosition = (HudPosition)combo.SelectedIndex;
-                Changed();
+                bool on = i == sel;
+                tiles[i].Tile.Background = on ? accentSoft : new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                tiles[i].Tile.BorderBrush = on ? accent : idleBorder;
+                tiles[i].Dot.Background = on ? accent : idleDot;
             }
-        };
-        panel.Children.Add(combo);
-        panel.Children.Add(new TextBlock { Text = Loc.T("pref.list.hudPos"), Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center });
-        return panel;
+        }
+
+        for (int i = 0; i < 9; i++)
+        {
+            int idx = i;
+            var dot = new Border
+            {
+                Width = 9,
+                Height = 9,
+                CornerRadius = new CornerRadius(2.5),
+                Margin = new Thickness(4),
+                HorizontalAlignment = (i % 3) switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right },
+                VerticalAlignment = (i / 3) switch { 0 => VerticalAlignment.Top, 1 => VerticalAlignment.Center, _ => VerticalAlignment.Bottom },
+            };
+            var tile = new Button
+            {
+                Width = 48,
+                Height = 34,
+                Padding = new Thickness(0),
+                MinWidth = 0,
+                MinHeight = 0,
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch,
+                Content = dot,
+            };
+            ToolTipService.SetToolTip(tile, Loc.T(tipKeys[i]));
+            tile.Click += (_, _) =>
+            {
+                AppSettings.View.TypeAheadHudPosition = (HudPosition)idx;
+                Refresh();
+                Changed();
+            };
+            Grid.SetRow(tile, i / 3);
+            Grid.SetColumn(tile, i % 3);
+            grid.Children.Add(tile);
+            tiles[i] = (tile, dot);
+        }
+        Refresh();
+        root.Children.Add(grid);
+        return root;
     }
 
     // ── 탭 ───────────────────────────────────────────────────────────
