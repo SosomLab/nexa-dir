@@ -104,6 +104,13 @@ public sealed partial class PreferencesWindow : Window
         new("list", "pref.list.typeahead", TypeAheadRadios),
         new("list", "pref.list.typeaheadTimeout", () => NumberRow("pref.list.typeaheadTimeout",
             AppSettings.View.TypeAheadTimeoutMs, 200, 5000, 100, v => AppSettings.View.TypeAheadTimeoutMs = (long)v)),
+        new("list", "pref.list.hudPos", HudPositionCombo),
+        new("list", "pref.list.taSpecial", () => CheckRow("pref.list.taSpecial",
+            AppSettings.View.TypeAheadSpecialChars, v => AppSettings.View.TypeAheadSpecialChars = v)),
+        new("list", "pref.list.taSpace", () => CheckRow("pref.list.taSpace",
+            AppSettings.View.TypeAheadSpace, v => AppSettings.View.TypeAheadSpace = v)),
+        new("list", "pref.list.taBackspace", () => CheckRow("pref.list.taBackspace",
+            AppSettings.View.TypeAheadBackspace, v => AppSettings.View.TypeAheadBackspace = v)),
         // 탭
         new("tabs", "pref.tabs.doubleClick", TabDoubleClickCombo),
         // 도구 모음(docs/44) — 그룹/항목 순서 편집기
@@ -462,6 +469,34 @@ public sealed partial class PreferencesWindow : Window
         ("pref.list.typeahead.current", AppSettings.View.TypeAheadScope == 1, () => AppSettings.View.TypeAheadScope = 1),
         ("pref.list.typeahead.visible", AppSettings.View.TypeAheadScope == 2, () => AppSettings.View.TypeAheadScope = 2),
     });
+
+    /// <summary>타입어헤드 검색어 HUD 위치(3×3) — 콤보(enum HudPosition 순서와 1:1).</summary>
+    private FrameworkElement HudPositionCombo()
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var combo = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                Loc.T("pos.topLeft"), Loc.T("pos.top"), Loc.T("pos.topRight"),
+                Loc.T("pos.left"), Loc.T("pos.center"), Loc.T("pos.right"),
+                Loc.T("pos.bottomLeft"), Loc.T("pos.bottom"), Loc.T("pos.bottomRight"),
+            },
+            SelectedIndex = (int)AppSettings.View.TypeAheadHudPosition,
+            Width = 180,
+        };
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedIndex >= 0)
+            {
+                AppSettings.View.TypeAheadHudPosition = (HudPosition)combo.SelectedIndex;
+                Changed();
+            }
+        };
+        panel.Children.Add(combo);
+        panel.Children.Add(new TextBlock { Text = Loc.T("pref.list.hudPos"), Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center });
+        return panel;
+    }
 
     // ── 탭 ───────────────────────────────────────────────────────────
     private FrameworkElement TabDoubleClickCombo()

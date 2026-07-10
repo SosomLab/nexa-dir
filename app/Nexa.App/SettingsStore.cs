@@ -96,6 +96,10 @@ internal sealed class ViewSettings
     public int FolderDwellMs { get; set; } = 3000;
     public uint TypeAheadScope { get; set; } = 2;
     public long TypeAheadTimeoutMs { get; set; } = 1000;
+    public HudPosition TypeAheadHudPosition { get; set; } = HudPosition.BottomLeft;
+    public bool TypeAheadSpecialChars { get; set; } = true;
+    public bool TypeAheadSpace { get; set; } = true;
+    public bool TypeAheadBackspace { get; set; } = true;
 }
 
 /// <summary>컨텍스트 메뉴 커스텀 항목(docs/38 §7).</summary>
@@ -279,6 +283,10 @@ internal sealed class SettingsStore
         v.FolderDwellMs = s.View.FolderDwellMs;
         v.TypeAheadScope = s.View.TypeAheadScope;
         v.TypeAheadTimeoutMs = s.View.TypeAheadTimeoutMs;
+        v.TypeAheadHudPosition = s.View.TypeAheadHudPosition;
+        v.TypeAheadSpecialChars = s.View.TypeAheadSpecialChars;
+        v.TypeAheadSpace = s.View.TypeAheadSpace;
+        v.TypeAheadBackspace = s.View.TypeAheadBackspace;
 
         var m = AppSettings.Menu;
         m.DisabledItems.Clear();
@@ -339,6 +347,10 @@ internal sealed class SettingsStore
                 FolderDwellMs = v.FolderDwellMs,
                 TypeAheadScope = v.TypeAheadScope,
                 TypeAheadTimeoutMs = v.TypeAheadTimeoutMs,
+                TypeAheadHudPosition = v.TypeAheadHudPosition,
+                TypeAheadSpecialChars = v.TypeAheadSpecialChars,
+                TypeAheadSpace = v.TypeAheadSpace,
+                TypeAheadBackspace = v.TypeAheadBackspace,
             },
             Menu = new MenuSettings
             {

@@ -92,7 +92,8 @@ public sealed partial class MainWindow : Window
         _left = new PanelView { IsLeft = true, Grid = DirGrid, Header = DirHeader, PathBar = PathBarL, TabStrip = LeftTabs };
         _right = new PanelView { IsLeft = false, Grid = DirGrid2, Header = DirHeader2, PathBar = PathBarR, TabStrip = RightTabs };
         ApplyPathHeaderVisibility();   // 경로·항목 수 헤더 기본 감춤(표시 메뉴 토글, 설정 UI 후속)
-        ApplyTheme();                  // 테마 모드 적용(기본 라이트 — docs/39, 구성 메뉴에서 전환)
+        ApplyHudPosition();            // 타입어헤드 HUD 위치(설정, 기본 좌하)
+        ApplyTheme();                  // 테마 모드 적용(기본 System — docs/39, 구성 메뉴에서 전환)
         ApplyFonts();                  // 설정 글꼴 6종 슬롯 적용(메뉴/경로/상태바/목록/헤더/하단, PREF-3)
         InitContextMenuRegistry();     // 커스텀 컨텍스트 메뉴 항목 레지스트리(docs/38 §7)
         // 패널별 폴더 감시 → 변경 시 그 패널 자동 갱신(외부 앱/타 패널 작업 반영, B-12w).
@@ -206,6 +207,7 @@ public sealed partial class MainWindow : Window
         ApplyFonts();         // 글꼴 슬롯 라이브 적용(PREF-3)
         BuildToolbar();       // 도구 모음 그룹/항목 순서 라이브 반영(docs/44)
         ApplyPathHeaderVisibility();
+        ApplyHudPosition();   // 타입어헤드 HUD 위치(3×3) 라이브 반영
         SyncViewMenuChecks();
         // 생성자에서 1회만 읽던 dwell 시간(B-15h)도 라이브 재반영.
         _tabDwellTimer.Interval = TimeSpan.FromMilliseconds(AppSettings.View.TabDwellMs);
@@ -421,6 +423,35 @@ public sealed partial class MainWindow : Window
     /// <c>find_prefix</c>로 매치 가시 인덱스를 찾아 <b>단일 선택+캐럿+스크롤</b>. 편집 중·수정키(Ctrl/Alt)·
     /// Space·제어문자는 제외(선택 토글 등은 <see cref="OnGridKeyDown"/>가 처리). 범위/타임아웃=설정값.
     /// </summary>
+    /// <summary>타입어헤드 HUD(EphemeralOverlay) 위치 적용 — 설정 3×3 격자(docs/32 §7-A). 가장자리 여백 20/14px.</summary>
+    private void ApplyHudPosition()
+    {
+        var pos = AppSettings.View.TypeAheadHudPosition;
+        HorizontalAlignment h = pos switch
+        {
+            HudPosition.TopLeft or HudPosition.MiddleLeft or HudPosition.BottomLeft => HorizontalAlignment.Left,
+            HudPosition.TopRight or HudPosition.MiddleRight or HudPosition.BottomRight => HorizontalAlignment.Right,
+            _ => HorizontalAlignment.Center,
+        };
+        VerticalAlignment v = pos switch
+        {
+            HudPosition.TopLeft or HudPosition.TopCenter or HudPosition.TopRight => VerticalAlignment.Top,
+            HudPosition.BottomLeft or HudPosition.BottomCenter or HudPosition.BottomRight => VerticalAlignment.Bottom,
+            _ => VerticalAlignment.Center,
+        };
+        var margin = new Thickness(
+            h == HorizontalAlignment.Left ? 20 : 0,
+            v == VerticalAlignment.Top ? 14 : 0,
+            h == HorizontalAlignment.Right ? 20 : 0,
+            v == VerticalAlignment.Bottom ? 14 : 0);
+        foreach (var hud in new[] { TypeAheadHudL, TypeAheadHudR })
+        {
+            hud.HorizontalAlignment = h;
+            hud.VerticalAlignment = v;
+            hud.Margin = margin;
+        }
+    }
+
     /// <summary>KeyDown → 타입어헤드 문자 변환(미국식 배열 기준). 파일명에 못 쓰는 문자
     /// (\ / : * ? " &lt; &gt; |)는 제외('\0'). Space는 호출부가 진행 중일 때만 통과시킨다.</summary>
     private static char TypeAheadKeyToChar(VirtualKey key, bool shift) => key switch
@@ -3926,9 +3957,19 @@ public sealed partial class MainWindow : Window
         if (!IsCtrlDown() && !IsAltDown())
         {
             char ch = TypeAheadKeyToChar(e.Key, IsShiftDown());
-            if (ch == ' ' && (_activeLeft ? TypeAheadHudL : TypeAheadHudR).Visibility != Visibility.Visible)
+            var ta = AppSettings.View;
+            if (ch == '\b' && !ta.TypeAheadBackspace)
             {
-                ch = '\0';   // 진행 중 접두사 없으면 Space는 선택 토글로(아래 space 분기)
+                ch = '\0';   // 설정: Backspace 미적용
+            }
+            else if (ch == ' ' && (!ta.TypeAheadSpace
+                || (_activeLeft ? TypeAheadHudL : TypeAheadHudR).Visibility != Visibility.Visible))
+            {
+                ch = '\0';   // 설정 OFF 또는 진행 중 접두사 없음 → Space는 선택 토글로(아래 space 분기)
+            }
+            else if (ch != '\0' && ch != '\b' && ch != ' ' && !char.IsLetterOrDigit(ch) && !ta.TypeAheadSpecialChars)
+            {
+                ch = '\0';   // 설정: 영숫자만
             }
             if (ch != '\0' && TypeAheadChar(_activeLeft, ch))
             {
