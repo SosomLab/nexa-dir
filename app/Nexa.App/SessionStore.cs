@@ -230,10 +230,7 @@ internal sealed class SessionStore
         }
     }
 
-    /// <summary>세션 파일 표준 경로: <c>%LOCALAPPDATA%\NexaDir\session.json</c>(일반 설정과 별도 파일).</summary>
-    public static string DefaultPath()
-    {
-        string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(root, "NexaDir", "session.json");
-    }
+    /// <summary>세션 파일 표준 경로: <c>%LOCALAPPDATA%\NexaDir\session.json</c>(일반 설정과 별도 파일).
+    /// 포터블 모드(docs/12 §3)=<c>exe\data\session.json</c> — <see cref="AppPaths"/>가 분기.</summary>
+    public static string DefaultPath() => Path.Combine(AppPaths.LocalRoot, "session.json");
 }
