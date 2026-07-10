@@ -50,13 +50,13 @@ public partial class App : Application
         }
     }
 
-    /// <summary>미처리 예외를 크래시 로그에 기록(경로: %LOCALAPPDATA%\NexaDir\crash.log). 실패해도 무시.</summary>
+    /// <summary>미처리 예외를 크래시 로그에 기록(경로: %LOCALAPPDATA%\NexaDir\crash.log,
+    /// 포터블=exe\data\crash.log). 실패해도 무시.</summary>
     private static void LogCrash(string source, Exception? ex)
     {
         try
         {
-            string dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NexaDir");
+            string dir = AppPaths.LocalRoot;
             Directory.CreateDirectory(dir);
             File.AppendAllText(
                 Path.Combine(dir, "crash.log"),

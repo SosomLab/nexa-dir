@@ -22,9 +22,8 @@ internal static class LangCatalog
     /// <summary>설치 폴더 <c>lang/</c>(exe 옆). 배포 산출물.</summary>
     private static string InstallDir => Path.Combine(AppContext.BaseDirectory, "lang");
 
-    /// <summary>사용자 폴더 <c>%APPDATA%/NexaDir/lang/</c>. 추가·오버라이드용(우선).</summary>
-    private static string UserDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NexaDir", "lang");
+    /// <summary>사용자 폴더 <c>%APPDATA%/NexaDir/lang/</c>(포터블=<c>exe/data/lang/</c>). 추가·오버라이드용(우선).</summary>
+    private static string UserDir => Path.Combine(AppPaths.RoamingRoot, "lang");
 
     /// <summary>병합 우선 순서(낮음→높음): 설치 → 사용자(뒤가 이김).</summary>
     private static IEnumerable<string> DirsLowToHigh()

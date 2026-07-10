@@ -363,10 +363,7 @@ internal sealed class SettingsStore
         };
     }
 
-    /// <summary>설정 파일 표준 경로: <c>%APPDATA%\NexaDir\settings.json</c>(로밍 — 세션과 별도).</summary>
-    public static string DefaultPath()
-    {
-        string root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(root, "NexaDir", "settings.json");
-    }
+    /// <summary>설정 파일 표준 경로: <c>%APPDATA%\NexaDir\settings.json</c>(로밍 — 세션과 별도).
+    /// 포터블 모드(docs/12 §3)=<c>exe\data\settings.json</c> — <see cref="AppPaths"/>가 분기.</summary>
+    public static string DefaultPath() => Path.Combine(AppPaths.RoamingRoot, "settings.json");
 }

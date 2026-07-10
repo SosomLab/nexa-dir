@@ -10,6 +10,8 @@
     <RootNamespace>Nexa.Plugins.Samples</RootNamespace>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- RID 게시 지원(포터블 self-contained, docs/12) — 앱 publish의 RID 경로 .pri 요구(PRI252) 대응 -->
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 

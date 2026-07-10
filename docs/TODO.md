@@ -154,5 +154,9 @@
 | ID | 항목 | 우선 | 규모 | 의존 | 상태 |
 |---|---|---|---|---|---|
 | PREF-9 | **재시작 필요 설정 변경 시 확인창 + 자동 재시작** — 언어 변경 등 재시작이 필요한 설정을 바꾸면 확인 다이얼로그(지금 재시작/나중에)를 띄우고, 승인 시 앱이 스스로 재시작(`AppInstance.Restart()` — 미패키지 실행이면 프로세스 재기동 폴백). 재시작 필요 여부는 설정 항목별 판정 위임으로 선언. 메커니즘=[docs/40 §9](40-preferences-system.md) | P2 | 소~중 | PREF-1 | ✅ (07-10 PR#14 `e87166d` — 실기QA 대기) |
+| PKG-1 | **Portable-ready 경로 분기**([12 §3](12-packaging-portable.md)) — `AppPaths` 단일 원천: `portable.ini`/`--portable` 감지 시 설정·세션·언어팩·crash.log = `exe\data\` | P1 | 소~중 | — | 🚧 구현·자체검증(07-10) · 실기QA 대기 |
+| PKG-2 | **포터블 zip 산출**(`scripts/make-portable.ps1`) — self-contained 게시(런타임 번들)+검증+마커+zip. 게시 특수 대응 3건(csproj 타겟) = [12 §7](12-packaging-portable.md) | P1 | 중 | PKG-1 | 🚧 구현·자체검증(07-10, x64 ≈64MB) |
+| PKG-3 | **CI `package` job** — 태그·수동 실행 시 포터블 zip 아티팩트 업로드 | P2 | 소 | PKG-2 | 🚧 구현(07-10) · CI 확인 대기 |
+| PKG-4 | **MSIX + 서명**(DR-3 1차) — 패키징 프로젝트/매니페스트 + 인증서 전략([12 §6](12-packaging-portable.md), 비밀=커밋 금지) + winget. 단일 exe(self-extract)도 후속 | P2 | 대 | — | ☐ 인증서 결정 필요 |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->

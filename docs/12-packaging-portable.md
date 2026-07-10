@@ -60,3 +60,15 @@ Actions (windows-latest)
 ## 6. 미해결
 - 단일 exe(self-extract)에서 WinUI 3 네이티브 활성화 완전동작 여부 → 패키징 스파이크로 확인.
 - 코드 서명 인증서 전략(포터블 exe도 서명 권장) → 배포 전 결정(OD3/서명).
+- **MSIX**: 패키징 프로젝트/매니페스트 + 서명(secrets) — 인증서 전략 결정 후 착수(PKG-4).
+- 포터블 게시 1회에서 시작 중 `0xC0000374`(힙 손상) 플레이키 크래시 1건 관찰(4회 중 1회, 재현 안 됨) — QA 관찰 항목.
+
+## 7. 구현 현황 (2026-07-10 · `feat/packaging-portable` — 포터블 폴더 1차)
+
+- **PKG-1 Portable-ready 경로 분기(§3-2)**: [`AppPaths`](../app/Nexa.App/AppPaths.cs) 신설 — exe 옆 `portable.ini` 또는 `--portable` 감지 시 설정·세션·사용자 언어팩·crash.log가 전부 `<exe>\data\`(미감지=표준 %APPDATA%·%LOCALAPPDATA%). 위치 맵 [43 §1](43-external-files-and-config.md).
+- **PKG-2 산출 스크립트**: `scripts/make-portable.ps1` — self-contained 게시(.NET+**WinAppSDK 런타임 번들**, 머신 설치 불요) + 필수 산출 검증 + `portable.ini` 동봉 + `dist/NexaDir-<ver>-portable-<rid>.zip`(x64 ≈64MB, arm64는 `-Rid`).
+- **PKG-3 CI**: `package` job(windows) — 태그 push·workflow_dispatch 시 zip 아티팩트 업로드.
+- **자체 검증(이 PC)**: zip 추출 → 실행 → 정상 기동 → 종료 시 `data\settings.json`·`session.json` 생성, %APPDATA% 미오염 확인.
+- **§2 과제 실측 2건**(빌드 트릭, csproj 게시 타겟으로 해소):
+  1. **NETSDK1152**(중복 게시 파일) — 참조 WinUI 라이브러리들이 각자 WinAppSDK `MsixContent` 사본을 내놓음 → 내용 동일하므로 `ErrorOnDuplicatePublishOutputFiles=false`(게시 한정)로 무해화. 라이브러리 3종에 `RuntimeIdentifiers` 선언 필요(PRI252 대응).
+  2. **라이브러리 XAML 미해석 크래시** — x64 Release 생성 코드가 루트 URI(`ms-appx:///NexaMenuBar.xaml`)를 쓰는데 `WindowsAppSDKSelfContained` 게시에선 pri 해석 실패 → **loose `.xaml`을 게시 루트에 사본 배치**(폴백 실측 동작, `PublishLooseXamlAssets` 타겟). FD(런타임 설치 의존) 게시는 이 문제 없음.

@@ -86,5 +86,22 @@
   <Target Name="CopyNexaInterop" AfterTargets="Build" DependsOnTargets="BuildNexaInterop">
     <Copy SourceFiles="$(NexaInteropDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
+  <!-- publish는 빌드 출력 그룹만 복사하므로 수동 복사분(nexa_interop.dll)을 별도 포함(포터블 zip, docs/12) -->
+  <Target Name="PublishNexaInterop" AfterTargets="Publish" DependsOnTargets="BuildNexaInterop">
+    <Copy SourceFiles="$(NexaInteropDll)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <!-- 참조 WinUI 라이브러리의 loose XAML 자원(Nexa.Controls\*.xaml)과 XBF 마커가 publish 복사에서
+       빠져 ms-appx 해석이 실패(XamlParseException: Cannot locate resource) — 빌드 출력에서 보충.
+       ★ 루트 사본 필수: x64 Release의 라이브러리 생성 코드는 루트 URI(ms-appx:///NexaMenuBar.xaml)를 쓰는데,
+       WindowsAppSDKSelfContained 게시에선 pri 해석이 안 돼 exe 옆 loose 파일 폴백만 동작(실측, docs/12 §6). -->
+  <Target Name="PublishLooseXamlAssets" AfterTargets="Publish">
+    <ItemGroup>
+      <_LooseLibXaml Include="$(OutDir)Nexa.Controls\**\*" />
+      <_LooseXbf Include="$(OutDir)**\*.xbf" Exclude="$(OutDir)publish-*\**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_LooseLibXaml)" DestinationFolder="$(PublishDir)Nexa.Controls\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_LooseLibXaml)" DestinationFolder="$(PublishDir)" Condition="'%(Extension)' == '.xaml' or '%(Extension)' == '.xbf'" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_LooseXbf)" DestinationFolder="$(PublishDir)%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

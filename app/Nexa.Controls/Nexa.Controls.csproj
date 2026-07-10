@@ -10,6 +10,8 @@
     <UseWinUI>true</UseWinUI>
     <!-- WinUI 라이브러리의 PRI 생성 도구 경로 활성(앱과 동일) — 없으면 MSB4062(ExpandPriContent) -->
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- RID 게시 지원(포터블 self-contained, docs/12) — 없으면 앱 publish가 RID 경로 .pri를 못 찾음(PRI252) -->
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 

@@ -139,9 +139,21 @@ cargo deny --manifest-path core/Cargo.toml check licenses bans advisories
 | `license-gate` | ubuntu-latest | `cargo deny check licenses bans advisories` |
 | `viewmodels` | ubuntu-latest | `dotnet test app/Nexa.ViewModels.Tests -c Release` (크로스플랫폼 C# 로직, 감사 B-1) |
 | `app` | windows-latest | Rust 툴체인 설치(인터롭 빌드용) → `dotnet restore` → `dotnet build app/Nexa.App -c Release --no-restore`(cargo로 nexa-interop 자동 빌드 포함) |
+| `package` | windows-latest | `pwsh scripts/make-portable.ps1` → 포터블 zip 아티팩트 업로드. **태그 push·workflow_dispatch 시만**([12 §7](12-packaging-portable.md)) |
 
-- 트리거: `main` push · 모든 PR. main은 항상 green 유지.
-- 후속: MSIX 패키징 + 서명(secrets) + 포터블 산출 → Releases 업로드([12](12-packaging-portable.md)).
+- 트리거: `main` push · 모든 PR · 태그(`*.*.*`) push · workflow_dispatch. main은 항상 green 유지.
+- 후속: MSIX 패키징 + 서명(secrets) → Releases 업로드([12 §6](12-packaging-portable.md)).
+
+## 4-1. 포터블 패키징 — 로컬 산출 (PKG-2, [12 §7](12-packaging-portable.md))
+
+```powershell
+pwsh scripts/make-portable.ps1              # → dist/NexaDir-<ver>-portable-win-x64.zip (≈64MB)
+pwsh scripts/make-portable.ps1 -Rid win-arm64
+```
+
+- self-contained 게시(.NET+WinAppSDK 런타임 번들 — 실행 머신에 런타임 설치 불요) + `portable.ini` 동봉(영속물=압축 해제 폴더의 `data\`, [43 §1](43-external-files-and-config.md)).
+- 게시 특수 대응은 csproj 타겟이 자동 처리: `PublishNexaInterop`(인터롭 dll)·`PublishLooseXamlAssets`(라이브러리 XAML 루트 사본 — self-contained pri 미해석 폴백) + `ErrorOnDuplicatePublishOutputFiles=false`(NETSDK1152 무해화). 배경 [12 §7](12-packaging-portable.md).
+- 스모크: zip 추출 → `Nexa.App.exe` 실행 → 종료 후 `data\settings.json`·`session.json` 생성 확인.
 
 ## 5. tools/ — (예정, M7)
 

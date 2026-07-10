@@ -42,6 +42,8 @@
 
 **로밍 vs 로컬 원칙**: `settings.json`은 사람의 취향(테마·언어)이라 **여러 PC 로밍**이 자연스러움(%APPDATA%). `session.json`은 그 PC의 창/탭·열린 폴더 절대경로라 **머신 로컬**(%LOCALAPPDATA%). 상세·근거 → [34 §1](34-settings-and-session-persistence.md).
 
+**포터블 모드(PKG-1, [12 §3](12-packaging-portable.md))**: exe 옆 `portable.ini` 존재 또는 `--portable` 인자 시 위 **로밍·로컬이 전부 `<exe>\data\`로 수렴**(settings.json·session.json·lang\·crash.log — USB/공유폴더 자기완결, 레지스트리/AppData 비사용). 분기 단일 원천 = [`AppPaths`](../app/Nexa.App/AppPaths.cs)(신규 영속 경로는 반드시 이를 경유).
+
 ## 2. 자원별 위치·기능 요약 (상세는 소유 문서)
 
 | 자원 | 물리 위치 | 기능 | 엔진/코드 | 상세 |
