@@ -154,6 +154,15 @@ public sealed partial class BottomDockView : UserControl
         };
     }
 
+    /// <summary>터미널 탭으로 전환 후 셸 작업 디렉터리를 <paramref name="folder"/>로 이동(cd) —
+    /// 도구 모음 "터미널 위치 이동". 미생성이면 생성·시작 후 전송(TerminalView pending).</summary>
+    public void TerminalCdTo(string folder)
+    {
+        Kind = BottomPanelKind.Terminal;   // Render → EnsureTerminal(생성·시작)
+        EnsureTerminal();                  // Kind가 이미 Terminal이어도 보장(멱등)
+        _terminalView?.ChangeDirectory(folder);
+    }
+
     // ── 터미널 lazy 로딩(BP-T) ────────────────────────────────────────
     private TerminalView? _terminalView;
 

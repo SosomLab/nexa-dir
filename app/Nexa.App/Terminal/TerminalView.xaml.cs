@@ -46,6 +46,26 @@ public sealed partial class TerminalView : UserControl
     /// <summary>셸 (재)시작 시 작업 디렉터리를 반환(호스트가 선택 탭 폴더 제공). (재)시작 시점 값만 사용 — 이후 폴더 변경/탭 이동은 무영향.</summary>
     public Func<string?>? WorkingDirectoryProvider { get; set; }
 
+    private string? _pendingInput;   // 세션 시작 전 요청된 입력(cd 등) — 시작 직후 전송
+
+    /// <summary>실행 중인 셸의 작업 디렉터리를 <paramref name="folder"/>로 변경(cd 입력 전송) —
+    /// 도구 모음 "터미널 위치 이동". 세션이 아직 없으면 시작 후 전송(pending). cmd는 드라이브 전환에 /d 필요.</summary>
+    public void ChangeDirectory(string folder)
+    {
+        bool cmd = ConPtySession.DefaultShell().StartsWith("cmd", StringComparison.OrdinalIgnoreCase);
+        string input = (cmd ? $"cd /d \"{folder}\"" : $"cd \"{folder}\"") + "\r";
+        if (_session is not null)
+        {
+            _session.Write(input);
+            FocusSoon();
+        }
+        else
+        {
+            _pendingInput = input;   // StartSession 완료 직후 전송
+            Start();
+        }
+    }
+
     public TerminalView()
     {
         InitializeComponent();
@@ -142,6 +162,11 @@ public sealed partial class TerminalView : UserControl
             session.Exited += OnSessionExited;
             _session = session;
             session.Start(ConPtySession.DefaultShell(), string.IsNullOrEmpty(cwd) ? null : cwd, (short)cols, (short)rows);
+            if (_pendingInput is string pending)   // 시작 전 요청된 입력(cd 등) — ConPTY가 버퍼링
+            {
+                _pendingInput = null;
+                session.Write(pending);
+            }
         }
         catch (Exception ex)
         {

@@ -1437,8 +1437,11 @@ public sealed partial class MainWindow : Window
             // 경로 복사(Copy as path) — 셸의 "copyaspath"를 제자리 대체(ReplaceVerb). 셸 항목은 단일 부모
             // 폴더로 축소되나(교차폴더 미지원, S1), 이 고유 항목은 c.Targets(전체 선택)을 직접 클립보드로.
             // Alt=POSIX(/)·따옴표 없이. 셸이 verb를 안 내면(예: Shift 없이 Win10) 고유 섹션에 폴백.
-            new("copy-as-path", "Copy as path", 50,
+            new("copy-as-path", Loc.T("ctx.copyAsPath"), 50,
                 _ => true, _ => true, c => CopyPathsAsText(c.Targets, c.Alt), ReplaceVerb: "copyaspath"),
+            // 파일명만 복사 — Copy as path와 동일 대상 규칙(교차폴더 전체 선택·한 줄에 하나), 내용만 리프 이름.
+            new("copy-as-filename", Loc.T("ctx.copyAsFilename"), 60,
+                _ => true, _ => true, c => CopyFileNamesAsText(c.Targets)),
             new("paste-into", Loc.T("ctx.pasteInto"), 100,
                 c => c.Item.IsDir, _ => CanPaste(), c => PasteIntoDir(c.Left, c.Item.FullPath)),
             new("rename", Loc.T("ctx.rename"), 200,
@@ -1493,6 +1496,43 @@ public sealed partial class MainWindow : Window
             }
         }
         return (section, replacements);
+    }
+
+    /// <summary>선택 항목의 <b>파일명(리프)만</b> 클립보드로 — 한 줄에 하나(Copy as path와 동일 대상 규칙).</summary>
+    private void CopyFileNamesAsText(IReadOnlyList<string> targets)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        string text = string.Join("\r\n", targets.Select(p => Path.GetFileName(Path.TrimEndingDirectorySeparator(p))));
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = Loc.T("status.namesCopied", targets.Count);
+        }
+        catch
+        {
+            // 클립보드 미가용 격리 — 앱 동작 방해 금지
+        }
+    }
+
+    /// <summary>임의 텍스트를 클립보드로(탭 메뉴 폴더 이름/경로 복사 등) — 상태바 피드백 포함.</summary>
+    private void CopyTextToClipboard(string text)
+    {
+        try
+        {
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+            StatusText.Text = Loc.T("tab.copied", text);
+        }
+        catch
+        {
+            // 클립보드 미가용 격리
+        }
     }
 
     /// <summary>선택 경로들(교차폴더 전체)을 클립보드 텍스트로 — 한 줄에 하나.
@@ -1845,9 +1885,10 @@ public sealed partial class MainWindow : Window
     private readonly record struct LauncherTool(string Label, string Exe, string Args);
 
     /// <summary>도구 모음 항목 — <see cref="IsOn"/>이 있으면 토글(ToggleButton), 켜짐/꺼짐을
-    /// 강조 배경 + 글리프 교체(<see cref="OffGlyph"/>, 없으면 동일 글리프 흐림)로 표시.</summary>
+    /// 강조 배경 + 글리프 교체(<see cref="OffGlyph"/>, 없으면 동일 글리프 흐림)로 표시.
+    /// <see cref="Attached"/>=직전 버튼에 밀착(간격 제거)하는 정사각 보조 버튼.</summary>
     private sealed record ToolbarItemDef(string Id, string Glyph, string LabelKey, Action Invoke,
-        Func<bool>? IsOn = null, string? OffGlyph = null);
+        Func<bool>? IsOn = null, string? OffGlyph = null, bool Attached = false);
 
     /// <summary>도구 모음 그룹 — 그룹 사이는 세로 구분선.</summary>
     private sealed record ToolbarGroupDef(string Id, string LabelKey, IReadOnlyList<ToolbarItemDef> Items);
@@ -1864,6 +1905,8 @@ public sealed partial class MainWindow : Window
             new("tools", "toolbar.group.tools", new List<ToolbarItemDef>
             {
                 new("terminal", "", "toolbar.terminal", OpenTerminalHere),   // CommandPrompt
+                // 터미널 위치 이동(정사각, 터미널 버튼에 밀착) — 활성 탭 폴더로 cd
+                new("terminal-cd", "", "toolbar.terminalCd", TerminalCdToCurrentTab, Attached: true),
                 new("find", "", "toolbar.find", FindFilesStub),              // Search
                 new("rename", "", "toolbar.rename", RenameCaret),            // Rename
             }),
@@ -1965,7 +2008,8 @@ public sealed partial class MainWindow : Window
         FontSize = 16,
     };
 
-    /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.</summary>
+    /// <summary>도구 모음 버튼(내장 액션) — Segoe MDL2 16px 글리프 + 툴팁 + 클릭 액션.
+    /// Attached 항목은 직전 버튼에 밀착(호스트 Spacing 상쇄)하는 정사각(높이=너비) 보조 버튼.</summary>
     private void AddToolButton(ToolbarItemDef def)
     {
         var btn = new Button
@@ -1976,6 +2020,14 @@ public sealed partial class MainWindow : Window
             MinHeight = 0,
             MinWidth = 0,
         };
+        if (def.Attached)
+        {
+            btn.Margin = new Thickness(-4, 0, 0, 0);   // StackPanel Spacing(4) 상쇄 = 직전 버튼에 밀착
+            btn.Padding = new Thickness(0);
+            btn.Width = 22;    // 정사각(일반 버튼 높이와 동일)
+            btn.Height = 22;
+            ((FontIcon)btn.Content).FontSize = 12;
+        }
         ToolTipService.SetToolTip(btn, Loc.T(def.LabelKey));
         btn.Click += (_, _) => def.Invoke();
         ToolbarToolsHost.Children.Add(btn);
@@ -2062,6 +2114,25 @@ public sealed partial class MainWindow : Window
         string folder = Panel(_activeLeft).Active.Current;
         StatusText.Text = ToolLauncher.Launch(tool.Exe, tool.Args, folder)
             ? Loc.T("launcher.ran", tool.Label) : Loc.T("launcher.failed", tool.Label);
+    }
+
+    /// <summary>도구: 내장 하단 터미널의 작업 디렉터리를 활성 탭 폴더로 이동(cd) — 하단 패널·터미널 탭 자동 표시.</summary>
+    private void TerminalCdToCurrentTab()
+    {
+        string folder = Panel(_activeLeft).Active.Current;
+        if (string.IsNullOrEmpty(folder))
+        {
+            return;
+        }
+        if (!ShowBottomEntry.IsChecked)
+        {
+            ShowBottomEntry.IsChecked = true;
+            OnToggleTerminal(ShowBottomEntry, EventArgs.Empty);   // 하단 패널 표시
+        }
+        // 활성 패널 측 도킹(우 도킹은 듀얼+분리일 때만 존재 — 없으면 좌 도킹 폴백).
+        var dock = !_activeLeft && BottomRightDock.Visibility == Visibility.Visible ? BottomRightDockView : BottomLeftDockView;
+        dock.TerminalCdTo(folder);
+        StatusText.Text = Loc.T("tool.terminalCd", folder);
     }
 
     /// <summary>도구: 현재(활성 탭) 폴더에서 외부 터미널 열기.</summary>
@@ -3514,6 +3585,15 @@ public sealed partial class MainWindow : Window
         var newTab = new MenuFlyoutItem { Text = Loc.T("tabctx.new") };
         newTab.Click += (_, _) => AddTab(left);
         flyout.Items.Add(newTab);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // 탭 폴더 복사 — 이름(리프)만 / 전체 경로.
+        var copyName = new MenuFlyoutItem { Text = Loc.T("tabctx.copyName") };
+        copyName.Click += (_, _) => CopyTextToClipboard(FolderLabel(tab.Current));
+        flyout.Items.Add(copyName);
+        var copyPath = new MenuFlyoutItem { Text = Loc.T("tabctx.copyPath") };
+        copyPath.Click += (_, _) => CopyTextToClipboard(tab.Current);
+        flyout.Items.Add(copyPath);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked, KeyboardAcceleratorTextOverride = "Ctrl+W" };
