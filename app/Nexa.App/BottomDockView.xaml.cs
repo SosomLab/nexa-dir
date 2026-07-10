@@ -78,7 +78,8 @@ public sealed partial class BottomDockView : UserControl
 
     private BottomPanelKind _kind = BottomPanelKind.Info;
 
-    /// <summary>선택된 콘텐츠 종류.</summary>
+    /// <summary>선택된 콘텐츠 종류. 터미널로 <b>전환</b>될 때만 포커스를 준다(사용자 의도) —
+    /// 속성 갱신 재렌더(Render)는 포커스를 건드리지 않는다.</summary>
     public BottomPanelKind Kind
     {
         get => _kind;
@@ -89,6 +90,10 @@ public sealed partial class BottomDockView : UserControl
                 _kind = value;
                 SyncToggles();
                 Render();
+                if (value == BottomPanelKind.Terminal)
+                {
+                    _terminalView?.Start(focus: true);   // 전환 시에만 포커스(입력 준비)
+                }
                 KindChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -188,7 +193,10 @@ public sealed partial class BottomDockView : UserControl
     // ── 터미널 lazy 로딩(BP-T) ────────────────────────────────────────
     private TerminalView? _terminalView;
 
-    /// <summary>터미널 탭이 실제 활성화될 때만 TerminalView 생성 + 세션 시작(lazy). 이후 유지(탭 전환에도 세션 생존).</summary>
+    /// <summary>터미널 탭이 실제 활성화될 때만 TerminalView 생성 + 세션 시작(lazy). 이후 유지(탭 전환에도 세션 생존).
+    /// <b>포커스는 주지 않는다</b> — Render(속성 갱신 재렌더: 선택 변경 → InfoText 등)에서 매번 호출되므로
+    /// 여기서 포커스를 잡으면 파일 목록 클릭/방향키마다 터미널이 포커스를 훔친다(QA 버그). 포커스는
+    /// 사용자 의도가 명확한 지점(Kind 전환·TerminalCdTo)에서만.</summary>
     private void EnsureTerminal()
     {
         if (_terminalView is null)
@@ -213,7 +221,7 @@ public sealed partial class BottomDockView : UserControl
             };
             TerminalHost.Child = _terminalView;
         }
-        _terminalView.Start();   // 멱등(이미 시작이면 포커스만)
+        _terminalView.Start(focus: false);   // 멱등 — 재렌더 경로: 포커스 안 잡음(위 주석)
     }
 
     // ── 미리보기 렌더(BP-2) — 로딩 부하 방지 wrapper(디바운스·취소·중복 스킵). 공급자는 몰라도 됨 ─────
