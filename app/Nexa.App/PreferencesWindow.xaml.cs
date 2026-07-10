@@ -513,17 +513,17 @@ public sealed partial class PreferencesWindow : Window
             int idx = i;
             var dot = new Border
             {
-                Width = 9,
-                Height = 9,
-                CornerRadius = new CornerRadius(2.5),
-                Margin = new Thickness(4),
+                Width = 14,
+                Height = 14,
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(6),
                 HorizontalAlignment = (i % 3) switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right },
                 VerticalAlignment = (i / 3) switch { 0 => VerticalAlignment.Top, 1 => VerticalAlignment.Center, _ => VerticalAlignment.Bottom },
             };
             var tile = new Button
             {
-                Width = 48,
-                Height = 34,
+                Width = 64,    // 정사각 + 기존(48×34)의 약 1.5배
+                Height = 64,
                 Padding = new Thickness(0),
                 MinWidth = 0,
                 MinHeight = 0,
