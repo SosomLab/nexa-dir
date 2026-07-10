@@ -15,6 +15,17 @@
                    (암시적 TextBlock Style로 FontFamily를 주면 Style이 상속값을 이겨 설정 폰트가 무시되므로 금지.) -->
             <x:String x:Key="ContentControlThemeFontFamily">Segoe UI</x:String>
 
+            <!-- 플랫(고전) 컨텍스트 메뉴 프레젠터 — 사각·패널 배경·1px 테두리(둥근 아크릴 기본 룩 대체).
+                 코드에서 MenuFlyout.MenuFlyoutPresenterStyle로 지정(MainWindow.FlatMenu). -->
+            <Style x:Key="NexaMenuPresenterStyle" TargetType="MenuFlyoutPresenter">
+                <Setter Property="CornerRadius" Value="0" />
+                <Setter Property="Background" Value="{ThemeResource NexaPanelBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource NexaBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="0,2" />
+                <Setter Property="MinWidth" Value="200" />
+            </Style>
+
             <!-- ── Nexa 시맨틱 테마 토큰(docs/39) — 컴포넌트는 {ThemeResource Nexa*Brush}만 참조.
                  라이트/다크는 RequestedTheme(설정 Theme.Mode)로 전환. 값 변경은 여기 한 곳. ── -->
             <ResourceDictionary.ThemeDictionaries>

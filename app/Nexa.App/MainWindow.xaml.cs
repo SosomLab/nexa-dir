@@ -1603,6 +1603,12 @@ public sealed partial class MainWindow : Window
     }
 
 
+    /// <summary>플랫(고전) 컨텍스트 메뉴 — 사각·패널 배경 프레젠터 스타일(App.xaml NexaMenuPresenterStyle).</summary>
+    private static MenuFlyout FlatMenu() => new()
+    {
+        MenuFlyoutPresenterStyle = (Style)Application.Current.Resources["NexaMenuPresenterStyle"],
+    };
+
     /// <summary>셸 명령 실행 후 지연 패널 갱신 — 셸 동사는 비동기(확인창 등)라 약간 기다렸다 양쪽 재로드.
     /// (watcher 1차가 놓치는 케이스 보완. 근본은 B-12w.)</summary>
     private void ScheduleShellRefresh()
@@ -1633,10 +1639,11 @@ public sealed partial class MainWindow : Window
         panelItems.SetCaret(-1);
         UpdateSelectionCount(panelItems);
 
-        var flyout = new MenuFlyout();
-        var paste = new MenuFlyoutItem { Text = Loc.T("bg.paste"), IsEnabled = CanPaste() };
+        var flyout = FlatMenu();
+        var paste = new MenuFlyoutItem { Text = Loc.T("bg.paste"), IsEnabled = CanPaste(), KeyboardAcceleratorTextOverride = "Ctrl+V" };
         paste.Click += (_, _) => PasteInto(left);   // 현재 폴더로
         flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
 
         // 실행 취소/다시 실행(B-13u) — 탐색기 배경 메뉴 동일. 마지막 작업 설명 표기, 없으면 비활성.
         var undo = new MenuFlyoutItem
@@ -1671,7 +1678,16 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(newSub);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var refresh = new MenuFlyoutItem { Text = Loc.T("bg.refresh") };
+        // 파일 표시 토글(체크 표시) — 표시(S) 메뉴·도구 모음과 같은 설정(단일 경로 SetShow*).
+        var showHidden = new ToggleMenuFlyoutItem { Text = Loc.T("toolbar.showHidden"), IsChecked = AppSettings.View.ShowHiddenFiles };
+        showHidden.Click += (_, _) => SetShowHidden(showHidden.IsChecked);
+        flyout.Items.Add(showHidden);
+        var showDot = new ToggleMenuFlyoutItem { Text = Loc.T("toolbar.showDot"), IsChecked = AppSettings.View.ShowDotFiles };
+        showDot.Click += (_, _) => SetShowDotFiles(showDot.IsChecked);
+        flyout.Items.Add(showDot);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        var refresh = new MenuFlyoutItem { Text = Loc.T("bg.refresh"), KeyboardAcceleratorTextOverride = "F5" };
         refresh.Click += (_, _) => ReloadPanel(left);
         flyout.Items.Add(refresh);
 
@@ -3494,13 +3510,13 @@ public sealed partial class MainWindow : Window
         Panel(left).Grid.Focus(FocusState.Programmatic);
         var tabs = Panel(left).Tabs;
 
-        var flyout = new MenuFlyout();
+        var flyout = FlatMenu();
         var newTab = new MenuFlyoutItem { Text = Loc.T("tabctx.new") };
         newTab.Click += (_, _) => AddTab(left);
         flyout.Items.Add(newTab);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked };
+        var close = new MenuFlyoutItem { Text = Loc.T("tabctx.close"), IsEnabled = tabs.Count > 1 && !tab.IsLocked, KeyboardAcceleratorTextOverride = "Ctrl+W" };
         close.Click += (_, _) => CloseTab(left, tab);
         flyout.Items.Add(close);
         var closeOthers = new MenuFlyoutItem

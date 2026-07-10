@@ -1,4 +1,4 @@
-{
+﻿{
   "menu.file": "File(F)",
   "menu.file.newTab": "New Tab",
   "menu.file.newWindow": "New Window",
@@ -141,7 +141,7 @@
   "bg.newFolder": "Folder",
   "bg.newFile": "File",
   "bg.newShortcut": "Shortcut",
-  "bg.refresh": "Refresh (F5)",
+  "bg.refresh": "Refresh",
   "new.folderBase": "New folder",
   "new.fileBase": "New file",
   "new.shortcutBase": "New shortcut",

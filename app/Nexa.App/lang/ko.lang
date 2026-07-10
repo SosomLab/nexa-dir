@@ -1,4 +1,4 @@
-{
+﻿{
   "@code": "ko",
   "@name": "한국어",
   "@name.en": "Korean",
@@ -146,7 +146,7 @@
   "bg.newFolder": "폴더",
   "bg.newFile": "파일",
   "bg.newShortcut": "바로 가기",
-  "bg.refresh": "새로고침(F5)",
+  "bg.refresh": "새로고침",
   "new.folderBase": "새 폴더",
   "new.fileBase": "새 파일",
   "new.shortcutBase": "새 바로 가기",
