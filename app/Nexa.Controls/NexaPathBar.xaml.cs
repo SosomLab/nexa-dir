@@ -161,6 +161,12 @@ public sealed partial class NexaPathBar : UserControl
     private void EnterEdit()
     {
         PART_Editor.Text = Path;
+        // 편집기(TextBox)의 자연 높이가 브레드크럼보다 커 진입 시 바 높이가 점프하던 문제 →
+        // 브레드크럼 실측 높이로 고정(경로 글꼴 설정에 따라 달라지므로 상수 대신 실측).
+        if (PART_Scroll.ActualHeight > 0)
+        {
+            PART_Editor.Height = PART_Scroll.ActualHeight;
+        }
         PART_Scroll.Visibility = Visibility.Collapsed;
         PART_Editor.Visibility = Visibility.Visible;
         PART_Editor.Focus(FocusState.Programmatic);
