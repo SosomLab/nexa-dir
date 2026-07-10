@@ -491,14 +491,17 @@ public sealed partial class PreferencesWindow : Window
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
 
-        var tiles = new (Button Tile, Border Dot)[9];
+        // 타일은 Button이 아니라 Border — Button 템플릿의 PointerOver 상태가 잠시 뒤 우리 hover 색을
+        // 덮어써 "짧게 보였다 사라지던" 문제 회피(Border는 시각 상태 템플릿이 없어 지정 색이 유지됨).
+        var transparent = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        var tiles = new (Border Tile, Border Dot)[9];
         void Refresh()
         {
             int sel = (int)AppSettings.View.TypeAheadHudPosition;
             for (int i = 0; i < 9; i++)
             {
                 bool on = i == sel;
-                tiles[i].Tile.Background = on ? accentSoft : new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                tiles[i].Tile.Background = on ? accentSoft : transparent;
                 tiles[i].Tile.BorderBrush = on ? accent : idleBorder;
                 tiles[i].Dot.Background = on ? accent : idleDot;
             }
@@ -509,34 +512,29 @@ public sealed partial class PreferencesWindow : Window
             int idx = i;
             var dot = new Border
             {
-                Width = 14,
-                Height = 14,
-                CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(6),
+                Width = 8,
+                Height = 8,
+                CornerRadius = new CornerRadius(2.5),
+                Margin = new Thickness(4),
                 HorizontalAlignment = (i % 3) switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right },
                 VerticalAlignment = (i / 3) switch { 0 => VerticalAlignment.Top, 1 => VerticalAlignment.Center, _ => VerticalAlignment.Bottom },
             };
-            var tile = new Button
+            var tile = new Border
             {
-                Width = 64,    // 정사각 + 기존(48×34)의 약 1.5배
-                Height = 64,
-                Padding = new Thickness(0),
-                MinWidth = 0,
-                MinHeight = 0,
-                CornerRadius = new CornerRadius(6),
+                Width = 32,
+                Height = 32,
+                CornerRadius = new CornerRadius(5),
                 BorderThickness = new Thickness(1),
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                VerticalContentAlignment = VerticalAlignment.Stretch,
-                Content = dot,
+                Child = dot,
             };
             ToolTipService.SetToolTip(tile, Loc.T(tipKeys[i]));
-            tile.Click += (_, _) =>
+            tile.Tapped += (_, _) =>
             {
                 AppSettings.View.TypeAheadHudPosition = (HudPosition)idx;
                 Refresh();
                 Changed();
             };
-            // hover = 강조색 50%(선택은 100%, 미선택은 회색 — Refresh가 복원).
+            // hover = 강조색 50%(벗어날 때까지 유지) / 선택 = 100% / 미선택 = 회색(Refresh 복원).
             tile.PointerEntered += (_, _) =>
             {
                 if ((int)AppSettings.View.TypeAheadHudPosition != idx)
