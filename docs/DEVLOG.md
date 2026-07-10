@@ -13,6 +13,7 @@
 
 ## 2026-07-10
 
+- **패키징 1차 — 포터블 폴더 zip(PKG-1~3, `feat/packaging-portable`)**: `AppPaths` 경로 단일 원천(+`portable.ini`/`--portable` → 영속물 전부 `exe\data\`) · `make-portable.ps1`(self-contained 게시=런타임 번들·검증·마커·zip ≈64MB) · CI `package` job(태그·수동). 게시 특수 대응 3건 실측 해소(RID .pri·NETSDK1152·**self-contained 라이브러리 XAML 루트 URI 미해석 → loose 사본 폴백**). zip 실행·`data\` 영속·%APPDATA% 미오염 자체검증. MSIX(PKG-4)=인증서 결정 대기. 상세 [journal/2026-07-10.md](journal/2026-07-10.md)·[docs/12 §7](12-packaging-portable.md).
 - 🏷️ **릴리스 `0.3.0`**: `0.2.0`(07-06) 이후 M1 후반 진행분(PR#4~14 — 설정 시스템·글꼴/밀도·i18n 외부 언어팩·도구 모음·패널/터미널 UX·타입어헤드 완성·4차 감사·PREF-9 재시작)을 묶어 태그·GitHub Release. 버전 동기(Cargo·csproj·lang `@app`). 패키징 릴리스는 `0.4.0`으로 이월. 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 - **재시작 필요 설정 확인창+자체 재시작(PREF-9, `feat/pref-9-restart`→main PR#14, CI green)**: 언어 변경 시 **실효 언어 변화 판정**(원복·등가 전환은 안 물음) → 확인창(지금 재시작/나중에) → 승인 시 **선-flush 후 `AppInstance.Restart`**(미패키지 폴백=exe 재기동+Exit). 항목별 판정 위임으로 일반화(후속: 테마팩 등). 메커니즘 문서 [docs/40 §9](40-preferences-system.md). 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
 - **4차 감사(`refactor/004-audit`, 4커밋)**: 병렬 분석 4종(C# 스멜·Rust·메모리·속도) → Rust 정렬/타입어헤드 핫패스 무할당화+FFI 선택 id 가드, C# 중복 3종 추출·타이머/구독 수명 정리, `VtScreen.Lines` 실체화 제거·`Count` P/Invoke 캐시·**실체화 캐시 이빅션**(대형 폴더 수십 MB 증식 해소)·**DATAS 활성**(상주 NFR 1차)·settings.json 이중 로드 제거. 상세 [journal/2026-07-10.md](journal/2026-07-10.md).
