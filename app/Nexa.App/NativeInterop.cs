@@ -174,7 +174,9 @@ internal sealed class DirItem : INotifyPropertyChanged
     private static readonly SolidColorBrush SelBorderActiveBrush = new(ColorHelper.FromArgb(0xFF, 0x3B, 0x82, 0xC4));
     private static readonly SolidColorBrush SelBorderInactiveBrush = new(ColorHelper.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
     private static readonly SolidColorBrush CaretBorderBrush = new(ColorHelper.FromArgb(0xAA, 0xBB, 0xBB, 0xBB));
-    private static readonly Thickness SelBorderThickness = new(1);
+    // 상단 0: 행 간격 0에서 인접 선택 행의 아래+위 테두리가 겹쳐 2px 줄로 보이던 것 제거(위 행의
+    // 아래 테두리 1px만 경계). 모든 행이 같은 두께라 높이 점프 없음. 캐럿 외곽선도 3면(좌/우/하).
+    private static readonly Thickness SelBorderThickness = new(1, 0, 1, 1);
 
     private bool _isSelected;
     private bool _isHovered;
@@ -226,8 +228,8 @@ internal sealed class DirItem : INotifyPropertyChanged
         _isSelected ? (_panelFocused ? SelBorderActiveBrush : SelBorderInactiveBrush)
         : _isCaret ? CaretBorderBrush : RowTransparent;
 
-    /// <summary>선택 시 1px 테두리.</summary>
-    public Thickness RowBorderThickness => SelBorderThickness;   // 항상 1px(투명↔색만) → 선택 시 높이 점프 방지
+    /// <summary>선택 시 1px 테두리(상단 제외 — 인접 선택 행 2px 겹침 방지).</summary>
+    public Thickness RowBorderThickness => SelBorderThickness;   // 항상 동일 두께(투명↔색만) → 선택 시 높이 점프 방지
 
     // ── 실제 셸 아이콘(폴더 커스텀/파일 형식) ────────────────────────
     private ImageSource? _iconImage;
