@@ -15,7 +15,7 @@
 
     <!-- ── 제품/패키지 메타 (NuGet 배포) ── -->
     <PackageId>SosomLab.Nexa.Plugins</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Product>Nexa.Plugins</Product>
     <Authors>Sangyong Bae</Authors>
     <Company>SosomLab</Company>

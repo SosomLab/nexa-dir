@@ -19,8 +19,8 @@
     <WindowsPackageType>None</WindowsPackageType>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <!-- 제품 버전(릴리스 태그와 동기 — 0.2.0). AssemblyVersion/FileVersion도 파생 -->
-    <Version>0.2.0</Version>
+    <!-- 제품 버전(릴리스 태그와 동기 — 0.3.0). AssemblyVersion/FileVersion도 파생 -->
+    <Version>0.3.0</Version>
     <!-- WinUI WinRT ABI로 제네릭 컬렉션(List<T>) 전달 시 생성 코드가 unsafe 사용 -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- 조직/연락처 (SosomLab) -->
