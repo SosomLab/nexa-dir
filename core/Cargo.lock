@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "nexa-core"
-version = "0.3.1"
+version = "0.3.2"
 
 [[package]]
 name = "nexa-interop"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "nexa-core",
  "nexa-tree",
@@ -17,7 +17,7 @@ dependencies = [
 
 [[package]]
 name = "nexa-tree"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "nexa-core",
  "nexa-vfs",
@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "nexa-vfs"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "nexa-core",
 ]

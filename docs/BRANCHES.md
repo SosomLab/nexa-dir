@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/packaging-setup` | 2026-07-11 | 2026-07-11 (PR#16 `9c242e5`) | 2026-07-11 | 1 | 클래식 설치기 setup.exe(PKG-5) — Inno `nexa-setup.iss`+`make-setup.ps1`, CI `package` job이 zip+setup 빌드·릴리스 자동 첨부(dispatch 실검증) | [2026-07-11](journal/2026-07-11.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/packaging-portable` | 2026-07-10 | 2026-07-10 (PR#15 `f44482e`) | 2026-07-10 | 3 | 패키징 1차 — 포터블 폴더 zip(PKG-1~3): `AppPaths` 경로 분기·`make-portable.ps1` self-contained 산출·CI `package` job. 게시 이슈 3건 실측 해소 | [2026-07-10](journal/2026-07-10.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/pref-9-restart` | 2026-07-10 | 2026-07-10 (PR#14 `e87166d`) | 2026-07-10 | 1+docs | PREF-9 — 재시작 필요 설정(언어) 확인창 + 자체 재시작(선-flush→`AppInstance.Restart`+미패키지 폴백) | [2026-07-10](journal/2026-07-10.md)·[docs/40 §9](40-preferences-system.md) |
 | `refactor/004-audit` | 2026-07-10 | 2026-07-10 (PR#13 `c7ec256`) | 2026-07-10 | 4+docs | 4차 감사 — Rust 핫패스 무할당화+FFI 가드·C# 중복/수명 정리·실체화 캐시 이빅션·Count 캐시·DATAS·settings 이중 로드 제거 | [2026-07-10](journal/2026-07-10.md)·[TODO §9-4](TODO.md) |
@@ -33,6 +34,12 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## feat/packaging-setup
+
+- **생성**: 2026-07-11 (분기: main `cdcfa94`). **커밋 1개**(`8af1307`). 병합(PR#16 `9c242e5`)·삭제: 2026-07-11.
+- **작업(PKG-5, [docs/12 §7](12-packaging-portable.md))**: 서명 확정 전 설치형 채널 — Inno `nexa-setup.iss`(사용자 단위 기본·관리자 선택·언인스톨러[데이터 보존]·AppId 고정) + `make-setup.ps1`(설치형 self-contained 게시, 마커 없음). CI `package` job: setup 단계 추가(Inno=러너 기본 포함, 로컬 빌드 불요), 아티팩트 `packages-win-x64`, 태그 시 릴리스에 zip+setup 자동 첨부.
+- **경위**: MSIX(PKG-4) 서명 조사 — Azure Artifact Signing 한국 개인 불가 → Store 제출/OV 클라우드 서명이 현실 경로(결정 대기). 검증: workflow_dispatch로 package 잡 green·아티팩트(zip+setup, 112MB) 확인.
 
 ## feat/packaging-portable
 

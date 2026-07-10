@@ -158,6 +158,6 @@
 | PKG-2 | **포터블 zip 산출**(`scripts/make-portable.ps1`) — self-contained 게시(런타임 번들)+검증+마커+zip. 게시 특수 대응 3건(csproj 타겟) = [12 §7](12-packaging-portable.md) | P1 | 중 | PKG-1 | ✅ (07-10 PR#15 — x64 ≈64MB 자체검증) |
 | PKG-3 | **CI `package` job** — 태그·수동 실행 시 포터블 zip 아티팩트 업로드 | P2 | 소 | PKG-2 | ✅ (07-10 PR#15 — dispatch 실검증·아티팩트 67MB) |
 | PKG-4 | **MSIX + 서명**(DR-3 1차) — 패키징 프로젝트/매니페스트 + 인증서 전략([12 §6](12-packaging-portable.md), 비밀=커밋 금지) + winget. 단일 exe(self-extract)도 후속. 서명 조사(07-11): Azure Artifact Signing=한국 개인 불가 · 추천=Store 제출(서명 위임) 또는 OV 클라우드 서명 | P2 | 대 | — | ☐ 인증서/Store 결정 필요 |
-| PKG-5 | **클래식 설치기 setup.exe**(Inno, [12 §7](12-packaging-portable.md)) — 사용자 단위 기본·언인스톨러·시작 메뉴. CI `package` job이 zip과 함께 빌드·릴리스 자동 첨부. 서명 전 설치형 채널 | P1 | 중 | PKG-2 | 🚧 구현(07-11) · CI 검증 대기 |
+| PKG-5 | **클래식 설치기 setup.exe**(Inno, [12 §7](12-packaging-portable.md)) — 사용자 단위 기본·언인스톨러·시작 메뉴. CI `package` job이 zip과 함께 빌드·릴리스 자동 첨부. 서명 전 설치형 채널 | P1 | 중 | PKG-2 | ✅ (07-11 PR#16 `9c242e5` — dispatch 실검증, 릴리스=0.3.2) |
 
 <!-- 예: | X-N | 항목 | 우선 | 규모 | 의존 | 상태 | -->

@@ -7,7 +7,7 @@
 ## 1. 이 프로젝트는
 
 **Nexa Dir** = 차세대 **Windows 파일 탐색기**(Windows 기본 탐색기 대체). 네이티브 고성능 + 프로툴 UX.
-원격: `SosomLab/nexa-dir`. 현 단계: **M1 후반**(M0 완료·`0.1.0`, M1 진행분 `0.2.0`→`0.3.0`, 포터블 zip 동봉 `0.3.1` 태그). 코어(트리/선택·성능)·파일 조작 전체(전송엔진·Undo/Redo·**셸 컨텍스트 메뉴**[ADR-0005]+**커스텀 레지스트리**·클립보드·DnD[외부 드롭·러버밴드]) · **탭 UX**(드래그·잠금/고정·우클릭 메뉴) · **하단 패널**(정보·미리보기·**ConPTY 터미널**[위치 정확도·복붙]) · **미리보기 플러그인 SDK**(MIT) · **테마 시스템**(라이트/다크, docs/39) · 앱 아이콘까지 구현·실기 QA 통과. 남은 M1 = **퀵 런처**·B-2 S2/S3·설정 시스템(영속+UI)·설계 계약(트랙 C)·watcher(BUG-006). 현황 → [STATUS](docs/STATUS.md)·[MILESTONES](docs/MILESTONES.md)·[DEVLOG](docs/DEVLOG.md).
+원격: `SosomLab/nexa-dir`. 현 단계: **M1 후반**(M0 완료·`0.1.0`, M1 진행분 `0.2.0`→`0.3.0`, 배포 자산[포터블 zip·setup.exe] `0.3.1`~`0.3.2` 태그). 코어(트리/선택·성능)·파일 조작 전체(전송엔진·Undo/Redo·**셸 컨텍스트 메뉴**[ADR-0005]+**커스텀 레지스트리**·클립보드·DnD[외부 드롭·러버밴드]) · **탭 UX**(드래그·잠금/고정·우클릭 메뉴) · **하단 패널**(정보·미리보기·**ConPTY 터미널**[위치 정확도·복붙]) · **미리보기 플러그인 SDK**(MIT) · **테마 시스템**(라이트/다크, docs/39) · 앱 아이콘까지 구현·실기 QA 통과. 남은 M1 = **퀵 런처**·B-2 S2/S3·설정 시스템(영속+UI)·설계 계약(트랙 C)·watcher(BUG-006). 현황 → [STATUS](docs/STATUS.md)·[MILESTONES](docs/MILESTONES.md)·[DEVLOG](docs/DEVLOG.md).
 
 - 조직: **SosomLab** (<https://sosomlab.com>) · 상업 라이선스 문의: **kiros33@sosomlab.com**
 - 개발자(maintainer): Sangyong Bae · **kiros33@gmail.com**

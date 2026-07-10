@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 🏷️ **릴리스 `0.3.1`** (2026-07-10) — 패키징 1차(PKG-1~3) 반영 + **첫 바이너리 자산: 포터블 zip(win-x64, self-contained)** 을 CI `package` 잡이 릴리스에 자동 첨부. 직전 `0.3.0`(같은 날) = M1 후반 진행분 소스 태그. [Releases](https://github.com/SosomLab/nexa-dir/releases). (MSIX+서명은 PKG-4 — `0.4.0` 예정.)
+> 🏷️ **릴리스 `0.3.2`** (2026-07-11) — 바이너리 자산 2종: **포터블 zip + 클래식 설치기 setup.exe**(win-x64, self-contained — CI `package` 잡이 릴리스 자동 첨부). 이전: `0.3.1`(zip 최초 동봉)·`0.3.0`(M1 후반 소스 태그). [Releases](https://github.com/SosomLab/nexa-dir/releases). (MSIX+서명은 PKG-4 — Store/OV 결정 대기.)
 >
 > **갱신: 2026-07-10 (KST) · 설정/도구모음/패널·터미널/타입어헤드 4개 PR 병합 + 4차 감사** (CI green):
 > **① 설정 창 VS Code식 재구성 + 글꼴 5종 + 밀도**(PR#9, [docs/40 §8](40-preferences-system.md)) — 좌측 검색+카테고리 트리+설정 레지스트리(영속 설정 전부 UI 수록), 글꼴 슬롯 5종(기본/콘솔/상태바/목록/헤더) 라이브 적용·검증, 행 상하 1px 밀도(Double Commander 지향), i18n 전면(~140키), 선택 박스 행 -1px 겹침.
