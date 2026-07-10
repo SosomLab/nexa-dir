@@ -56,8 +56,32 @@ internal sealed class DirItem : INotifyPropertyChanged
 
     public bool IsDir => Kind == NexaFileKind.Dir;
 
-    /// <summary>표시용 크기(폴더는 빈 문자열).</summary>
-    public string SizeLabel => Kind == NexaFileKind.Dir ? string.Empty : $"{Size:N0} B";
+    /// <summary>표시용 크기(폴더는 빈 문자열) — 탐색기식 적응 단위(KB→MB→GB→TB, 최소 KB).</summary>
+    public string SizeLabel => Kind == NexaFileKind.Dir ? string.Empty : FormatSize(Size);
+
+    /// <summary>탐색기식 크기 표기 — 1MB 미만은 올림 KB(컬럼 관례), 이상은 유효 3자리 MB/GB/TB.</summary>
+    private static string FormatSize(ulong bytes)
+    {
+        if (bytes == 0)
+        {
+            return "0 KB";
+        }
+        double kb = bytes / 1024.0;
+        if (kb < 1000)
+        {
+            return $"{Math.Ceiling(kb):N0} KB";   // 1B~999KB: 올림 KB(탐색기 Size 컬럼과 동일)
+        }
+        double mb = kb / 1024.0;
+        if (mb < 1000)
+        {
+            return $"{Sig3(mb)} MB";
+        }
+        double gb = mb / 1024.0;
+        return gb < 1000 ? $"{Sig3(gb)} GB" : $"{Sig3(gb / 1024.0)} TB";
+    }
+
+    /// <summary>유효 3자리(1.39 → 13.9 → 139) — StrFormatByteSize 관례.</summary>
+    private static string Sig3(double v) => v.ToString(v < 10 ? "0.##" : v < 100 ? "0.#" : "0");
 
     /// <summary>깊이별 들여쓰기 폭(px). 이름 셀 앞 여백.</summary>
     public double IndentWidth => Depth * 16;
