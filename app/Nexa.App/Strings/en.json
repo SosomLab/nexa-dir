@@ -58,6 +58,7 @@
   "pref.fonts.statusDesc": "Bottom status bar.",
   "pref.fonts.list": "File list font",
   "pref.fonts.listDesc": "Left/right panel file lists + column headers (shared family/size).",
+  "pref.fonts.folderBold": "Bold folder names",
   "pref.fonts.header": "File header font",
   "pref.fonts.headerDesc": "Same family/size as the file list — decoration (bold/italic) only.",
   "pref.fonts.bold": "Bold",

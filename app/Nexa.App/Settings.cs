@@ -153,6 +153,9 @@ internal sealed class FontOptions
     public string ListFamily { get; set; } = "Segoe UI";
     public double ListSize { get; set; } = 12;
 
+    /// <summary>파일 목록에서 폴더 이름을 굵게(기본 true — 기존 표시 유지).</summary>
+    public bool FolderBold { get; set; } = true;
+
     /// <summary>파일 헤더(컬럼 헤더) 꾸미기 — 글꼴/크기는 파일 목록과 동일, 두껍게/기울임만 지정.</summary>
     public bool HeaderBold { get; set; } = true;
     public bool HeaderItalic { get; set; }

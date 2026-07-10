@@ -43,6 +43,7 @@ internal sealed class FontSettings
     public double StatusSize { get; set; } = 12;
     public string ListFamily { get; set; } = "Segoe UI";
     public double ListSize { get; set; } = 12;
+    public bool FolderBold { get; set; } = true;
     public bool HeaderBold { get; set; } = true;
     public bool HeaderItalic { get; set; }
 }
@@ -235,6 +236,7 @@ internal sealed class SettingsStore
         f.StatusSize = s.Fonts.StatusSize;
         f.ListFamily = s.Fonts.ListFamily;
         f.ListSize = s.Fonts.ListSize;
+        f.FolderBold = s.Fonts.FolderBold;
         f.HeaderBold = s.Fonts.HeaderBold;
         f.HeaderItalic = s.Fonts.HeaderItalic;
 
@@ -284,6 +286,7 @@ internal sealed class SettingsStore
                 StatusSize = f.StatusSize,
                 ListFamily = f.ListFamily,
                 ListSize = f.ListSize,
+                FolderBold = f.FolderBold,
                 HeaderBold = f.HeaderBold,
                 HeaderItalic = f.HeaderItalic,
             },

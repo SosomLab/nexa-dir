@@ -65,6 +65,7 @@
   "pref.fonts.statusDesc": "하단 상태표시줄.",
   "pref.fonts.list": "파일 목록 글꼴",
   "pref.fonts.listDesc": "좌/우 패널 파일 목록 + 컬럼 헤더(글꼴·크기 공유).",
+  "pref.fonts.folderBold": "폴더 이름 두껍게",
   "pref.fonts.header": "파일 헤더 글꼴",
   "pref.fonts.headerDesc": "파일 목록과 같은 글꼴·크기 — 꾸미기(두껍게·기울임)만 지정.",
   "pref.fonts.bold": "두껍게",

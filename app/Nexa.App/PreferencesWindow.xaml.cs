@@ -23,13 +23,15 @@ public sealed partial class PreferencesWindow : Window
     /// <summary>카테고리(트리 노드). 1단계 중첩만 사용(Parent=최상위 키). NoteKey=카테고리 하단 안내문.</summary>
     private sealed record Category(string Key, string LabelKey, string? Parent = null, string? NoteKey = null);
 
-    /// <summary>설정 항목 1개 — 검색의 최소 단위. Build()가 라벨 포함 편집 컨트롤을 만든다.</summary>
-    private sealed record Entry(string CategoryKey, string LabelKey, Func<FrameworkElement> Build);
+    /// <summary>설정 항목 1개 — 이름/설명/설정값이 한 논리 그룹(검색의 최소 단위). Build()가 라벨·설명
+    /// 포함 편집 컨트롤을 만들고, 검색은 <b>제목(LabelKey)·설명(DescKey)</b> 일치만 본다.</summary>
+    private sealed record Entry(string CategoryKey, string LabelKey, Func<FrameworkElement> Build, string? DescKey = null);
 
     private readonly List<Category> _categories;
     private readonly List<Entry> _entries;
     private readonly Dictionary<TreeViewNode, string> _nodeKeys = new();
     private string _currentCategory = "appearance";
+    private string _query = string.Empty;   // 현재 검색어(빈 문자열=검색 없음) — 트리·우측 렌더 공용
 
     internal PreferencesWindow(MainWindow host)
     {
@@ -71,20 +73,22 @@ public sealed partial class PreferencesWindow : Window
         // 모양 › 글꼴(PREF-3) — 6종 슬롯
         new("fonts", "pref.fonts.base", () => FontRow("pref.fonts.base", "pref.fonts.baseDesc",
             () => AppSettings.Fonts.BaseFamily, v => AppSettings.Fonts.BaseFamily = v,
-            () => AppSettings.Fonts.BaseSize, v => AppSettings.Fonts.BaseSize = v)),
+            () => AppSettings.Fonts.BaseSize, v => AppSettings.Fonts.BaseSize = v), DescKey: "pref.fonts.baseDesc"),
         new("fonts", "pref.fonts.console", () => FontRow("pref.fonts.console", "pref.fonts.consoleDesc",
             () => AppSettings.Fonts.ConsoleFamily, v => AppSettings.Fonts.ConsoleFamily = v,
-            () => AppSettings.Fonts.ConsoleSize, v => AppSettings.Fonts.ConsoleSize = v)),
+            () => AppSettings.Fonts.ConsoleSize, v => AppSettings.Fonts.ConsoleSize = v), DescKey: "pref.fonts.consoleDesc"),
         new("fonts", "pref.fonts.path", () => FontRow("pref.fonts.path", "pref.fonts.pathDesc",
             () => AppSettings.Fonts.PathFamily, v => AppSettings.Fonts.PathFamily = v,
-            () => AppSettings.Fonts.PathSize, v => AppSettings.Fonts.PathSize = v)),
+            () => AppSettings.Fonts.PathSize, v => AppSettings.Fonts.PathSize = v), DescKey: "pref.fonts.pathDesc"),
         new("fonts", "pref.fonts.status", () => FontRow("pref.fonts.status", "pref.fonts.statusDesc",
             () => AppSettings.Fonts.StatusFamily, v => AppSettings.Fonts.StatusFamily = v,
-            () => AppSettings.Fonts.StatusSize, v => AppSettings.Fonts.StatusSize = v)),
+            () => AppSettings.Fonts.StatusSize, v => AppSettings.Fonts.StatusSize = v), DescKey: "pref.fonts.statusDesc"),
         new("fonts", "pref.fonts.list", () => FontRow("pref.fonts.list", "pref.fonts.listDesc",
             () => AppSettings.Fonts.ListFamily, v => AppSettings.Fonts.ListFamily = v,
-            () => AppSettings.Fonts.ListSize, v => AppSettings.Fonts.ListSize = v)),
-        new("fonts", "pref.fonts.header", HeaderFontRow),
+            () => AppSettings.Fonts.ListSize, v => AppSettings.Fonts.ListSize = v), DescKey: "pref.fonts.listDesc"),
+        new("fonts", "pref.fonts.folderBold", () => CheckRow("pref.fonts.folderBold",
+            AppSettings.Fonts.FolderBold, v => AppSettings.Fonts.FolderBold = v)),
+        new("fonts", "pref.fonts.header", HeaderFontRow, DescKey: "pref.fonts.headerDesc"),
         // 파일 목록
         new("list", "pref.layout.hidden", () => CheckRow("pref.layout.hidden",
             AppSettings.View.ShowHiddenFiles, v => AppSettings.View.ShowHiddenFiles = v)),
@@ -117,14 +121,40 @@ public sealed partial class PreferencesWindow : Window
         new("lang", "pref.lang.title", LanguageRadios),
     };
 
-    // ── 트리(카테고리) ───────────────────────────────────────────────
+    // ── 검색 일치 판정 ───────────────────────────────────────────────
+    private static bool Match(string label, string query) =>
+        label.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>설정 항목 일치 = 제목 또는 설명에 검색어 포함(설정값 컨트롤은 판정 제외).</summary>
+    private bool EntryMatches(Entry e, string query) =>
+        Match(Loc.T(e.LabelKey), query) || (e.DescKey is not null && Match(Loc.T(e.DescKey), query));
+
+    /// <summary>카테고리 표시 여부 = 그룹명 일치 <b>또는</b> 소속 항목(자식 카테고리 포함) 중 1개라도 일치.</summary>
+    private bool CategoryVisible(Category cat, string query) =>
+        query.Length == 0
+        || Match(Loc.T(cat.LabelKey), query)
+        || _entries.Any(e => e.CategoryKey == cat.Key && EntryMatches(e, query))
+        || _categories.Any(c => c.Parent == cat.Key && CategoryVisible(c, query));
+
+    /// <summary>카테고리 안에서 보여줄 항목 — 검색 없으면 전부, 검색 중이면 그룹명 일치 시 전부/아니면 일치 항목만.</summary>
+    private IEnumerable<Entry> VisibleEntries(Category cat)
+    {
+        var own = _entries.Where(e => e.CategoryKey == cat.Key);
+        return _query.Length == 0 || Match(Loc.T(cat.LabelKey), _query)
+            ? own
+            : own.Where(e => EntryMatches(e, _query));
+    }
+
+    // ── 트리(카테고리) — 검색어로 그룹 필터(일치 그룹만 표시·전개) ─────
     private void BuildTree()
     {
-        foreach (var cat in _categories.Where(c => c.Parent is null))
+        _nodeKeys.Clear();
+        NavTree.RootNodes.Clear();
+        foreach (var cat in _categories.Where(c => c.Parent is null && CategoryVisible(c, _query)))
         {
             var node = new TreeViewNode { Content = Loc.T(cat.LabelKey), IsExpanded = true };
             _nodeKeys[node] = cat.Key;
-            foreach (var child in _categories.Where(c => c.Parent == cat.Key))
+            foreach (var child in _categories.Where(c => c.Parent == cat.Key && CategoryVisible(c, _query)))
             {
                 var childNode = new TreeViewNode { Content = Loc.T(child.LabelKey) };
                 _nodeKeys[childNode] = child.Key;
@@ -138,15 +168,7 @@ public sealed partial class PreferencesWindow : Window
     {
         if (args.InvokedItem is TreeViewNode node && _nodeKeys.TryGetValue(node, out string? key))
         {
-            _currentCategory = key;
-            if (!string.IsNullOrEmpty(SearchBox.Text))
-            {
-                SearchBox.Text = string.Empty;   // TextChanged가 카테고리를 다시 그린다
-            }
-            else
-            {
-                ShowCategory(key);
-            }
+            ShowCategory(key);   // 검색 중이면 그 카테고리의 일치 항목만(필터 유지)
         }
     }
 
@@ -160,27 +182,28 @@ public sealed partial class PreferencesWindow : Window
         _building = false;
     }
 
-    /// <summary>카테고리 1개를 헤더+항목으로 그린다. 자식 카테고리는 소제목으로 이어 그린다(VS Code식 섹션).</summary>
+    /// <summary>카테고리 1개를 헤더+항목으로 그린다. 자식 카테고리는 소제목으로 이어 그린다(VS Code식 섹션).
+    /// 검색 중이면 제목/설명 일치 항목만(그룹명 일치 그룹은 전체) — 안내문(Note)은 검색 없을 때만.</summary>
     private void RenderCategory(string key)
     {
         var cat = _categories.First(c => c.Key == key);
         PageHost.Children.Add(Header(cat.LabelKey));
-        foreach (var e in _entries.Where(e => e.CategoryKey == key))
+        foreach (var e in VisibleEntries(cat))
         {
             PageHost.Children.Add(e.Build());
         }
-        if (cat.NoteKey is not null)
+        if (cat.NoteKey is not null && _query.Length == 0)
         {
             PageHost.Children.Add(Note(cat.NoteKey));
         }
-        foreach (var child in _categories.Where(c => c.Parent == key))
+        foreach (var child in _categories.Where(c => c.Parent == key && CategoryVisible(c, _query)))
         {
             PageHost.Children.Add(SubHeader(child.LabelKey));
-            foreach (var e in _entries.Where(e => e.CategoryKey == child.Key))
+            foreach (var e in VisibleEntries(child))
             {
                 PageHost.Children.Add(e.Build());
             }
-            if (child.NoteKey is not null)
+            if (child.NoteKey is not null && _query.Length == 0)
             {
                 PageHost.Children.Add(Note(child.NoteKey));
             }
@@ -189,20 +212,21 @@ public sealed partial class PreferencesWindow : Window
 
     private void OnSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
-        string query = sender.Text.Trim();
-        if (query.Length == 0)
+        _query = sender.Text.Trim();
+        BuildTree();   // 좌측 그룹 목록 필터(그룹명 일치 또는 일치 항목 보유)
+        if (_query.Length == 0)
         {
             ShowCategory(_currentCategory);
             return;
         }
+        // 우측: 전 카테고리에서 제목/설명 일치 항목을 "상위 › 그룹" 캡션과 함께 나열.
         PageHost.Children.Clear();
         _building = true;
         bool any = false;
         foreach (var cat in _categories)
         {
-            // 카테고리 라벨이 맞으면 그 카테고리 전체, 아니면 라벨이 맞는 항목만.
-            bool catHit = Match(Loc.T(cat.LabelKey), query);
-            var hits = _entries.Where(e => e.CategoryKey == cat.Key && (catHit || Match(Loc.T(e.LabelKey), query))).ToList();
+            var hits = _entries.Where(e => e.CategoryKey == cat.Key
+                && (Match(Loc.T(cat.LabelKey), _query) || EntryMatches(e, _query))).ToList();
             if (hits.Count == 0)
             {
                 continue;
@@ -226,9 +250,6 @@ public sealed partial class PreferencesWindow : Window
         }
         _building = false;
     }
-
-    private static bool Match(string label, string query) =>
-        label.Contains(query, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>검색 결과 캡션용 "상위 › 카테고리" 경로 라벨.</summary>
     private string CategoryPath(Category cat) =>
@@ -343,7 +364,20 @@ public sealed partial class PreferencesWindow : Window
             IsEditable = true,
             Width = 280,
             ItemsSource = InstalledFonts.Families(),
-            Text = getFamily(),
+        };
+        // 편집 콤보는 템플릿 로드 전 Text 설정이 무시돼 빈칸으로 보인다(클릭해야 값 표시) →
+        // ① 목록에 있는 값이면 SelectedItem으로(즉시 표시) ② 쉼표 목록 등은 Loaded 후 Text 재설정.
+        string current = getFamily();
+        if (InstalledFonts.Families().FirstOrDefault(x => string.Equals(x, current, StringComparison.OrdinalIgnoreCase)) is string exact)
+        {
+            combo.SelectedItem = exact;
+        }
+        combo.Loaded += (_, _) =>
+        {
+            if (combo.Text != getFamily())
+            {
+                combo.Text = getFamily();
+            }
         };
         void Apply(string text)
         {

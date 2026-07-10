@@ -133,8 +133,8 @@ internal sealed class DirItem : INotifyPropertyChanged
     /// <summary>아이콘 색: 폴더=파랑, 그 외=회색.</summary>
     public Brush IconBrush => IsDir ? FolderBrush : FileBrush;
 
-    /// <summary>폴더명은 굵게.</summary>
-    public FontWeight NameWeight => IsDir ? FontWeights.SemiBold : FontWeights.Normal;
+    /// <summary>폴더명 굵게(설정 FolderBold, 기본 ON). 변경은 패널 재로드 시 반영(x:Bind OneTime).</summary>
+    public FontWeight NameWeight => IsDir && AppSettings.Fonts.FolderBold ? FontWeights.SemiBold : FontWeights.Normal;
 
     /// <summary>수정 로컬 시각(없으면 null). 날짜/시간 컬럼 라벨의 공통 소스(COL-D1).</summary>
     private DateTime? ModifiedLocal => ModifiedUnixMs < 0
