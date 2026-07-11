@@ -1,6 +1,6 @@
 # STATUS — Nexa Dir 진행 현황
 
-> 🏷️ **릴리스 `0.3.5`** (2026-07-11) — 네비 버튼 클릭 수정(NAV-CLICK: press 중 포커스 회수가 Click 차단) + watcher 자동 갱신 무간섭화(NAV-UPFOCUS: 선택·캐럿·스크롤 보존). 자산: **설치기 setup.exe**(win-x64, self-contained — **포터블 zip은 CI 잠정 비활성**, 방향성 재정리 중·PKG-6=32/64비트 검토 등록). 이전: `0.3.4`(상태 정합)·`0.3.3`(BUG-010 수정판)·⚠️`0.3.2`(자산 결함, 사용 금지)·`0.3.1`·`0.3.0`. [Releases](https://github.com/SosomLab/nexa-dir/releases). (MSIX+서명은 PKG-4 — Store/OV 결정 대기.)
+> 🏷️ **릴리스 `0.3.6`** (2026-07-11) — **경로바 편집 자동완성**(PATH-SUG 1~3차: 탐색기식 폴더 제안·↑/↓ 순환+입력 복원·클릭 확정·파일 목록 폰트[컨테이너 로컬 주입]). 자산: **설치기 setup.exe 단독**(win-x64, self-contained — 포터블 zip CI 잠정 비활성 유지·PKG-6=32/64비트 검토). 이전: `0.3.5`(네비 클릭·watcher 무간섭)·`0.3.4`·`0.3.3`·⚠️`0.3.2`(결함)·`0.3.1`·`0.3.0`. [Releases](https://github.com/SosomLab/nexa-dir/releases). (MSIX+서명은 PKG-4 — Store/OV 결정 대기.)
 >
 > **갱신: 2026-07-10 (KST) · 설정/도구모음/패널·터미널/타입어헤드 4개 PR 병합 + 4차 감사** (CI green):
 > **① 설정 창 VS Code식 재구성 + 글꼴 5종 + 밀도**(PR#9, [docs/40 §8](40-preferences-system.md)) — 좌측 검색+카테고리 트리+설정 레지스트리(영속 설정 전부 UI 수록), 글꼴 슬롯 5종(기본/콘솔/상태바/목록/헤더) 라이브 적용·검증, 행 상하 1px 밀도(Double Commander 지향), i18n 전면(~140키), 선택 박스 행 -1px 겹침.

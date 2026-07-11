@@ -3,7 +3,7 @@
   "@name": "한국어",
   "@name.en": "Korean",
   "@author": "SosomLab",
-  "@app": "0.3.5",
+  "@app": "0.3.6",
   "@fallback": "en",
 
   "menu.file": "파일(F)",
