@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `feat/pathbar-suggestions` | 2026-07-11 | 2026-07-11 (PR#22 `fa71dd5`) | 2026-07-11 | 1 | **PATH-SUG** 경로바 편집 자동완성(탐색기식 폴더 제안) — 순수 `PathSuggestions`(xUnit +7)+`SuggestionProvider` 주입·팝업·↑/↓/Enter/ESC/클릭. UIA 스크린샷 검증 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/watcher-preserve-selection` | 2026-07-11 | 2026-07-11 (PR#21 `50b3b51`) | 2026-07-11 | 1 | **NAV-UPFOCUS** — watcher 자동 갱신 무간섭화(선택·캐럿·스크롤 보존→복원). UIA+watcher 유발 실검증 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/navbtn-click-focus-steal` | 2026-07-11 | 2026-07-11 (PR#20 `b007271`) | 2026-07-11 | 1 | **NAV-CLICK** — press 중 그리드 포커스 회수가 ButtonBase pressed 리셋(클릭 무동작 진범) → `IsWithinButton` 제외. 합성 실클릭 before/after 검증 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/navbtn-hover-affordance` | 2026-07-11 | 2026-07-11 (PR#19 `4079e3a`) | 2026-07-11 | 1 | 네비 버튼 상태 식별 디자인(NAV-HOVER) — NavBtnStyle 템플릿: hover 하이라이트·pressed 강조색·disabled 글리프 0.3 | [2026-07-11](journal/2026-07-11.md) |
