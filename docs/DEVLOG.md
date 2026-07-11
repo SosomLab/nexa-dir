@@ -13,6 +13,7 @@
 
 ## 2026-07-11
 
+- 🔴 **네비 버튼 클릭 무동작 진범 확정·수정**(`fix/navbtn-click-focus-steal`): 사용자 결정타 제보("호버는 되는데 클릭만 안 됨") — PR#12의 패널 press 시 그리드 포커스 회수가 **버튼 press 중 ButtonBase pressed를 리셋**해 Click 미발화. `IsWithinButton` 제외로 수정, 합성 실클릭 before/after 대조 검증(0회→발화). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🏷️ **릴리스 `0.3.4`**: 네비 버튼 상태 정합(PR#18 동기+PR#19 시각 식별) — zip+setup 자동 첨부, 설치본 갱신. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **네비 버튼 상태 식별 디자인**(`fix/navbtn-hover-affordance`→main PR#19): 사용자 재리포트(설치본 0.3.3=상태 동기 미포함에서 no-op 버튼이 활성처럼 보임) → NavBtnStyle 템플릿화 — hover 하이라이트·pressed 강조색·**disabled 글리프 0.3 흐림**. PR#18과 함께 0.3.4 릴리스. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **네비 버튼 무동작 리포트 진상 + 초기 상태 수정**(`fix/navbtn-initial-state`): 주범=버려진 출력 트리의 07-06 고아 exe(전체 clean 해소) · 실버그=**세션 복원 시 UpdateNavButtons 미호출**(빈 히스토리에 Back/Fwd 활성 오표시)→복원 직후 명시 호출. UIA 자동화로 검증 + **0.3.3 릴리스 자산 실검증(정상)**. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
