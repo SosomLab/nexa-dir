@@ -160,6 +160,10 @@ public sealed partial class MainWindow : Window
         PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
         // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
         RestoreOrDefaultSession();
+        // 네비 버튼 초기 상태 — 미호출 시 빈 히스토리에도 뒤로/앞으로가 활성으로 보여
+        // "눌러도 무동작"으로 체감(사용자 리포트 07-11). 복원 직후 실상태로 동기.
+        UpdateNavButtons(left: true);
+        UpdateNavButtons(left: false);
         UpdateBottomDock();
         RefreshBottomDocks();   // 하단 도킹 초기 정보 (BP-1)
         // 하단 패널 콘텐츠 종류 변경 → 세션 저장 예약 (BP-1c)
