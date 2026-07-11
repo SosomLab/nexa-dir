@@ -100,6 +100,9 @@
 | PREF-9 | **재시작 필요 설정 변경 시 확인창 + 자동 재시작**(언어 변경 등 · `AppInstance.Restart()`+미패키지 폴백 · 항목별 판정 위임) | ✨ | P2 | 2026-07-10 | [docs/40 §9](40-preferences-system.md) | 2026-07-10 (`8d7d4e4`) | 2026-07-10 (PR#14 병합·CI green — 실기QA 대기) | ✅ | TODO §9-5 · PREF-1/PREF-8 연계 |
 | PKG-1/2/3 | **패키징 1차 — 포터블**(경로 분기 `AppPaths`+`portable.ini` · `make-portable.ps1` self-contained zip · CI `package` job) | ✨ | P1 | 2026-07-10 | [docs/12](12-packaging-portable.md) | 2026-07-10 | 2026-07-10 (PR#15 병합·CI green·package 아티팩트 실검증 — 실기QA 대기) | ✅ | TODO §9-5 · MSIX=PKG-4(인증서 결정 대기) |
 | PKG-5 | **클래식 설치기 setup.exe**(Inno `nexa-setup.iss`+`make-setup.ps1` · CI 빌드·릴리스 첨부 — 로컬 빌드 불요) | ✨ | P1 | 2026-07-11 | [docs/12 §7](12-packaging-portable.md) | 2026-07-11 (`8af1307`) | 2026-07-11 (PR#16 병합·dispatch 실검증 — 설치 실기QA 대기) | ✅ | TODO §9-5 · 서명 전 설치형 채널(MSIX=PKG-4 별개) |
+| PKG-정지 | **포터블 zip CI 빌드 잠정 비활성**(사용자 07-11 — 배포 방향성 재정리 후 재개/제거 판단. 스크립트·AppPaths 유지) | ♻️ | — | 2026-07-11 | — | 2026-07-11 (ci.yml 주석) | — | ⏸ | PKG-2/3 |
+| PKG-6 | **32비트(x86)/64비트 별도 빌드 필요 여부 검토**(대상 OS 분포·WinAppSDK x86 지원·인스톨러 아키 분기) | 📐 | P3 | 2026-07-11 (사용자) | — | — | — | ☐ 검토 대상 | TODO §9-5 |
+| PATH-SUG | **경로바 편집 자동완성**(탐색기식 폴더 제안 — 순수 `PathSuggestions`+공급자 주입·팝업 UI·↑/↓/Enter/ESC/클릭) | ✨ | P1 | 2026-07-11 (사용자) | — | 2026-07-11 | xUnit 7(총 88)·UIA 스크린샷 | 2026-07-11 | ✅ | TODO §9-5 · docs/27 후속 |
 
 ## 4. 착수 권장 순서(이 배치)
 

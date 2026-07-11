@@ -13,6 +13,7 @@
 
 ## 2026-07-11
 
+- **경로바 편집 자동완성(PATH-SUG, `feat/pathbar-suggestions`)**: 탐색기식 폴더 제안 드롭다운 — 순수 `PathSuggestions`(xUnit +7, 총 88)+`SuggestionProvider` 주입(컨트롤 IO 비종속), ↑/↓ 미리 채움·Enter/클릭 이동·ESC 단계 닫기, 환경변수 입력 지원. UIA 스크린샷 검증. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🏷️ **릴리스 `0.3.5`**: NAV-CLICK+NAV-UPFOCUS 수정 포함 · **포터블 zip CI 빌드 잠정 비활성**(사용자 — 방향성 재정리, 자산=setup.exe만) · **PKG-6 등록**(32/64비트 별도 빌드 검토). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **상위 이동 선택 소실 수정(NAV-UPFOCUS, `fix/watcher-preserve-selection`→main PR#21)**: watcher 자동 갱신(ReloadPanel)이 핸들 교체+ScrollToTop으로 선택·캐럿·스크롤을 파괴(활동 잦은 폴더에서 GoUp 직후 매번) → **보존→복원**으로 무간섭화. UIA+watcher 유발 실검증. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🔴 **네비 버튼 클릭 무동작 진범 확정·수정**(`fix/navbtn-click-focus-steal`): 사용자 결정타 제보("호버는 되는데 클릭만 안 됨") — PR#12의 패널 press 시 그리드 포커스 회수가 **버튼 press 중 ButtonBase pressed를 리셋**해 Click 미발화. `IsWithinButton` 제외로 수정, 합성 실클릭 before/after 대조 검증(0회→발화). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
