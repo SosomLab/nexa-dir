@@ -91,8 +91,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: portable zip (win-x64)
-        run: pwsh scripts/make-portable.ps1
+      # 포터블 zip 빌드 — 잠정 비활성(2026-07-11 사용자 결정: 배포 방향성 재정리 후 재개/제거 판단).
+      # 재개 시 아래 두 줄 주석 해제(scripts/make-portable.ps1·AppPaths 포터블 모드는 유지).
+      # - name: portable zip (win-x64)
+      #   run: pwsh scripts/make-portable.ps1
       - name: setup exe (win-x64, Inno Setup — 러너 기본 포함)
         run: pwsh scripts/make-setup.ps1
       - uses: actions/upload-artifact@v4

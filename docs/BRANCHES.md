@@ -9,6 +9,8 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `fix/watcher-preserve-selection` | 2026-07-11 | 2026-07-11 (PR#21 `50b3b51`) | 2026-07-11 | 1 | **NAV-UPFOCUS** — watcher 자동 갱신 무간섭화(선택·캐럿·스크롤 보존→복원). UIA+watcher 유발 실검증 | [2026-07-11](journal/2026-07-11.md) |
+| `fix/navbtn-click-focus-steal` | 2026-07-11 | 2026-07-11 (PR#20 `b007271`) | 2026-07-11 | 1 | **NAV-CLICK** — press 중 그리드 포커스 회수가 ButtonBase pressed 리셋(클릭 무동작 진범) → `IsWithinButton` 제외. 합성 실클릭 before/after 검증 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/navbtn-hover-affordance` | 2026-07-11 | 2026-07-11 (PR#19 `4079e3a`) | 2026-07-11 | 1 | 네비 버튼 상태 식별 디자인(NAV-HOVER) — NavBtnStyle 템플릿: hover 하이라이트·pressed 강조색·disabled 글리프 0.3 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/navbtn-initial-state` | 2026-07-11 | 2026-07-11 (PR#18 `2758904`) | 2026-07-11 | 1 | 세션 복원 시작 시 네비 뒤로/앞으로 활성 오표시 수정(복원 직후 UpdateNavButtons 동기) — 리포트 주범은 고아 exe(clean 해소), 0.3.3 자산 실검증 정상 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/portable-render-xbf` | 2026-07-11 | 2026-07-11 (PR#17 `6f59af8`) | 2026-07-11 | 2 | **BUG-010** 0.3.2 배포 자산 결함 2건 — 렌더링 깨짐(loose 소스→**컴파일 XBF** 루트 배치)·시작 크래시(PageHeap 특정=WinAppSDK 1.6 MRT Core 힙 손상→**1.8 업그레이드**) | [2026-07-11](journal/2026-07-11.md)·[BUGS.md](BUGS.md) |

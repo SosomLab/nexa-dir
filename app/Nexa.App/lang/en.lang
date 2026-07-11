@@ -3,7 +3,7 @@
   "@name": "English",
   "@name.en": "English",
   "@author": "SosomLab",
-  "@app": "0.3.4",
+  "@app": "0.3.5",
   "@fallback": "en",
 
   "menu.file": "File(F)",

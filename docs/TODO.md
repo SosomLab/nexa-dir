@@ -155,8 +155,9 @@
 |---|---|---|---|---|---|
 | PREF-9 | **재시작 필요 설정 변경 시 확인창 + 자동 재시작** — 언어 변경 등 재시작이 필요한 설정을 바꾸면 확인 다이얼로그(지금 재시작/나중에)를 띄우고, 승인 시 앱이 스스로 재시작(`AppInstance.Restart()` — 미패키지 실행이면 프로세스 재기동 폴백). 재시작 필요 여부는 설정 항목별 판정 위임으로 선언. 메커니즘=[docs/40 §9](40-preferences-system.md) | P2 | 소~중 | PREF-1 | ✅ (07-10 PR#14 `e87166d` — 실기QA 대기) |
 | PKG-1 | **Portable-ready 경로 분기**([12 §3](12-packaging-portable.md)) — `AppPaths` 단일 원천: `portable.ini`/`--portable` 감지 시 설정·세션·언어팩·crash.log = `exe\data\` | P1 | 소~중 | — | ✅ (07-10 PR#15 `f44482e` — 실기QA 대기) |
-| PKG-2 | **포터블 zip 산출**(`scripts/make-portable.ps1`) — self-contained 게시(런타임 번들)+검증+마커+zip. 게시 특수 대응 3건(csproj 타겟) = [12 §7](12-packaging-portable.md) | P1 | 중 | PKG-1 | ✅ (07-10 PR#15 — x64 ≈64MB 자체검증) |
-| PKG-3 | **CI `package` job** — 태그·수동 실행 시 포터블 zip 아티팩트 업로드 | P2 | 소 | PKG-2 | ✅ (07-10 PR#15 — dispatch 실검증·아티팩트 67MB) |
+| PKG-2 | **포터블 zip 산출**(`scripts/make-portable.ps1`) — self-contained 게시(런타임 번들)+검증+마커+zip. 게시 특수 대응 3건(csproj 타겟) = [12 §7](12-packaging-portable.md) | P1 | 중 | PKG-1 | ⏸ **CI 잠정 비활성**(07-11 사용자 — 배포 방향성 재정리 후 재개/제거 판단. 스크립트·AppPaths는 유지) |
+| PKG-3 | **CI `package` job** — 태그·수동 실행 시 아티팩트 업로드+릴리스 첨부 | P2 | 소 | PKG-2 | ✅ (07-10 PR#15) — 현재 산출=setup.exe만(포터블 ⏸) |
+| PKG-6 | **32비트(x86)/64비트 별도 빌드 필요 여부 검토** — 대상 사용자 OS 분포·WinAppSDK x86 지원·인스톨러 아키 분기(현재 x64 전용, arm64는 스크립트만 지원) 조사 후 결정 | P3 | 소(검토) | — | ☐ 검토 대상(07-11 사용자 등록) |
 | PKG-4 | **MSIX + 서명**(DR-3 1차) — 패키징 프로젝트/매니페스트 + 인증서 전략([12 §6](12-packaging-portable.md), 비밀=커밋 금지) + winget. 단일 exe(self-extract)도 후속. 서명 조사(07-11): Azure Artifact Signing=한국 개인 불가 · 추천=Store 제출(서명 위임) 또는 OV 클라우드 서명 | P2 | 대 | — | ☐ 인증서/Store 결정 필요 |
 | PKG-5 | **클래식 설치기 setup.exe**(Inno, [12 §7](12-packaging-portable.md)) — 사용자 단위 기본·언인스톨러·시작 메뉴. CI `package` job이 zip과 함께 빌드·릴리스 자동 첨부. 서명 전 설치형 채널 | P1 | 중 | PKG-2 | ✅ (07-11 PR#16 `9c242e5` — dispatch 실검증, 릴리스=0.3.2) |
 
