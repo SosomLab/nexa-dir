@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `fix/navbtn-initial-state` | 2026-07-11 | 2026-07-11 (PR#18 `2758904`) | 2026-07-11 | 1 | 세션 복원 시작 시 네비 뒤로/앞으로 활성 오표시 수정(복원 직후 UpdateNavButtons 동기) — 리포트 주범은 고아 exe(clean 해소), 0.3.3 자산 실검증 정상 | [2026-07-11](journal/2026-07-11.md) |
 | `fix/portable-render-xbf` | 2026-07-11 | 2026-07-11 (PR#17 `6f59af8`) | 2026-07-11 | 2 | **BUG-010** 0.3.2 배포 자산 결함 2건 — 렌더링 깨짐(loose 소스→**컴파일 XBF** 루트 배치)·시작 크래시(PageHeap 특정=WinAppSDK 1.6 MRT Core 힙 손상→**1.8 업그레이드**) | [2026-07-11](journal/2026-07-11.md)·[BUGS.md](BUGS.md) |
 | `feat/packaging-setup` | 2026-07-11 | 2026-07-11 (PR#16 `9c242e5`) | 2026-07-11 | 1 | 클래식 설치기 setup.exe(PKG-5) — Inno `nexa-setup.iss`+`make-setup.ps1`, CI `package` job이 zip+setup 빌드·릴리스 자동 첨부(dispatch 실검증) | [2026-07-11](journal/2026-07-11.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/packaging-portable` | 2026-07-10 | 2026-07-10 (PR#15 `f44482e`) | 2026-07-10 | 3 | 패키징 1차 — 포터블 폴더 zip(PKG-1~3): `AppPaths` 경로 분기·`make-portable.ps1` self-contained 산출·CI `package` job. 게시 이슈 3건 실측 해소 | [2026-07-10](journal/2026-07-10.md)·[docs/12 §7](12-packaging-portable.md) |
