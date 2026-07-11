@@ -24,7 +24,9 @@
             <ctrls:NexaGridColumn x:Key="ColDate" Header="{loc:Loc Key=col.modified}" Key="modified" Width="130" />
             <ctrls:NexaGridColumn x:Key="ColKind" Header="{loc:Loc Key=col.kind}" Key="kind" Width="90" />
             <ctrls:NexaGridColumn x:Key="ColSize" Header="{loc:Loc Key=col.size}" Key="size" Width="90" />
-            <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트 -->
+            <!-- 작은 네비 버튼(이전/다음/상위) — 아이콘 위주, 컴팩트.
+                 눌릴 수 있는 상태(활성)가 시각적으로 식별되도록 상태별 비주얼 명시(사용자 요청 07-11):
+                 hover=하이라이트 배경 · pressed=강조색+흰 글리프 · disabled=글리프 흐림(0.3) -->
             <Style x:Key="NavBtnStyle" TargetType="Button">
                 <Setter Property="Width" Value="22" />
                 <Setter Property="Height" Value="22" />
@@ -33,6 +35,41 @@
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
                 <Setter Property="FontSize" Value="11" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="NavRoot" Background="{TemplateBinding Background}" CornerRadius="4">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="NavRoot.Background" Value="{ThemeResource NexaMenuHoverBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="NavRoot.Background" Value="{ThemeResource NexaAccentBrush}" />
+                                                <Setter Target="NavContent.Foreground" Value="White" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="NavContent.Opacity" Value="0.3" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter x:Name="NavContent"
+                                                  Content="{TemplateBinding Content}"
+                                                  FontFamily="{TemplateBinding FontFamily}"
+                                                  FontSize="{TemplateBinding FontSize}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
             <!-- 인라인 이름 편집기: 기본 TextBox(MinHeight 32·헤더·지우기버튼)가 행을 깨므로, 행 높이를 유지하는
                  최소 템플릿(테두리 + ContentElement만). Explorer식 타이트 인라인 편집. -->
