@@ -9,6 +9,7 @@
 
 | 브랜치 | 생성 | 병합(커밋) | 삭제 | 커밋수 | 작업 요약 | 상세 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `fix/portable-render-xbf` | 2026-07-11 | 2026-07-11 (PR#17 `6f59af8`) | 2026-07-11 | 2 | **BUG-010** 0.3.2 배포 자산 결함 2건 — 렌더링 깨짐(loose 소스→**컴파일 XBF** 루트 배치)·시작 크래시(PageHeap 특정=WinAppSDK 1.6 MRT Core 힙 손상→**1.8 업그레이드**) | [2026-07-11](journal/2026-07-11.md)·[BUGS.md](BUGS.md) |
 | `feat/packaging-setup` | 2026-07-11 | 2026-07-11 (PR#16 `9c242e5`) | 2026-07-11 | 1 | 클래식 설치기 setup.exe(PKG-5) — Inno `nexa-setup.iss`+`make-setup.ps1`, CI `package` job이 zip+setup 빌드·릴리스 자동 첨부(dispatch 실검증) | [2026-07-11](journal/2026-07-11.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/packaging-portable` | 2026-07-10 | 2026-07-10 (PR#15 `f44482e`) | 2026-07-10 | 3 | 패키징 1차 — 포터블 폴더 zip(PKG-1~3): `AppPaths` 경로 분기·`make-portable.ps1` self-contained 산출·CI `package` job. 게시 이슈 3건 실측 해소 | [2026-07-10](journal/2026-07-10.md)·[docs/12 §7](12-packaging-portable.md) |
 | `feat/pref-9-restart` | 2026-07-10 | 2026-07-10 (PR#14 `e87166d`) | 2026-07-10 | 1+docs | PREF-9 — 재시작 필요 설정(언어) 확인창 + 자체 재시작(선-flush→`AppInstance.Restart`+미패키지 폴백) | [2026-07-10](journal/2026-07-10.md)·[docs/40 §9](40-preferences-system.md) |
@@ -34,6 +35,12 @@
 > 참고: 스트레이 로컬 브랜치 `a`(= 002 병합 커밋 `1d9d312`를 가리키던 실수 브랜치, 고유 커밋 0)도 2026-07-05 정리 삭제.
 
 ---
+
+## fix/portable-render-xbf
+
+- **생성**: 2026-07-11 (분기: main `9c242e5`). **fix 1커밋(`9ed7633`) + docs 1커밋(`ae9ab20`)**. 병합(PR#17 `6f59af8`)·삭제: 2026-07-11.
+- **작업(BUG-010, 사용자 리포트)**: 0.3.2 배포 자산 결함 2건 — ①렌더링 깨짐: loose 소스 `.xaml` 폴백이 `x:Bind`를 죽임 → `PublishLooseXamlAssets`를 **컴파일 `.xbf` 게시 루트 배치**로 개편(+에러 게이트·클린 산출) ②시작 크래시 0xC0000374: WER 덤프→**PageHeap full**로 범인 특정 = WinAppSDK 1.6 MRT Core `GetDefaultPriFile` 힙 손상(self-contained 한정) → **WindowsAppSDK 1.8**(csproj 4종·bootstrap·docs/18).
+- **검증**: PageHeap 3/3 · 일반 5/5 · 렌더링 스크린샷 · Debug(FD) 스모크 · CI green. 상세 [BUGS.md BUG-010](BUGS.md).
 
 ## feat/packaging-setup
 
