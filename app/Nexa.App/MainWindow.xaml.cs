@@ -2516,8 +2516,41 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
+        // 무간섭(NFR·docs/33 watcher 규약): 자동 갱신이 사용자의 선택·캐럿·스크롤을 파괴하지 않도록
+        // 보존→복원. (핸들 교체 = 코어 선택 소실 + LoadDirectory의 ScrollToTop) — 상위 이동 직후
+        // watcher가 발화하면 방금 만든 "떠나온 폴더 선택"까지 지우던 문제(NAV-UPFOCUS).
+        var grid = Panel(left).Grid;
+        double offset = grid.VerticalOffset;
+        var selected = tab.Items.SelectedPaths();
+        int caretIdx = tab.Items.CaretIndex;
+        string? caretPath = caretIdx >= 0 && caretIdx < tab.Items.Count ? tab.Items[caretIdx]?.FullPath : null;
         tab.Loaded = false;
-        LoadDirectory(left, tab);
+        LoadDirectory(left, tab, onLoaded: () =>
+        {
+            var items = tab.Items;
+            bool first = true;
+            foreach (var p in selected)
+            {
+                int i = items.IndexOfPath(p);
+                if (i < 0)
+                {
+                    continue;   // 갱신으로 사라진 항목(삭제 등)은 건너뜀
+                }
+                items.Select(items[i], first ? 0u : 1u);   // 첫 항목=단일, 이후=추가(토글)
+                first = false;
+            }
+            if (caretPath is not null)
+            {
+                int ci = items.IndexOfPath(caretPath);
+                if (ci >= 0)
+                {
+                    items.SetCaret(ci);
+                }
+            }
+            grid.RestoreVerticalOffset(offset);   // ScrollToTop(로드 기본)을 원래 위치로 되돌림
+            UpdateSelectionCount(items);
+            RefreshSelectionFocus();
+        });
     }
 
     /// <summary>끝 구분자·대소문자 무시 경로 비교.</summary>
