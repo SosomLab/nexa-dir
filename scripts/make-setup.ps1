@@ -22,6 +22,8 @@ Write-Host "== Nexa Dir $version setup ($Rid) =="
 
 # 1) self-contained 게시 — make-portable.ps1과 동일 플래그, 별도 폴더(마커 없음 = 설치형)
 $publishDir = Join-Path $repo "app/Nexa.App/bin/$platform/Release/publish-setup-$Rid"
+# 이전 게시 잔재(구버전 loose 파일 등) 배제 — 항상 클린 산출
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 dotnet publish $proj -c Release -r $Rid --self-contained `
     -p:Platform=$platform `
     -p:WindowsAppSDKSelfContained=true `

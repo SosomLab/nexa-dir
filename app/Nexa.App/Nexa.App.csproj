@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.*" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
     <!-- GridSplitter(영역 크기 조절) — CommunityToolkit Sizers (MIT) -->
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.*" />
@@ -90,17 +90,23 @@
   <Target Name="PublishNexaInterop" AfterTargets="Publish" DependsOnTargets="BuildNexaInterop">
     <Copy SourceFiles="$(NexaInteropDll)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
-  <!-- 참조 WinUI 라이브러리의 loose XAML 자원(Nexa.Controls\*.xaml)과 XBF 마커가 publish 복사에서
-       빠져 ms-appx 해석이 실패(XamlParseException: Cannot locate resource) — 빌드 출력에서 보충.
-       ★ 루트 사본 필수: x64 Release의 라이브러리 생성 코드는 루트 URI(ms-appx:///NexaMenuBar.xaml)를 쓰는데,
-       WindowsAppSDKSelfContained 게시에선 pri 해석이 안 돼 exe 옆 loose 파일 폴백만 동작(실측, docs/12 §6). -->
+  <!-- 참조 WinUI 라이브러리의 XAML 자원이 publish 복사에서 빠져 ms-appx 해석이 실패
+       (XamlParseException: Cannot locate resource) — x64 Release의 라이브러리 생성 코드는 루트 URI
+       (ms-appx:///NexaMenuBar.xaml)를 쓰는데 WindowsAppSDKSelfContained 게시에선 pri 해석이 안 됨.
+       ★ 반드시 **컴파일된 .xbf**를 게시 루트에 배치(loose 소스 .xaml 파싱은 x:Bind가 죽어
+       행 템플릿이 ToString으로 깨짐 — 0.3.2 포터블 결함, 실측·docs/12 §7). -->
   <Target Name="PublishLooseXamlAssets" AfterTargets="Publish">
+    <PropertyGroup>
+      <_NexaControlsXbfDir>$(MSBuildProjectDirectory)\..\Nexa.Controls\obj\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_NexaControlsXbfDir>
+    </PropertyGroup>
     <ItemGroup>
+      <_LibXbf Include="$(_NexaControlsXbfDir)*.xbf" />
       <_LooseLibXaml Include="$(OutDir)Nexa.Controls\**\*" />
       <_LooseXbf Include="$(OutDir)**\*.xbf" Exclude="$(OutDir)publish-*\**" />
     </ItemGroup>
+    <Error Condition="'@(_LibXbf)' == ''" Text="Nexa.Controls 컴파일 XBF를 찾지 못했습니다: $(_NexaControlsXbfDir) — 게시 루트 XBF 없이는 포터블/설치본 렌더링이 깨집니다(0.3.2 결함)" />
+    <Copy SourceFiles="@(_LibXbf)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(_LooseLibXaml)" DestinationFolder="$(PublishDir)Nexa.Controls\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(_LooseLibXaml)" DestinationFolder="$(PublishDir)" Condition="'%(Extension)' == '.xaml' or '%(Extension)' == '.xbf'" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(_LooseXbf)" DestinationFolder="$(PublishDir)%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 

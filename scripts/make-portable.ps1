@@ -26,6 +26,8 @@ Write-Host "== Nexa Dir $version portable ($Rid) =="
 #    ErrorOnDuplicatePublishOutputFiles=false: 참조 WinUI 라이브러리들이 각자 내놓는 동일 내용의
 #    WinAppSDK MsixContent 사본이 NETSDK1152로 잡히는 알려진 충돌 무해화(게시 한정).
 $publishDir = Join-Path $repo "app/Nexa.App/bin/$platform/Release/publish-$Rid"
+# 이전 게시 잔재(구버전 loose 파일 등) 배제 — 항상 클린 산출
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 dotnet publish $proj -c Release -r $Rid --self-contained `
     -p:Platform=$platform `
     -p:WindowsAppSDKSelfContained=true `

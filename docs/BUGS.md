@@ -5,6 +5,23 @@
 
 ---
 
+## BUG-010 · 포터블/설치본(self-contained 게시) 결함 2건 — 렌더링 깨짐 + 시작 크래시 (✅ 해결)
+
+- **심각도**: 치명(0.3.2 릴리스 자산 사용 불가) · **리포트**: 2026-07-11 사용자("포터블 다운로드 받아서 실행하면 깨져서 실행됨" — 전 행이 `Nexa.App.DirItem` 텍스트).
+- **상태**: **✅ 해결**(2026-07-11, `fix/portable-render-xbf` → 0.3.3). dev(FD)·CI 빌드는 무관 — **self-contained 게시 산출물에서만** 발생해 실기 QA 전까지 미발견.
+
+### 결함 A — 파일 목록 렌더링 깨짐 (모든 행이 클래스명 텍스트)
+- **원인**: PKG-2의 loose XAML 폴백이 라이브러리 **소스 `.xaml`** 을 게시 루트에 배치 → `LoadComponent`가 소스를 런타임 파싱하면서 **`x:Bind`(컴파일 바인딩)가 죽어** 행 템플릿이 `ToString()` 폴백으로 표시. 컬럼 헤더도 소실.
+- **해소**: 게시 루트에 **컴파일된 `.xbf`**(Nexa.Controls obj 산출)를 배치(`PublishLooseXamlAssets` 개편 + 미존재 시 빌드 에러 게이트) + 게시 디렉터리 클린 산출(스크립트). 스크린샷 검증.
+
+### 결함 B — 시작 중 간헐 크래시 0xC0000374 (힙 손상, 30~60%)
+- **원인(덤프 2단 분석으로 확정)**: WER 풀 덤프는 CoreCLR JIT의 delete에서 *탐지*만 보여줌(탐지자≠범인) → **PageHeap(full)** 재현으로 범인 즉발 — **WinAppSDK 1.6 MRT Core `Microsoft.Windows.ApplicationModel.Resources!GetDefaultPriFile`** 이 `ResourceManager` 생성 중 힙 손상(자사 이슈 #4191 계열, self-contained 미패키지 한정). 환경(경로 등)에 따라 확률 변동 — `data\` 폴더 유무로 보였던 초기 패턴은 우연.
+- **해소**: **WindowsAppSDK 1.6.\* → 1.8.\*** 업그레이드(전 csproj 4종). PageHeap ON 3/3 + 일반 5/5 + Debug(FD) 스모크 green. 이 PC 런타임 1.8 기설치 확인.
+
+### 교훈
+- self-contained 게시는 **FD와 다른 런타임 바이너리**를 번들 → 배포 자산은 반드시 **산출물 자체로 실행 QA**(빌드 green≠동작).
+- 힙 손상은 탐지 스택을 범인으로 단정하지 말 것 — PageHeap으로 손상 지점을 직접 잡는다.
+
 ## BUG-001 · 빈 폴더에서 나오면 대상 폴더 목록이 빈 화면 (✅ 해결)
 
 - **심각도**: 높음(기능 저해 — 자주 밟는 경로)

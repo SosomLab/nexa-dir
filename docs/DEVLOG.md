@@ -13,6 +13,7 @@
 
 ## 2026-07-11
 
+- 🔴 **BUG-010 — 0.3.2 배포 자산 결함 2건 해결**(`fix/portable-render-xbf`): ①렌더링 깨짐(loose 소스 `.xaml` 폴백이 x:Bind를 죽임)→**컴파일 `.xbf` 게시 루트 배치** ②시작 크래시 0xC0000374(**PageHeap으로 범인 특정=WinAppSDK 1.6 MRT Core `GetDefaultPriFile`** 힙 손상, self-contained 한정)→**WinAppSDK 1.8 업그레이드**. PageHeap 3/3·일반 5/5·스크린샷 검증. 교훈: 배포 자산은 산출물 자체로 실행 QA. 상세 [BUGS.md](BUGS.md)·[journal/2026-07-11.md](journal/2026-07-11.md).
 - 🏷️ **릴리스 `0.3.2`**: setup.exe 동봉 — 바이너리 자산 2종(포터블 zip+설치기, CI 자동 첨부). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **클래식 설치기 setup.exe(PKG-5, `feat/packaging-setup`→main PR#16, dispatch 실검증)**: MSIX 서명 조사(Azure Artifact Signing=한국 개인 불가 → Store 제출 또는 OV 클라우드 서명이 현실 경로, [TODO PKG-4](TODO.md)) 후 서명 확정 전 설치형 채널로 **Inno Setup** 채택 — `nexa-setup.iss`(사용자 단위 기본·언인스톨러·AppId 고정)+`make-setup.ps1`(설치형 self-contained 게시). CI `package` job이 zip+setup.exe를 빌드해 태그 릴리스에 **모두 자동 첨부**(Inno=러너 기본 포함, 로컬 빌드 불요). 상세 [journal/2026-07-11.md](journal/2026-07-11.md)·[docs/12 §7](12-packaging-portable.md).
 
