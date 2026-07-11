@@ -27,7 +27,7 @@
 > ⭐ **dll 복사는 수동으로 할 필요가 없다.** `dotnet build app/Nexa.App`가 **① cargo로 코어(nexa-interop) 빌드 → ② `nexa_interop.dll`을 앱 출력에 복사 → ③ 앱 빌드**를 **한 번에** 수행한다(csproj 타겟, §2-1). 그래서 실제 순서는 아래 2줄이면 끝.
 
 ```powershell
-# (최초 1회) 환경: scripts/bootstrap.ps1  ·  앱 실행 런타임: Windows App Runtime 1.6 (§6-2)
+# (최초 1회) 환경: scripts/bootstrap.ps1  ·  앱 실행 런타임: Windows App Runtime 1.8 (§6-2)
 dotnet build app/Nexa.App -c Debug     # ①코어(cargo)+②dll 복사+③앱 빌드 (자동, 한 번에)
 dotnet run   --project app/Nexa.App    # ④실행 → 창에 "인터롭 OK — abi=5, nexa_poc_add(2, 3)=5"
 ```
@@ -196,10 +196,10 @@ cargo test -p nexa-interop      # 특정 크레이트만
 > **macOS 호스트**: 앱은 맥에서 **빌드도 실행도 불가**(§5-1 주의/[11 §6-1](11-dev-environment.md)). 맥에서 실행 테스트는
 > **Windows VM**(Parallels/UTM/VMware) 또는 물리 PC/CI — 방법 [11 §4-4](11-dev-environment.md).
 >
-> **전제(최초 1회, Windows)**: **Windows App Runtime 1.6** 설치 — unpackaged 앱은 실행 시 시스템 런타임을 요구한다.
-> winget `Microsoft.WindowsAppRuntime.1.6`은 **framework만** 깔아 Main/DDLM/Singleton이 빠지므로 부족 →
-> **공식 인스톨러** `windowsappruntimeinstall-x64.exe`(<https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe>)로
-> 전체 세트 설치(bootstrap.ps1이 처리). 미설치 시 "requires Windows App Runtime 1.6 (>= 6000.519.329.0)" 대화상자.
+> **전제(최초 1회, Windows)**: **Windows App Runtime 1.8** 설치 — unpackaged 앱은 실행 시 시스템 런타임을 요구한다.
+> winget `Microsoft.WindowsAppRuntime.1.8`은 **framework만** 깔아 Main/DDLM/Singleton이 빠지므로 부족 →
+> **공식 인스톨러** `windowsappruntimeinstall-x64.exe`(<https://aka.ms/windowsappsdk/1.8/latest/windowsappruntimeinstall-x64.exe>)로
+> 전체 세트 설치(bootstrap.ps1이 처리). 미설치 시 "requires Windows App Runtime 1.8" 대화상자.
 > (배포 시엔 self-contained 번들로 런타임 의존 제거 가능 — [12](12-packaging-portable.md))
 
 ```powershell

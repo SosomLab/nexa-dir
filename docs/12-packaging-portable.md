@@ -62,7 +62,9 @@ Actions (windows-latest)
 - 단일 exe(self-extract)에서 WinUI 3 네이티브 활성화 완전동작 여부 → 패키징 스파이크로 확인.
 - 코드 서명 인증서 전략(포터블 exe도 서명 권장) → 배포 전 결정(OD3/서명).
 - **MSIX**: 패키징 프로젝트/매니페스트 + 서명(secrets) — 인증서 전략 결정 후 착수(PKG-4).
-- 포터블 게시 1회에서 시작 중 `0xC0000374`(힙 손상) 플레이키 크래시 1건 관찰(4회 중 1회, 재현 안 됨) — QA 관찰 항목.
+  서명 조사(07-11): Azure Artifact Signing=한국 개인 불가 → **Store 제출(서명 위임) 또는 OV 클라우드 서명**이 현실 경로.
+- ~~포터블 게시 시작 중 `0xC0000374` 플레이키 크래시~~ → **원인 확정·해소(07-11, [BUG-010](BUGS.md))**: WinAppSDK 1.6 MRT Core
+  `GetDefaultPriFile` 힙 손상(self-contained 한정, PageHeap으로 특정) — **WinAppSDK 1.8 업그레이드**로 해소.
 
 ## 7. 구현 현황 (2026-07-10 · `feat/packaging-portable` — 포터블 폴더 1차)
 
@@ -73,4 +75,5 @@ Actions (windows-latest)
 - **PKG-5 클래식 설치기 setup.exe(2026-07-11)**: `scripts/nexa-setup.iss`(Inno Setup 6 — CI windows 러너 기본 포함) + `scripts/make-setup.ps1`(동일 self-contained 게시, 마커 없음=설치형 표준 AppData 경로). **사용자 단위 기본**(`PrivilegesRequired=lowest`, 관리자 전체 설치는 대화상자 선택)·시작 메뉴/바탕화면(선택)·언인스톨러(사용자 데이터 보존)·`AppId` 고정(업그레이드 식별자). CI `package` job이 zip과 함께 빌드·릴리스 첨부. MSIX(PKG-4) 서명 전략 확정 전의 설치형 배포 채널 — 서명 없음(SmartScreen 경고 가능).
 - **§2 과제 실측 2건**(빌드 트릭, csproj 게시 타겟으로 해소):
   1. **NETSDK1152**(중복 게시 파일) — 참조 WinUI 라이브러리들이 각자 WinAppSDK `MsixContent` 사본을 내놓음 → 내용 동일하므로 `ErrorOnDuplicatePublishOutputFiles=false`(게시 한정)로 무해화. 라이브러리 3종에 `RuntimeIdentifiers` 선언 필요(PRI252 대응).
-  2. **라이브러리 XAML 미해석 크래시** — x64 Release 생성 코드가 루트 URI(`ms-appx:///NexaMenuBar.xaml`)를 쓰는데 `WindowsAppSDKSelfContained` 게시에선 pri 해석 실패 → **loose `.xaml`을 게시 루트에 사본 배치**(폴백 실측 동작, `PublishLooseXamlAssets` 타겟). FD(런타임 설치 의존) 게시는 이 문제 없음.
+  2. **라이브러리 XAML 미해석 크래시** — x64 Release 생성 코드가 루트 URI(`ms-appx:///NexaMenuBar.xaml`)를 쓰는데 `WindowsAppSDKSelfContained` 게시에선 pri 해석 실패 → 게시 루트에 **컴파일된 `.xbf` 배치**(`PublishLooseXamlAssets` 타겟). ⚠️ 초기의 loose 소스 `.xaml` 사본은 `x:Bind`가 죽어 **렌더링 결함**을 냈음(0.3.2, [BUG-010](BUGS.md) 결함 A). FD(런타임 설치 의존) 게시는 이 문제 없음.
+  3. **(0.3.3) WinAppSDK 1.6→1.8** — self-contained 번들 1.6 MRT Core의 시작 중 힙 손상 크래시 해소([BUG-010](BUGS.md) 결함 B). 게시 스크립트는 **클린 산출**(publish 디렉터리 선삭제)로 잔재 오염 방지.
