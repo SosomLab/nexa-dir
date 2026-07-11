@@ -687,10 +687,13 @@ public sealed partial class MainWindow : Window
         BottomRightDockView.ApplyFonts();
 
         // 경로(브레드크럼)·탭 제목 = 기본 글꼴(별도 슬롯 없음). 편집 모드는 EnterEdit가 컨트롤 폰트 복사.
+        // 편집 자동완성 제안 목록은 파일 목록 글꼴을 따름(PATH-SUG, 사용자 07-11).
         foreach (var bar in new[] { PathBarL, PathBarR })
         {
             bar.FontFamily = baseFam;
             bar.FontSize = f.BaseSize;
+            bar.SuggestionFontFamily = new Microsoft.UI.Xaml.Media.FontFamily(f.ListFamily);
+            bar.SuggestionFontSize = f.ListSize;
         }
         foreach (var host in new[] { LeftTabsFontHost, RightTabsFontHost })
         {

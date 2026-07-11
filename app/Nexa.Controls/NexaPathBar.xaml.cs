@@ -56,6 +56,12 @@ public sealed partial class NexaPathBar : UserControl
     /// 컨트롤은 도메인/IO 비종속 유지). null이면 제안 기능 꺼짐.</summary>
     public Func<string, IReadOnlyList<string>>? SuggestionProvider { get; set; }
 
+    /// <summary>제안 목록 글꼴(호스트가 파일 목록 글꼴 설정을 주입 — 사용자 07-11). null=상속.</summary>
+    public FontFamily? SuggestionFontFamily { get; set; }
+
+    /// <summary>제안 목록 글꼴 크기. 0 이하=상속.</summary>
+    public double SuggestionFontSize { get; set; }
+
     private static void OnPathChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((NexaPathBar)d).Rebuild();
 
@@ -164,7 +170,7 @@ public sealed partial class NexaPathBar : UserControl
 
     private void EnterEdit()
     {
-        PART_Editor.Text = Path;
+        SetEditorTextSilent(Path);   // 초기 주입의 (비동기)TextChanged 1회 흡수 — 진입 즉시 팝업 방지
         // 브레드크럼 TextBlock은 컨트롤 폰트(FontFamily/FontSize)를 상속하지만 TextBox는 테마 기본(14px)을
         // 유지 → 편집기에 컨트롤 폰트를 명시 복사(경로 글꼴 설정과 동일 크기·글꼴).
         PART_Editor.FontFamily = FontFamily;
@@ -197,17 +203,21 @@ public sealed partial class NexaPathBar : UserControl
         }
     }
 
+    /// <summary>↑/↓는 TextBox가 내부(캐럿 이동)에서 소비해 KeyDown에 안 온다 → Preview(터널링)에서 선처리.</summary>
+    private void OnEditorPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (PART_SuggestPopup.IsOpen && e.Key is VirtualKey.Down or VirtualKey.Up)
+        {
+            MoveSuggestSelection(e.Key == VirtualKey.Down ? +1 : -1);
+            e.Handled = true;
+        }
+    }
+
     private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        // 제안 열림 중: ↑/↓=항목 이동(편집기에 미리 채움), ESC=제안만 닫기(편집 유지) — 탐색기 동일.
+        // 제안 열림 중 ESC=제안만 닫기(편집 유지) — 탐색기 동일. ↑/↓는 PreviewKeyDown이 처리.
         if (PART_SuggestPopup.IsOpen)
         {
-            if (e.Key is VirtualKey.Down or VirtualKey.Up)
-            {
-                MoveSuggestSelection(e.Key == VirtualKey.Down ? +1 : -1);
-                e.Handled = true;
-                return;
-            }
             if (e.Key == VirtualKey.Escape)
             {
                 CloseSuggest();
@@ -236,11 +246,21 @@ public sealed partial class NexaPathBar : UserControl
     }
 
     // ── 폴더 제안 드롭다운(탐색기식 주소 자동완성) ─────────────────────
-    private bool _suppressSuggest;   // 제안 항목을 편집기에 채울 때 TextChanged 재발화로 목록이 리셋되는 것 방지
+    // ⚠ WinUI TextBox.TextChanged는 setter 복귀 후 **비동기·병합(coalesce)** 발화 — 불리언 억제
+    // 플래그는 병합 시 사용자 입력까지 삼킨다(실측). 대신 "주입한 기대 텍스트" 마커를 쓰고,
+    // 이벤트 시점 텍스트가 마커와 **일치할 때만** 스킵(다르면 사용자 입력이 섞인 것 → 정상 처리).
+    private string? _silentExpectText;
+    private string _suggestBaseText = string.Empty;   // 목록을 만든 시점의 입력(↑로 선택 해제 시 복원 대상)
 
     private void OnEditorTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (_suppressSuggest || PART_Editor.Visibility != Visibility.Visible || SuggestionProvider is null)
+        string? expect = _silentExpectText;
+        _silentExpectText = null;
+        if (expect is not null && PART_Editor.Text == expect)
+        {
+            return;   // 프로그램적 주입 그대로 — 목록·선택·복원 기준 유지
+        }
+        if (PART_Editor.Visibility != Visibility.Visible || SuggestionProvider is null)
         {
             return;
         }
@@ -258,8 +278,18 @@ public sealed partial class NexaPathBar : UserControl
             CloseSuggest();
             return;
         }
+        _suggestBaseText = PART_Editor.Text;   // 조회 시점 입력 저장(↑ 복원용)
         PART_SuggestList.ItemsSource = items;
         PART_SuggestList.SelectedIndex = -1;
+        // 제안 목록 글꼴 = 파일 목록 글꼴 설정(호스트 주입, 사용자 07-11).
+        if (SuggestionFontFamily is not null)
+        {
+            PART_SuggestList.FontFamily = SuggestionFontFamily;
+        }
+        if (SuggestionFontSize > 0)
+        {
+            PART_SuggestList.FontSize = SuggestionFontSize;
+        }
         // 편집기 바로 아래·같은 폭(탐색기식). 오프셋은 팝업 부모(그리드) 기준.
         PART_SuggestList.Width = Math.Max(120, PART_Editor.ActualWidth - 6);
         PART_SuggestPopup.HorizontalOffset = 0;
@@ -267,7 +297,8 @@ public sealed partial class NexaPathBar : UserControl
         PART_SuggestPopup.IsOpen = true;
     }
 
-    /// <summary>↑/↓로 제안 선택 이동 + 선택 경로를 편집기에 미리 채움(캐럿 끝) — Enter로 그대로 이동.</summary>
+    /// <summary>↑/↓ 제안 이동(탐색기식) — 처음 ↓=1번째 선택, 1번째(또는 미선택)에서 ↑=선택 해제 +
+    /// <b>조회 시점 입력으로 복원</b>. 선택 경로는 편집기에 미리 채움(캐럿 끝) — Enter로 그대로 이동.</summary>
     private void MoveSuggestSelection(int delta)
     {
         int n = PART_SuggestList.Items.Count;
@@ -276,16 +307,32 @@ public sealed partial class NexaPathBar : UserControl
             return;
         }
         int i = PART_SuggestList.SelectedIndex;
-        i = i < 0 ? (delta > 0 ? 0 : n - 1) : Math.Clamp(i + delta, 0, n - 1);
+        if (delta < 0 && i <= 0)
+        {
+            // 첫 항목(또는 미선택)에서 ↑ → 선택 해제 + 목록을 만든 시점의 입력 텍스트 복원.
+            PART_SuggestList.SelectedIndex = -1;
+            SetEditorTextSilent(_suggestBaseText);
+            return;
+        }
+        i = i < 0 ? 0 : Math.Min(i + delta, n - 1);
         PART_SuggestList.SelectedIndex = i;
         PART_SuggestList.ScrollIntoView(PART_SuggestList.Items[i]);
         if (PART_SuggestList.Items[i] is string path)
         {
-            _suppressSuggest = true;
-            PART_Editor.Text = path;
-            PART_Editor.SelectionStart = path.Length;   // 캐럿 끝(계속 타이핑 가능)
-            _suppressSuggest = false;
+            SetEditorTextSilent(path);
         }
+    }
+
+    /// <summary>제안 갱신을 유발하지 않고 편집기 텍스트 교체(캐럿 끝) — 기대 텍스트 마커 세팅.</summary>
+    private void SetEditorTextSilent(string text)
+    {
+        if (PART_Editor.Text == text)
+        {
+            return;   // 변경 없음 — TextChanged 미발화, 마커 불필요
+        }
+        _silentExpectText = text;
+        PART_Editor.Text = text;
+        PART_Editor.SelectionStart = text.Length;
     }
 
     /// <summary>제안 클릭 = 그 폴더로 즉시 이동(탐색기 동일). AllowFocusOnInteraction=False라 편집 포커스 유지 상태에서 처리.</summary>
@@ -293,9 +340,7 @@ public sealed partial class NexaPathBar : UserControl
     {
         if (e.ClickedItem is string path)
         {
-            _suppressSuggest = true;
-            PART_Editor.Text = path;
-            _suppressSuggest = false;
+            SetEditorTextSilent(path);
             ExitEdit(commit: true);
         }
     }
