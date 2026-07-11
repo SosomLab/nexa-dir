@@ -13,6 +13,7 @@
 
 ## 2026-07-11
 
+- **제안 목록 폰트 과대 표시 수정(PATH-SUG 3차)**: `ListViewItem` 기본 스타일의 `FontSize=14` 명시가 주입값을 덮음 → `ContainerContentChanging`에서 컨테이너 로컬 값 주입(+미주입=경로바 폰트 폴백). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **경로바 자동완성 다듬기(PATH-SUG 2차)**: ↑/↓ 순환(PreviewKeyDown — TextBox 방향키 내부 소비 우회)·첫 항목에서 ↑=**조회 시점 입력 복원**·제안 목록=파일 목록 폰트. 트랩: WinUI TextChanged **비동기·병합** → 불리언 억제 대신 기대 텍스트 마커(실측 검증). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **경로바 편집 자동완성(PATH-SUG, `feat/pathbar-suggestions`)**: 탐색기식 폴더 제안 드롭다운 — 순수 `PathSuggestions`(xUnit +7, 총 88)+`SuggestionProvider` 주입(컨트롤 IO 비종속), ↑/↓ 미리 채움·Enter/클릭 이동·ESC 단계 닫기, 환경변수 입력 지원. UIA 스크린샷 검증. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🏷️ **릴리스 `0.3.5`**: NAV-CLICK+NAV-UPFOCUS 수정 포함 · **포터블 zip CI 빌드 잠정 비활성**(사용자 — 방향성 재정리, 자산=setup.exe만) · **PKG-6 등록**(32/64비트 별도 빌드 검토). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
