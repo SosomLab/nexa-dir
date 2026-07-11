@@ -69,7 +69,8 @@
         <!-- 편집 모드: 전체 경로 텍스트(전체 선택·복사/붙여넣기). Enter=이동, Esc/포커스아웃=취소 -->
         <TextBox x:Name="PART_Editor" Visibility="Collapsed" VerticalAlignment="Center"
                  Style="{StaticResource PathEditor}"
-                 KeyDown="OnEditorKeyDown" LostFocus="OnEditorLostFocus"
+                 KeyDown="OnEditorKeyDown" PreviewKeyDown="OnEditorPreviewKeyDown"
+                 LostFocus="OnEditorLostFocus"
                  TextChanged="OnEditorTextChanged" />
 
         <!-- 폴더 제안 드롭다운(탐색기식 주소 자동완성) — 편집 중 구분자/접두사 입력 시 하단 표시.
