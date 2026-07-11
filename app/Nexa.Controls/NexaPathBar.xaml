@@ -69,6 +69,28 @@
         <!-- 편집 모드: 전체 경로 텍스트(전체 선택·복사/붙여넣기). Enter=이동, Esc/포커스아웃=취소 -->
         <TextBox x:Name="PART_Editor" Visibility="Collapsed" VerticalAlignment="Center"
                  Style="{StaticResource PathEditor}"
-                 KeyDown="OnEditorKeyDown" LostFocus="OnEditorLostFocus" />
+                 KeyDown="OnEditorKeyDown" LostFocus="OnEditorLostFocus"
+                 TextChanged="OnEditorTextChanged" />
+
+        <!-- 폴더 제안 드롭다운(탐색기식 주소 자동완성) — 편집 중 구분자/접두사 입력 시 하단 표시.
+             AllowFocusOnInteraction=False: 클릭해도 편집기 포커스 유지(LostFocus로 편집이 닫히지 않게 — AutoSuggestBox와 동일 기법) -->
+        <Popup x:Name="PART_SuggestPopup" IsLightDismissEnabled="False" ShouldConstrainToRootBounds="False">
+            <Border Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="4" Padding="2"
+                    MaxHeight="280">
+                <ListView x:Name="PART_SuggestList" IsItemClickEnabled="True" SelectionMode="Single"
+                          AllowFocusOnInteraction="False"
+                          ItemClick="OnSuggestItemClick">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="Padding" Value="8,3" />
+                            <Setter Property="AllowFocusOnInteraction" Value="False" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>

@@ -158,6 +158,9 @@ public sealed partial class MainWindow : Window
         // 경로 바(브레드크럼/편집) 이동 요청 → 실제 네비게이션(존재 확인 후). 좌/우 각각.
         PathBarL.Navigated += (_, e) => OnPathBarNavigated(true, e.Path);
         PathBarR.Navigated += (_, e) => OnPathBarNavigated(false, e.Path);
+        // 편집 자동완성(탐색기식 폴더 제안, PATH-SUG) — 이동과 동일한 환경변수 해석 후 하위 폴더 열거.
+        PathBarL.SuggestionProvider = SuggestPathFolders;
+        PathBarR.SuggestionProvider = SuggestPathFolders;
         // 마지막 세션(탭 상태) 복원, 없으면 기본 시작(좌=홈·우=문서).
         RestoreOrDefaultSession();
         // 네비 버튼 초기 상태 — 미호출 시 빈 히스토리에도 뒤로/앞으로가 활성으로 보여
@@ -976,6 +979,11 @@ public sealed partial class MainWindow : Window
         StatusText.Text = Loc.T("status.noPath", p);
         Panel(left).PathBar.Path = Panel(left).Active.Current;   // 현재 경로로 복귀
     }
+
+    /// <summary>경로바 편집 자동완성 공급자(PATH-SUG) — 이동과 동일한 환경변수 해석 후
+    /// 베이스 폴더의 하위 폴더 제안(순수 로직 <see cref="PathSuggestions"/> 위임).</summary>
+    private static IReadOnlyList<string> SuggestPathFolders(string text) =>
+        PathSuggestions.SuggestFolders(PathInterpreter.Expand(text), Directory.EnumerateDirectories);
 
     /// <summary>
     /// 폴더 행의 디스클로저(▶/▼)를 눌러 인라인으로 펼치거나 접는다.

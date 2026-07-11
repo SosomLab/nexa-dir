@@ -158,6 +158,7 @@
 | PKG-2 | **포터블 zip 산출**(`scripts/make-portable.ps1`) — self-contained 게시(런타임 번들)+검증+마커+zip. 게시 특수 대응 3건(csproj 타겟) = [12 §7](12-packaging-portable.md) | P1 | 중 | PKG-1 | ⏸ **CI 잠정 비활성**(07-11 사용자 — 배포 방향성 재정리 후 재개/제거 판단. 스크립트·AppPaths는 유지) |
 | PKG-3 | **CI `package` job** — 태그·수동 실행 시 아티팩트 업로드+릴리스 첨부 | P2 | 소 | PKG-2 | ✅ (07-10 PR#15) — 현재 산출=setup.exe만(포터블 ⏸) |
 | PKG-6 | **32비트(x86)/64비트 별도 빌드 필요 여부 검토** — 대상 사용자 OS 분포·WinAppSDK x86 지원·인스톨러 아키 분기(현재 x64 전용, arm64는 스크립트만 지원) 조사 후 결정 | P3 | 소(검토) | — | ☐ 검토 대상(07-11 사용자 등록) |
+| PATH-SUG | **경로바 편집 자동완성**(탐색기식) — 구분자/접두사 입력 시 하위 폴더 제안 드롭다운(↑/↓ 미리 채움·Enter/클릭 이동·ESC 닫기). 순수 `PathSuggestions`(xUnit 7)+공급자 주입(컨트롤 IO 비종속) | P1 | 중 | — | ✅ (07-11 — 스크린샷 검증) |
 | PKG-4 | **MSIX + 서명**(DR-3 1차) — 패키징 프로젝트/매니페스트 + 인증서 전략([12 §6](12-packaging-portable.md), 비밀=커밋 금지) + winget. 단일 exe(self-extract)도 후속. 서명 조사(07-11): Azure Artifact Signing=한국 개인 불가 · 추천=Store 제출(서명 위임) 또는 OV 클라우드 서명 | P2 | 대 | — | ☐ 인증서/Store 결정 필요 |
 | PKG-5 | **클래식 설치기 setup.exe**(Inno, [12 §7](12-packaging-portable.md)) — 사용자 단위 기본·언인스톨러·시작 메뉴. CI `package` job이 zip과 함께 빌드·릴리스 자동 첨부. 서명 전 설치형 채널 | P1 | 중 | PKG-2 | ✅ (07-11 PR#16 `9c242e5` — dispatch 실검증, 릴리스=0.3.2) |
 
