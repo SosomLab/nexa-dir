@@ -36,6 +36,16 @@ public sealed partial class NexaPathBar : UserControl
         PART_Breadcrumb.ItemsSource = _segments;
         // 창 리사이즈 등으로 폭이 줄면 다시 끝(최근 경로)이 보이게 유지.
         PART_Scroll.SizeChanged += (_, _) => ScrollToEnd();
+        // 제안 항목 글꼴: ListViewItem 기본 스타일이 FontSize=14(ControlContentThemeFontSize)를 명시해
+        // ListView 상속값(주입 글꼴)을 덮는다 → 컨테이너에 로컬 값으로 직접 주입(로컬>스타일).
+        PART_SuggestList.ContainerContentChanging += (_, e) =>
+        {
+            if (e.ItemContainer is ListViewItem c)
+            {
+                c.FontFamily = SuggestionFontFamily ?? FontFamily;                          // 미주입=경로바 글꼴
+                c.FontSize = SuggestionFontSize > 0 ? SuggestionFontSize : FontSize;        // 미주입=경로바 크기
+            }
+        };
     }
 
     /// <summary>표시할 전체 경로. 변경 시 브레드크럼을 다시 만든다.</summary>
@@ -281,15 +291,8 @@ public sealed partial class NexaPathBar : UserControl
         _suggestBaseText = PART_Editor.Text;   // 조회 시점 입력 저장(↑ 복원용)
         PART_SuggestList.ItemsSource = items;
         PART_SuggestList.SelectedIndex = -1;
-        // 제안 목록 글꼴 = 파일 목록 글꼴 설정(호스트 주입, 사용자 07-11).
-        if (SuggestionFontFamily is not null)
-        {
-            PART_SuggestList.FontFamily = SuggestionFontFamily;
-        }
-        if (SuggestionFontSize > 0)
-        {
-            PART_SuggestList.FontSize = SuggestionFontSize;
-        }
+        // 항목 글꼴은 ContainerContentChanging(ctor 배선)이 컨테이너 로컬 값으로 주입 —
+        // ListViewItem 기본 스타일의 FontSize=14 명시를 이기기 위함(ListView 레벨 세팅은 무효).
         // 편집기 바로 아래·같은 폭(탐색기식). 오프셋은 팝업 부모(그리드) 기준.
         PART_SuggestList.Width = Math.Max(120, PART_Editor.ActualWidth - 6);
         PART_SuggestPopup.HorizontalOffset = 0;
