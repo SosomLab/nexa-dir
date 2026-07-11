@@ -13,7 +13,8 @@
 
 ## 2026-07-11
 
-- **네비 버튼 상태 식별 디자인**(`fix/navbtn-hover-affordance`): 사용자 재리포트(설치본 0.3.3=상태 동기 미포함에서 no-op 버튼이 활성처럼 보임) → NavBtnStyle 템플릿화 — hover 하이라이트·pressed 강조색·**disabled 글리프 0.3 흐림**. PR#18과 함께 0.3.4 릴리스. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
+- 🏷️ **릴리스 `0.3.4`**: 네비 버튼 상태 정합(PR#18 동기+PR#19 시각 식별) — zip+setup 자동 첨부, 설치본 갱신. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
+- **네비 버튼 상태 식별 디자인**(`fix/navbtn-hover-affordance`→main PR#19): 사용자 재리포트(설치본 0.3.3=상태 동기 미포함에서 no-op 버튼이 활성처럼 보임) → NavBtnStyle 템플릿화 — hover 하이라이트·pressed 강조색·**disabled 글리프 0.3 흐림**. PR#18과 함께 0.3.4 릴리스. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - **네비 버튼 무동작 리포트 진상 + 초기 상태 수정**(`fix/navbtn-initial-state`): 주범=버려진 출력 트리의 07-06 고아 exe(전체 clean 해소) · 실버그=**세션 복원 시 UpdateNavButtons 미호출**(빈 히스토리에 Back/Fwd 활성 오표시)→복원 직후 명시 호출. UIA 자동화로 검증 + **0.3.3 릴리스 자산 실검증(정상)**. 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🏷️ **릴리스 `0.3.3`**: BUG-010 수정판 — 0.3.2 자산 대체(0.3.2는 결함 경고·prerelease 강등). 상세 [journal/2026-07-11.md](journal/2026-07-11.md).
 - 🔴 **BUG-010 — 0.3.2 배포 자산 결함 2건 해결**(`fix/portable-render-xbf`→main PR#17): ①렌더링 깨짐(loose 소스 `.xaml` 폴백이 x:Bind를 죽임)→**컴파일 `.xbf` 게시 루트 배치** ②시작 크래시 0xC0000374(**PageHeap으로 범인 특정=WinAppSDK 1.6 MRT Core `GetDefaultPriFile`** 힙 손상, self-contained 한정)→**WinAppSDK 1.8 업그레이드**. PageHeap 3/3·일반 5/5·스크린샷 검증. 교훈: 배포 자산은 산출물 자체로 실행 QA. 상세 [BUGS.md](BUGS.md)·[journal/2026-07-11.md](journal/2026-07-11.md).
