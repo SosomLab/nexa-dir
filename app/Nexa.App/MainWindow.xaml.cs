@@ -884,7 +884,10 @@ public sealed partial class MainWindow : Window
                 SetActivePanel(paneLeft);
             }
             // 이름변경 편집기(TextBox) 안 클릭은 편집이 포커스를 가져야 하므로 제외.
-            if (e.OriginalSource is not TextBox && !IsWithinRenameEditor(e.OriginalSource as DependencyObject))
+            // 버튼(ButtonBase) 위 press도 제외 — press 중 포커스를 빼앗으면 ButtonBase가 pressed를
+            // 리셋해 release 때 Click이 발화하지 않음(네비 버튼 "호버는 되는데 클릭 무동작", 07-11 리포트).
+            if (e.OriginalSource is not TextBox && !IsWithinRenameEditor(e.OriginalSource as DependencyObject)
+                && !IsWithinButton(e.OriginalSource as DependencyObject))
             {
                 Panel(paneLeft).Grid.Focus(FocusState.Programmatic);
             }
@@ -910,6 +913,20 @@ public sealed partial class MainWindow : Window
             GoForward(left);
         }
         e.Handled = true;
+    }
+
+    /// <summary>포인터 원본이 버튼(ButtonBase) 안인지 — press 중 포커스 이동 금지 판정(클릭 보존).</summary>
+    private static bool IsWithinButton(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is Microsoft.UI.Xaml.Controls.Primitives.ButtonBase)
+            {
+                return true;
+            }
+            node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+        }
+        return false;
     }
 
     /// <summary>포인터 원본 요소가 좌(<c>LeftPaneRoot</c>)/우(<c>RightPanel</c>) 어느 패널 안인지. 둘 다 아니면 null.</summary>
